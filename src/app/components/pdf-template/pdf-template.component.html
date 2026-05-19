@@ -1,0 +1,239 @@
+<div class="report-container" id="bfyph047-report">
+  <!-- Encabezado Institucional -->
+  <header class="header-grid">
+    <div class="header-title !border-l-0">
+      Formato de recopilación, registro y análisis de métricas
+    </div>
+    <div class="header-logo !border-r-0">
+      <div class="text-right">
+        <div class="font-bold text-blue-800 text-lg">BlueOcean</div>
+        <div class="text-[6pt] text-gray-500">Innovation & Technology Group</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sección de Identificación y Proyecto -->
+  <div class="section-header">1. INFORMACIÓN GENERAL</div>
+  <table>
+    <tr>
+      <th width="20%">Responsable:</th>
+      <td>Luis Armando Pacheco Cobos</td>
+      <th width="20%">Proceso:</th>
+      <td>Procesos Internos</td>
+    </tr>
+    <tr>
+      <th>Organización:</th>
+      <td>{{ config?.azure?.organization }}</td>
+      <th>Proyecto:</th>
+      <td>{{ config?.azure?.project }}</td>
+    </tr>
+    <tr>
+      <th>Periodo:</th>
+      <td>{{ period }}</td>
+      <th>Objetivo:</th>
+      <td>Reducir desviación de entrega al 10%</td>
+    </tr>
+  </table>
+
+  <!-- Cuerpo de Métricas -->
+  <div class="section-header">3. ANÁLISIS DE MÉTRICAS</div>
+  
+  <div *ngIf="metrics" class="space-y-12">
+    <!-- Métrica 1: Tasa de Desarrollo -->
+    <div class="metric-block">
+      <div class="font-bold mb-2 uppercase">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software</div>
+      
+      <!-- Summary Boxes -->
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Total Ítems</div>
+          <div class="text-[12pt] font-bold">{{ metrics.developmentRate.totalItems }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Esfuerzo Total (H)</div>
+          <div class="text-[12pt] font-bold">{{ metrics.developmentRate.totalEffort.toFixed(2) }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Size Total</div>
+          <div class="text-[12pt] font-bold">{{ metrics.developmentRate.totalSize }}</div>
+        </div>
+        <div class="p-2 border bg-blue-50 text-center border-blue-200">
+          <div class="text-[6pt] uppercase text-blue-600 font-bold">KPI Tasa</div>
+          <div class="text-[14pt] font-black text-blue-800">{{ metrics.developmentRate.rate.toFixed(2) }}</div>
+        </div>
+      </div>
+
+      <div class="metric-chart-container mb-4">
+        <img [src]="charts['devRate']" *ngIf="charts['devRate']" class="w-full h-48 object-contain">
+      </div>
+
+      <!-- Detail Table -->
+      <table class="w-full text-[7pt] mb-4 !border-collapse">
+        <thead class="bg-slate-100 font-bold uppercase">
+          <tr>
+            <th class="p-1 border">ID</th>
+            <th class="p-1 border">Tipo</th>
+            <th class="p-1 border">ISW</th>
+            <th class="p-1 border text-center">Size</th>
+            <th class="p-1 border text-center">Esfuerzo</th>
+            <th class="p-1 border text-center">Tasa</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of metrics.developmentRate.items">
+            <td class="p-1 border font-bold">#{{ item.id }}</td>
+            <td class="p-1 border">{{ item.type }}</td>
+            <td class="p-1 border">{{ item.isw }} ({{ item.level }})</td>
+            <td class="p-1 border text-center">{{ item.size }}</td>
+            <td class="p-1 border text-center">{{ item.effort.toFixed(2) }}</td>
+            <td class="p-1 border text-center font-bold">{{ item.rate.toFixed(2) }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="grid grid-cols-2 gap-4 text-[7pt] mb-4">
+        <div class="p-2 border border-slate-200 bg-slate-50">
+          <div class="font-bold mb-1 uppercase">Procedimiento (PO / ISW):</div>
+          <ol class="list-decimal ml-4 space-y-1">
+            <li>Ingresar a IntraBot / Dashboards (DO071).</li>
+            <li>Obtener métrica del periodo y acumulado.</li>
+            <li>Almacenar BFYPH047 en SharePoint (Carpeta Desarrollo).</li>
+            <li>Líder Calidad: Generar histórico para Minitab.</li>
+          </ol>
+        </div>
+        <div class="p-2 border border-slate-200 bg-slate-50">
+          <div class="font-bold mb-1 uppercase">Recomendaciones:</div>
+          <ul class="list-disc ml-4 space-y-1">
+            <li>Verificar Size de elementos de trabajo.</li>
+            <li>Confirmar cierre de ítems en la iteración.</li>
+            <li>Revisar Original Estimate vs Completed Work.</li>
+            <li>Clasificación correcta de Task Type/Discipline.</li>
+          </ul>
+        </div>
+      </div>
+
+      <ul class="list-disc ml-5 space-y-2 text-[9pt] mb-4">
+        <li><strong>Valores de Referencia:</strong> Verde &le; 1.70 | Amarillo 1.70 - 2.0 | Rojo &gt; 2.0</li>
+        <li><strong>Resultado del periodo:</strong> {{ metrics.developmentRate.rate.toFixed(2) }}</li>
+        <li *ngIf="metricAnalyses['tasa de desarrollo']">
+          <strong>Análisis de resultados e Acciones:</strong> 
+          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['tasa de desarrollo'] }}</div>
+        </li>
+      </ul>
+
+      <div class="text-[7pt] text-slate-500 border-t pt-2">
+        <strong>Herramientas:</strong> Azure DevOps, Power BI, SharePoint, Minitab, IntraBot.<br>
+        <strong>Líneas Base:</strong> Gráfico I-MR, Resumen Gráfico, Análisis de Capacidad, ANOVA.
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- Métrica 2: Effort -->
+    <div class="metric-block">
+      <div class="font-bold mb-2">3.2 Métrica: Tasa de Desviación de Esfuerzo</div>
+      <div class="metric-chart-container mb-4">
+        <img [src]="charts['effort']" *ngIf="charts['effort']" class="w-full h-48 object-contain">
+      </div>
+      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
+        <li><strong>Meta establecida para el periodo:</strong> 15%</li>
+        <li><strong>Resultado del periodo:</strong> {{ (metrics.effortVariance.rate * 100).toFixed(1) }}%</li>
+        <li *ngIf="metricAnalyses['tasa de desviación']">
+          <strong>Análisis de resultados:</strong> 
+          <div class="whitespace-pre-wrap ml-4">{{ metricAnalyses['tasa de desviación'] }}</div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- Métrica 3: Retrabajo -->
+    <div class="metric-block">
+      <div class="font-bold mb-2 uppercase">3.3 Métrica: Tasa de Retrabajo en Procesos de Software</div>
+      
+      <div class="grid grid-cols-5 gap-2 mb-4">
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Esfuerzo Req.</div>
+          <div class="text-[12pt] font-bold">{{ metrics.rework.reqEffort.toFixed(1) }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Retr. Req.</div>
+          <div class="text-[12pt] font-bold">{{ metrics.rework.reqRework.toFixed(1) }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Retr. Bug</div>
+          <div class="text-[12pt] font-bold">{{ metrics.rework.bugRework.toFixed(1) }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Total</div>
+          <div class="text-[12pt] font-bold">{{ metrics.rework.totalRework.toFixed(1) }}</div>
+        </div>
+        <div class="p-2 border bg-rose-50 text-center border-rose-200">
+          <div class="text-[6pt] uppercase text-rose-600 font-bold">KPI Tasa</div>
+          <div class="text-[14pt] font-black text-rose-800">{{ metrics.rework.rate.toFixed(2) }}%</div>
+        </div>
+      </div>
+
+      <ul class="list-disc ml-5 space-y-2 text-[9pt] mb-4">
+        <li><strong>Meta establecida:</strong> 20% | Umbral Verde &le; 22%</li>
+        <li><strong>Resultado del periodo:</strong> {{ metrics.rework.rate.toFixed(2) }}%</li>
+        <li *ngIf="metricAnalyses['retrabajo']">
+          <strong>Análisis de resultados e Acciones:</strong> 
+          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['retrabajo'] }}</div>
+        </li>
+      </ul>
+
+      <div class="p-2 border border-indigo-100 bg-indigo-50/30 rounded text-[7pt]">
+        <div class="font-bold mb-1">RECOMENDACIONES PARA EXACTITUD:</div>
+        <div class="grid grid-cols-2 gap-4">
+          <ul class="list-disc ml-4">
+            <li>Verificar Size de elementos de trabajo.</li>
+            <li>Confirmar cierre de ítems en la iteración.</li>
+          </ul>
+          <ul class="list-disc ml-4">
+            <li>Revisar Original Estimate vs Completed Work.</li>
+            <li>Clasificación correcta de Task Type/Discipline.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- Métrica 4: Defect -->
+    <div class="metric-block">
+      <div class="font-bold mb-2 uppercase">3.4 Métrica: Densidad de Defectos</div>
+      <div class="metric-chart-container mb-4">
+        <img [src]="charts['defect']" *ngIf="charts['defect']" class="w-full h-48 object-contain">
+      </div>
+      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
+        <li><strong>Meta establecida para el periodo:</strong> 0.18</li>
+        <li><strong>Resultado del periodo:</strong> {{ metrics.defectDensity.density.toFixed(3) }}</li>
+        <li *ngIf="metricAnalyses['densidad de defectos']">
+          <strong>Análisis de resultados:</strong>
+          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['densidad de defectos'] }}</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Métrica 5: Risk -->
+    <div class="metric-block">
+      <div class="font-bold mb-2 uppercase">3.5 Métrica: Criticidad de Riesgos</div>
+      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
+        <li><strong>Meta establecida para el periodo:</strong> 30%</li>
+        <li><strong>Resultado del periodo:</strong> {{ metrics.riskCriticality.totalScore.toFixed(1) }}%</li>
+        <li *ngIf="metricAnalyses['risk']">
+          <strong>Análisis de resultados:</strong>
+          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['risk'] }}</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Firmas -->
+  <div class="signature-section mt-20">
+    <div class="signature-box"><div class="signature-line"></div>Gerente de Fábrica</div>
+    <div class="signature-box"><div class="signature-line"></div>Administrador Proyecto</div>
+    <div class="signature-box"><div class="signature-line"></div>Product Owner</div>
+  </div>
+</div>
