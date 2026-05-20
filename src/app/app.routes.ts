@@ -11,7 +11,8 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', component: DashboardComponent },
       { path: 'report-completion', loadComponent: () => import('./pages/report-completion/report-completion.component').then(m => m.ReportCompletionComponent) },
-      { path: 'config', component: ConfigComponent }
+      { path: 'config', component: ConfigComponent },
+      { path: 'sprint-config', loadComponent: () => import('./pages/sprint-config/sprint-config.component').then(m => m.SprintConfigComponent) }
     ]
   },
   { path: '**', redirectTo: '' }

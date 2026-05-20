@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-angular';
 
 @Component({
   selector: 'app-layout',
@@ -69,6 +69,15 @@ import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, Ch
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Reporte Finalización</span>
       </a>
       <a 
+        routerLink="/sprint-config" 
+        routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
+        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
+        [class.justify-center]="isMenuCollapsed"
+        [title]="isMenuCollapsed ? 'Configurar Sprint' : ''">
+        <lucide-icon [name]="ClipboardList" size="20" class="shrink-0"></lucide-icon>
+        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Configurar Sprint</span>
+      </a>
+      <a 
         routerLink="/config" 
         routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
         class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
@@ -102,6 +111,10 @@ import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, Ch
       <lucide-icon [name]="FileText" size="20"></lucide-icon>
       <span>Reporte</span>
     </a>
+    <a routerLink="/sprint-config" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+      <lucide-icon [name]="ClipboardList" size="20"></lucide-icon>
+      <span>Sprint</span>
+    </a>
     <a routerLink="/config" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <lucide-icon [name]="Settings" size="20"></lucide-icon>
       <span>Config</span>
@@ -119,6 +132,7 @@ export class LayoutComponent {
   readonly Sun = Sun;
   readonly ChevronLeft = ChevronLeft;
   readonly ChevronRight = ChevronRight;
+  readonly ClipboardList = ClipboardList;
 
   isDarkMode = false;
   isMenuCollapsed = false;

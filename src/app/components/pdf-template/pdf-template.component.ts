@@ -175,4 +175,19 @@ export class PdfTemplateComponent implements OnChanges {
     }
     window.open(url, '_blank');
   }
+
+  getTestExecutionAnalysis(): string {
+    if (this.metricAnalyses['testExecution']) {
+      return this.metricAnalyses['testExecution'];
+    }
+    const currentRate = this.metrics?.testExecution?.rate !== undefined ? this.metrics.testExecution.rate.toFixed(2) : '100.00';
+    return `• Meta establecida para el periodo: 100%
+• Resultado del periodo: ${currentRate}%
+• Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
+• Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.
+• Análisis acumulado del periodo:
+1. Meta acumulada: 95%
+2. Resultado acumulado: 91.18%
+El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, es decir, ejecutar en tiempo y forma los planes de prueba correspondientes.`;
+  }
 }

@@ -173,7 +173,7 @@ export class AzureDevOpsService {
                 switchMap(details => {
                   const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
                   const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath);
-                  return of(metrics);
+                  return this.enrichMetricsWithTestExecution(metrics, absoluteIterationPath);
                 }),
                 catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
               );
@@ -277,7 +277,7 @@ export class AzureDevOpsService {
              switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
               switchMap(allDetails => {
                 const metrics = this.processWorkItemsFlat(allDetails, { path: iterationPath, name: iterationPath.split('\\').pop() || '' }, iterationPath);
-                return of(metrics);
+                return this.enrichMetricsWithTestExecution(metrics, iterationPath);
               })
            );
       }),
@@ -949,6 +949,246 @@ export class AzureDevOpsService {
         stdDeviation: 0,
         bugsList: []
       }
+    };
+  }
+
+  private getWithFallback(urls: string[]): Observable<any> {
+    const tryUrl = (index: number): Observable<any> => {
+      if (index >= urls.length) {
+        console.warn('ADO Service: All URL fallbacks failed.');
+        return of({ value: [] });
+      }
+      const url = urls[index];
+      console.log(`ADO Service: Hitting URL: ${url}`);
+      return this.http.get<any>(url, { headers: this.getHeaders() }).pipe(
+        catchError(err => {
+          console.warn(`ADO Service: Failed to get ${url}. Error:`, err.message || err);
+          return tryUrl(index + 1);
+        })
+      );
+    };
+    return tryUrl(0);
+  }
+
+  getTestPlans(): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const org = encodeURIComponent(config.azure.organization);
+    const proj = encodeURIComponent(config.azure.project);
+    const urls = [
+      `https://dev.azure.com/${org}/${proj}/_apis/testplan/plans?api-version=7.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/plans?api-version=5.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/plans?api-version=5.1`
+    ];
+    return this.getWithFallback(urls).pipe(
+      map(res => {
+        const plans = res?.value || [];
+        console.log(`ADO Service: getTestPlans fetched ${plans.length} plans.`);
+        return plans;
+      })
+    );
+  }
+
+  getTestSuites(planId: number): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const org = encodeURIComponent(config.azure.organization);
+    const proj = encodeURIComponent(config.azure.project);
+    const urls = [
+      `https://dev.azure.com/${org}/${proj}/_apis/testplan/Plans/${planId}/suites?api-version=7.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/Plans/${planId}/suites?api-version=5.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/plans/${planId}/suites?api-version=5.0`
+    ];
+    return this.getWithFallback(urls).pipe(
+      map(res => {
+        const suites = res?.value || [];
+        console.log(`ADO Service: getTestSuites for Plan ${planId} fetched ${suites.length} suites.`);
+        return suites;
+      })
+    );
+  }
+
+  getTestPoints(planId: number, suiteId: number): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const org = encodeURIComponent(config.azure.organization);
+    const proj = encodeURIComponent(config.azure.project);
+    const urls = [
+      `https://dev.azure.com/${org}/${proj}/_apis/test/Plans/${planId}/Suites/${suiteId}/points?api-version=7.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/Plans/${planId}/Suites/${suiteId}/points?api-version=5.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/plans/${planId}/suites/${suiteId}/points?api-version=5.0`
+    ];
+    return this.getWithFallback(urls).pipe(
+      map(res => {
+        const points = res?.value || [];
+        console.log(`ADO Service: getTestPoints for Plan ${planId} Suite ${suiteId} fetched ${points.length} points.`);
+        return points;
+      })
+    );
+  }
+
+  enrichMetricsWithTestExecution(metrics: CMMIMetrics, absoluteIterationPath: string): Observable<CMMIMetrics> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of(metrics);
+
+    const start = metrics.startDate ? new Date(metrics.startDate).getTime() : 0;
+    const end = metrics.endDate ? new Date(new Date(metrics.endDate).setHours(23, 59, 59, 999)).getTime() : Infinity;
+
+    console.log(`ADO Service: enrichMetricsWithTestExecution started.`);
+    console.log(`ADO Service: absoluteIterationPath: "${absoluteIterationPath}", start: ${metrics.startDate}, end: ${metrics.endDate}`);
+
+    return this.getTestPlans().pipe(
+      switchMap(plans => {
+        console.log(`ADO Service: plans retrieved total: ${plans.length}`, plans.map(p => ({ id: p.id, name: p.name, iteration: p.iteration })));
+        if (plans.length === 0) {
+          console.warn(`ADO Service: No test plans returned by API.`);
+          metrics.testExecution = this.getEmptyTestExecution();
+          return of(metrics);
+        }
+
+        const planSuiteObs = plans.map(plan => 
+          this.getTestSuites(plan.id).pipe(
+            map(suites => ({ plan, suites }))
+          )
+        );
+
+        return forkJoin(planSuiteObs).pipe(
+          switchMap(planSuitesList => {
+            const pointObs: Observable<any>[] = [];
+            planSuitesList.forEach(({ plan, suites }) => {
+              console.log(`ADO Service: Plan "${plan.name}" has suites:`, suites.map(s => ({ id: s.id, name: s.name })));
+              suites.forEach((suite: any) => {
+                pointObs.push(
+                  this.getTestPoints(plan.id, suite.id).pipe(
+                    map(points => ({ plan, suite, points }))
+                  )
+                );
+              });
+            });
+
+            if (pointObs.length === 0) {
+              console.warn(`ADO Service: No suites found across all plans.`);
+              metrics.testExecution = this.getEmptyTestExecution();
+              return of(metrics);
+            }
+
+            return forkJoin(pointObs).pipe(
+              map(allPointsList => {
+                const allPoints: any[] = [];
+                const normalizedIterationPath = absoluteIterationPath ? absoluteIterationPath.toLowerCase().replace(/\\/g, '/') : '';
+                const iterationParts = absoluteIterationPath ? absoluteIterationPath.split(/[\\/]/).map(p => p.trim().toLowerCase()).filter(Boolean) : [];
+                const sprintSegment = iterationParts.length > 0 ? iterationParts[iterationParts.length - 1] : '';
+                const teamSegment = iterationParts.length > 1 ? iterationParts[iterationParts.length - 2] : '';
+
+                console.log(`ADO Service Debug: iterationParts =`, iterationParts, `sprintSegment = "${sprintSegment}", teamSegment = "${teamSegment}"`);
+
+                allPointsList.forEach(({ plan, suite, points }) => {
+                  const planIteration = plan.iteration?.path || '';
+                  const normalizedPlanIteration = planIteration.toLowerCase().replace(/\\/g, '/');
+                  const isPlanInIteration = normalizedIterationPath && normalizedPlanIteration.includes(normalizedIterationPath);
+
+                  const planNameLower = plan.name ? plan.name.toLowerCase() : '';
+                  const matchesSprintName = sprintSegment && planNameLower.includes(sprintSegment);
+                  const matchesTeamName = teamSegment ? planNameLower.includes(teamSegment) : true;
+                  const isPlanForSprint = isPlanInIteration || (matchesSprintName && matchesTeamName);
+
+                  console.log(`ADO Service Debug: Evaluating plan "${plan.name}" (ID ${plan.id}):`);
+                  console.log(`  - planIteration: "${planIteration}"`);
+                  console.log(`  - matchesSprintName: ${matchesSprintName} (sprintSegment: "${sprintSegment}")`);
+                  console.log(`  - matchesTeamName: ${matchesTeamName} (teamSegment: "${teamSegment}")`);
+                  console.log(`  - isPlanForSprint: ${isPlanForSprint}`);
+
+                  points.forEach((pt: any) => {
+                    const lastUpdated = pt.lastUpdatedDate || pt.lastResultDetails?.dateCompleted || '';
+                    const lastUpdatedTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
+                    const isExecutedInSprint = lastUpdatedTime >= start && lastUpdatedTime <= end;
+
+                    if (isPlanForSprint || isExecutedInSprint) {
+                      allPoints.push({
+                        planId: plan.id,
+                        planName: plan.name,
+                        suiteId: suite.id,
+                        suiteName: suite.name,
+                        testPointId: pt.id,
+                        testCaseId: pt.testCase?.id ? parseInt(pt.testCase.id) : 0,
+                        testCaseTitle: pt.testCaseTitle || pt.testCase?.name || `Test Case #${pt.testCase?.id || ''}`,
+                        outcome: pt.outcome || 'None',
+                        tester: pt.tester?.displayName || 'Sin asignar',
+                        lastUpdatedDate: lastUpdated,
+                        isExecutedInSprint
+                      });
+                    }
+                  });
+                });
+
+                console.log(`ADO Service Debug: Total matched test points: ${allPoints.length}`);
+
+                let passed = 0;
+                let failed = 0;
+                let blocked = 0;
+                let notApplicable = 0;
+                let notExecuted = 0;
+
+                allPoints.forEach(pt => {
+                  const outStr = pt.outcome.toLowerCase();
+                  if (outStr === 'passed') passed++;
+                  else if (outStr === 'failed') failed++;
+                  else if (outStr === 'blocked') blocked++;
+                  else if (outStr === 'notapplicable' || outStr === 'not applicable') notApplicable++;
+                  else notExecuted++;
+                });
+
+                const totalTestPoints = allPoints.length;
+                const executed = totalTestPoints - notExecuted;
+                const rate = totalTestPoints > 0 ? (executed / totalTestPoints) * 100 : 100;
+                const status = rate >= 90 ? 'green' : (rate >= 80 ? 'yellow' : 'red');
+
+                metrics.testExecution = {
+                  totalTestPoints,
+                  executed,
+                  notExecuted,
+                  passed,
+                  failed,
+                  blocked,
+                  notApplicable,
+                  rate,
+                  status: status as 'green' | 'yellow' | 'red',
+                  testPoints: allPoints
+                };
+
+                console.log(`ADO Service Debug: Calculated metrics:`, metrics.testExecution);
+
+                return metrics;
+              })
+            );
+          }),
+          catchError(err => {
+            console.error('Error fetching suites and points:', err);
+            metrics.testExecution = this.getEmptyTestExecution();
+            return of(metrics);
+          })
+        );
+      }),
+      catchError(err => {
+        console.error('Error in enrichMetricsWithTestExecution:', err);
+        metrics.testExecution = this.getEmptyTestExecution();
+        return of(metrics);
+      })
+    );
+  }
+
+  private getEmptyTestExecution() {
+    return {
+      totalTestPoints: 0,
+      executed: 0,
+      notExecuted: 0,
+      passed: 0,
+      failed: 0,
+      blocked: 0,
+      notApplicable: 0,
+      rate: 100,
+      status: 'green' as const,
+      testPoints: []
     };
   }
 

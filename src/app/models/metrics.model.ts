@@ -163,4 +163,27 @@ export interface CMMIMetrics {
     }>;
     totalScore: number;
   };
+  testExecution?: {
+    totalTestPoints: number;
+    executed: number;
+    notExecuted: number;
+    passed: number;
+    failed: number;
+    blocked: number;
+    notApplicable: number;
+    rate: number; // run rate %
+    status: 'green' | 'yellow' | 'red';
+    testPoints: Array<{
+      planId: number;
+      planName: string;
+      suiteId: number;
+      suiteName: string;
+      testPointId: number;
+      testCaseId: number;
+      testCaseTitle: string;
+      outcome: string;
+      tester: string;
+      lastUpdatedDate?: string;
+    }>;
+  };
 }

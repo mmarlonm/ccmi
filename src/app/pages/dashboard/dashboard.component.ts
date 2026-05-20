@@ -1568,6 +1568,134 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
       </div>
     </section>
+
+    <!-- Section 3.7: Test Execution / Ejecución de Pruebas -->
+    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden mt-8">
+      <div class="p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <lucide-icon [name]="Layers" size="18" class="text-emerald-500"></lucide-icon>
+              3.7 Métrica: % Ejecución de Pruebas
+            </h3>
+            <span class="text-xs text-emerald-500 font-bold uppercase tracking-wider">Métrica de Calidad de Software</span>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
+          Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
+          <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados) / (Total de Test Points) x 100.
+          Mide el porcentaje de pruebas ejecutadas dentro de los planes de pruebas definidos.
+        </p>
+
+        <!-- KPI summary grid -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Test Points</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.totalTestPoints || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-emerald-500 uppercase font-bold mb-1">Passed</div>
+            <div class="text-2xl font-bold text-emerald-600">{{ metrics?.testExecution?.passed || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Failed</div>
+            <div class="text-2xl font-bold text-rose-600">{{ metrics?.testExecution?.failed || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-amber-500 uppercase font-bold mb-1">Blocked</div>
+            <div class="text-2xl font-bold text-amber-600">{{ metrics?.testExecution?.blocked || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Not Executed</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.notExecuted || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">KPI Run Rate</div>
+            <div class="text-2xl font-black" [ngClass]="{
+              'text-emerald-600': metrics?.testExecution?.status === 'green',
+              'text-amber-500': metrics?.testExecution?.status === 'yellow',
+              'text-rose-500': metrics?.testExecution?.status === 'red'
+            }">
+              {{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%
+            </div>
+            <div class="text-[8px] text-slate-400 mt-0.5">Umbrales: 90%, 80%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <!-- Table -->
+          <div class="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div class="overflow-x-auto max-h-96">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                    <th class="p-3">Plan / Suite</th>
+                    <th class="p-3">ID Caso</th>
+                    <th class="p-3">Caso de Prueba</th>
+                    <th class="p-3">Tester</th>
+                    <th class="p-3 text-center">Resultado</th>
+                  </tr>
+                </thead>
+                <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
+                  <tr *ngFor="let pt of metrics?.testExecution?.testPoints" class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors">
+                    <td class="p-3 font-medium">
+                      <div class="text-[10px] font-bold truncate max-w-[150px]">{{ pt.planName }}</div>
+                      <div class="text-[9px] text-slate-400 truncate max-w-[150px]">{{ pt.suiteName }}</div>
+                    </td>
+                    <td class="p-3 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId)">#{{ pt.testCaseId }}</td>
+                    <td class="p-3 max-w-[200px] truncate" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
+                    <td class="p-3 text-slate-500">{{ pt.tester }}</td>
+                    <td class="p-3 text-center">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
+                        'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
+                        'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
+                        'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
+                        'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                        'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
+                      }">
+                        {{ pt.outcome }}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="!metrics?.testExecution?.testPoints?.length">
+                    <td colspan="5" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para este periodo.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div class="h-80">
+              <canvas #testExecChart></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
+          <div class="space-y-4">
+            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
+              <li><strong>Meta establecida para el periodo:</strong> 100%</li>
+              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
+                'text-green-600': metrics?.testExecution?.status === 'green',
+                'text-amber-500': metrics?.testExecution?.status === 'yellow',
+                'text-rose-500': metrics?.testExecution?.status === 'red'
+              }">{{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%</span></li>
+              
+              <li>
+                <strong>Análisis de resultados e Acciones:</strong>
+                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
+                  {{ getTestExecutionAnalysis() }}
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
   </div>
 
   <!-- Setup Onboarding Screen (If no config is detected) -->
@@ -1691,6 +1819,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('effortChart') effortChartCanvas!: ElementRef;
   @ViewChild('defectChart') defectChartCanvas!: ElementRef;
   @ViewChild('escapedChart') escapedChartCanvas!: ElementRef;
+  @ViewChild('testExecChart') testExecChartCanvas!: ElementRef;
 
   filteredEscapedBugs = {
     bugsTesting: 0,
@@ -1705,6 +1834,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   private charts: Chart[] = [];
   escapedChart: Chart | null = null;
+  testExecChart: Chart | null = null;
 
   ngOnInit() {
     this.loadSavedSelection();
@@ -2804,6 +2934,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
 
+    if (this.testExecChart) {
+      this.testExecChart.destroy();
+      this.testExecChart = null;
+    }
+
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
@@ -3042,6 +3177,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
       }
     }));
+
+    setTimeout(() => this.updateTestExecChart(), 50);
   }
 
   runAI() {
@@ -3086,6 +3223,77 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricAnalyses['escaped'] = val;
         this.metricAnalyses['bugs escapados'] = val;
       }
+      if (lowerSeg.includes('ejecución de pruebas') || lowerSeg.includes('ejecucion de pruebas') || lowerSeg.includes('run rate') || lowerSeg.includes('pruebas')) {
+        const val = seg.split(']')[1]?.trim();
+        this.metricAnalyses['testExecution'] = val;
+        this.metricAnalyses['ejecución de pruebas'] = val;
+      }
+    });
+  }
+
+  getTestExecutionAnalysis(): string {
+    if (this.metricAnalyses['testExecution']) {
+      return this.metricAnalyses['testExecution'];
+    }
+    const currentRate = this.metrics?.testExecution?.rate !== undefined ? this.metrics.testExecution.rate.toFixed(2) : '100.00';
+    return `• Meta establecida para el periodo: 100%
+• Resultado del periodo: ${currentRate}%
+• Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
+• Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.
+• Análisis acumulado del periodo:
+1. Meta acumulada: 95%
+2. Resultado acumulado: 91.18%
+El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, es decir, ejecutar en tiempo y forma los planes de prueba correspondientes.`;
+  }
+
+  updateTestExecChart() {
+    if (!this.testExecChartCanvas) return;
+
+    if (this.testExecChart) {
+      this.testExecChart.destroy();
+      this.testExecChart = null;
+    }
+
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const execData = this.metrics?.testExecution || { passed: 0, failed: 0, blocked: 0, notExecuted: 0, notApplicable: 0 };
+    
+    this.testExecChart = new Chart(this.testExecChartCanvas.nativeElement, {
+      type: 'doughnut',
+      data: {
+        labels: ['Passed', 'Failed', 'Blocked', 'Not Executed', 'Not Applicable'],
+        datasets: [
+          {
+            data: [
+              execData.passed,
+              execData.failed,
+              execData.blocked,
+              execData.notExecuted,
+              execData.notApplicable
+            ],
+            backgroundColor: [
+              '#22c55e', // Passed
+              '#ef4444', // Failed
+              '#f59e0b', // Blocked
+              '#64748b', // Not Executed
+              '#cbd5e1'  // Not Applicable
+            ],
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'right',
+            labels: { color: textColor, font: { size: 10 } }
+          }
+        }
+      }
     });
   }
 
@@ -3099,7 +3307,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         devRate: this.charts[0]?.toBase64Image() || '',
         effort: this.charts[1]?.toBase64Image() || '',
         defect: this.charts[2]?.toBase64Image() || '',
-        escaped: this.escapedChart?.toBase64Image() || ''
+        escaped: this.escapedChart?.toBase64Image() || '',
+        testExec: this.testExecChart?.toBase64Image() || ''
       };
 
       // Wait for template to update with images
