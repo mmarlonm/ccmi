@@ -111,8 +111,8 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             <div class="min-w-0">
               <div class="text-[9px] text-slate-400 uppercase font-black tracking-wide">Fase Extendida (Tarde)</div>
               <div class="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {{ timelineSummary.lateCount }} 
-                <span class="text-xs font-medium text-slate-400 dark:text-slate-500"> (+{{ timelineSummary.totalLateDays }} días)</span>
+                {{ timelineSummary.lateCount }}
+                <span class="text-xs font-medium text-slate-400 dark:text-slate-500" *ngIf="timelineSummary.maxLateDays > 0"> (+{{ timelineSummary.maxLateDays }} día{{ timelineSummary.maxLateDays !== 1 ? 's' : '' }} max)</span>
               </div>
             </div>
           </div>
@@ -1398,20 +1398,12 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <!-- Section 3.6: Escaped Defects / Bugs Escapados -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
       <div class="p-6">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 class="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <lucide-icon [name]="Bug" size="18" class="text-indigo-500"></lucide-icon>
-              3.6 Métrica: Porcentaje de Bugs Escapados
-            </h3>
-            <span class="text-xs text-indigo-500 font-bold uppercase tracking-wider">Métrica de Alta Madurez QPPO</span>
-          </div>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.6 Métrica: Porcentaje de Bugs Escapados</h3>
 
-        </div>
-
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
           Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
-          <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100
+          <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100. <br/>
+          <strong>Umbrales:</strong> Verde ≤ 33% | Amarillo ≤ 40% | Rojo > 40%
         </p>
 
         <!-- KPI summary grid -->
@@ -1441,7 +1433,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             }">
               {{ filteredEscapedBugs.rate.toFixed(2) }}%
             </div>
-            <div class="text-[8px] text-slate-400 mt-0.5">Umbrales: 33%, 40%</div>
+
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
@@ -1572,20 +1564,12 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <!-- Section 3.7: Test Execution / Ejecución de Pruebas -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden mt-8">
       <div class="p-6">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 class="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <lucide-icon [name]="Layers" size="18" class="text-emerald-500"></lucide-icon>
-              3.7 Métrica: % Ejecución de Pruebas
-            </h3>
-            <span class="text-xs text-emerald-500 font-bold uppercase tracking-wider">Métrica de Calidad de Software</span>
-          </div>
-        </div>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas</h3>
 
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
-          <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados) / (Total de Test Points) x 100.
-          Mide el porcentaje de pruebas ejecutadas dentro de los planes de pruebas definidos.
+          <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados / Total de Test Points) x 100. Solo se consideran los test points dentro de la vigencia del sprint. <br/>
+          <strong>Umbrales:</strong> Verde ≥ 90% | Amarillo ≥ 80% | Rojo &lt; 80%
         </p>
 
         <!-- KPI summary grid -->
@@ -1623,10 +1607,10 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <!-- Table -->
-          <div class="lg:col-span-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div class="overflow-x-auto max-h-96">
+          <div class="lg:col-span-8 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto max-h-80">
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr class="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
@@ -1661,11 +1645,11 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                         <td class="p-2 font-medium truncate max-w-[150px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
                         <td class="p-2 text-slate-500 font-mono text-[10px]">#{{ pt.testPointId }}</td>
                         <td class="p-2 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId); $event.stopPropagation()">#{{ pt.testCaseId }}</td>
-                        <td class="p-2 text-slate-500">{{ pt.tester || 'Sin asignar' }}</td>
+                        <td class="p-2 text-slate-500">{{ pt.tester && pt.tester.trim() ? pt.tester : 'Sin asignar' }}</td>
                         <td class="p-2 text-center">
                           <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
                             'bg-emerald-100 text-emerald-700': pt.onTime,
-                            'bg-red-100 text-red-700': pt.onTime === false
+                            'bg-red-100 text-red-700': !pt.onTime
                           }">
                             {{ pt.onTime ? 'Sí' : 'No' }}
                           </span>
@@ -1693,9 +1677,17 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
 
           <!-- Chart -->
-          <div class="lg:col-span-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-            <div class="h-80">
+          <div class="lg:col-span-4 bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Distribución de resultados</h4>
+            <div class="h-56 flex items-center justify-center">
               <canvas #testExecChart></canvas>
+            </div>
+            <!-- Mini legend totals -->
+            <div class="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Passed: <strong>{{ metrics?.testExecution?.passed || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics?.testExecution?.failed || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics?.testExecution?.blocked || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics?.testExecution?.notExecuted || 0 }}</strong></span></div>
             </div>
           </div>
         </div>
@@ -2556,13 +2548,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   calculateTimelineSummary() {
-    if (!this.metrics?.developmentRate?.items) {
+    const metrics = this.metrics;
+    if (!metrics?.developmentRate?.items) {
       return { onTimeCount: 0, lateCount: 0, openCount: 0, avgLateDays: 0, items: [] };
     }
     
-    const items = this.metrics.developmentRate.items;
-    const start = this.metrics.startDate ? this.getLocalCalendarDate(this.metrics.startDate, false) : 0;
-    const end = this.metrics.endDate ? this.getLocalCalendarDate(this.metrics.endDate, true) : 0;
+    const items = metrics.developmentRate.items;
+    const start = metrics.startDate ? this.getLocalCalendarDate(metrics.startDate, false) : 0;
+    const end = metrics.endDate ? this.getLocalCalendarDate(metrics.endDate, true) : 0;
     
     let onTimeCount = 0;
     let lateCount = 0;
@@ -2585,8 +2578,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           } else {
             deliveryStatus = 'late';
             lateCount++;
-            // Usar días hábiles para calcular el retraso
-            daysLate = this.calculateBusinessDays(end, closedTime, this.getHolidays());
+            // Calcular días hábiles de retraso: empezar desde el día SIGUIENTE al fin del sprint
+            // para que el último día del sprint no cuente como día de retraso
+            const endDate = metrics.endDate;
+            const dayAfterSprintEnd = endDate
+              ? this.getLocalCalendarDate(this.addDays(endDate, 1).toISOString(), false)
+              : end + 24 * 60 * 60 * 1000;
+            daysLate = this.calculateBusinessDays(dayAfterSprintEnd, closedTime, this.getHolidays());
             totalLateDays += daysLate;
           }
         } else {
@@ -2630,13 +2628,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
 
     const avgLateDays = lateCount > 0 ? Math.round(totalLateDays / lateCount) : 0;
-    
+    const maxLateDays = processedItems.reduce((max, item) => Math.max(max, item.daysLate || 0), 0);
+
     return {
       onTimeCount,
       lateCount,
       openCount,
       avgLateDays,
       totalLateDays,
+      maxLateDays,
       items: processedItems
     };
   }
@@ -3308,13 +3308,16 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
 
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(148,163,184,0.08)' : 'rgba(100,116,139,0.08)';
 
     const execData = this.metrics?.testExecution || { passed: 0, failed: 0, blocked: 0, notExecuted: 0, notApplicable: 0 };
-    
+
+    const total = (execData.passed || 0) + (execData.failed || 0) + (execData.blocked || 0) + (execData.notExecuted || 0) + (execData.notApplicable || 0);
+
     this.testExecChart = new Chart(this.testExecChartCanvas.nativeElement, {
       type: 'doughnut',
       data: {
-        labels: ['Passed', 'Failed', 'Blocked', 'Not Executed', 'Not Applicable'],
+        labels: ['Passed', 'Failed', 'Blocked', 'Not Executed', 'N/A'],
         datasets: [
           {
             data: [
@@ -3325,28 +3328,26 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
               execData.notApplicable
             ],
             backgroundColor: [
-              '#22c55e', // Passed
-              '#ef4444', // Failed
-              '#f59e0b', // Blocked
-              '#64748b', // Not Executed
-              '#cbd5e1'  // Not Applicable
+              '#22c55e',
+              '#ef4444',
+              '#f59e0b',
+              '#64748b',
+              '#cbd5e1'
             ],
-            borderColor: '#ffffff',
+            borderColor: isDark ? '#1e293b' : '#ffffff',
             borderWidth: 2,
-            hoverOffset: 8
+            hoverOffset: 6
           }
         ]
       },
       options: {
-        cutout: '65%',
+        cutout: '70%',
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 12, bottom: 12, left: 12, right: 12 } },
+        layout: { padding: { top: 8, bottom: 8, left: 8, right: 8 } },
         plugins: {
           legend: {
-            display: true,
-            position: 'right',
-            labels: { color: textColor, font: { size: 10 }, usePointStyle: true, pointStyle: 'circle' }
+            display: false
           },
           tooltip: {
             enabled: true,
@@ -3354,7 +3355,14 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
             titleColor: isDark ? '#f8fafc' : '#0f172a',
             bodyColor: isDark ? '#e2e8f0' : '#334155',
             borderColor: isDark ? '#334155' : '#cbd5e1',
-            borderWidth: 1
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx: any) => {
+                const val = ctx.parsed;
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
+                return ` ${ctx.label}: ${val} (${pct}%)`;
+              }
+            }
           }
         }
       }

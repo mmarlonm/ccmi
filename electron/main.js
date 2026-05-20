@@ -1,7 +1,14 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const url = require('url');
+
+// electron-updater is optional – gracefully degrade if not installed
+let autoUpdater;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (e) {
+  autoUpdater = null;
+}
 
 let win;
 
@@ -49,16 +56,12 @@ function createWindow() {
 }
 
 ipcMain.handle('update:check', async (_event, repo) => {
-  if (!app.isPackaged) {
-    return { error: 'La actualización solo funciona en la app instalada.' };
-  }
-  if (!repo || !repo.includes('/')) {
-    return { error: 'Repo inválido. Usa formato owner/repo.' };
-  }
+  if (!autoUpdater) return { error: 'electron-updater no está disponible.' };
+  if (!app.isPackaged) return { error: 'La actualización solo funciona en la app instalada.' };
+  if (!repo || !repo.includes('/')) return { error: 'Repo inválido. Usa formato owner/repo.' };
 
   const [owner, repository] = repo.split('/');
   autoUpdater.setFeedURL({ provider: 'github', owner, repo: repository, private: false });
-
   try {
     const result = await autoUpdater.checkForUpdates();
     return { status: 'checking', result };
@@ -68,10 +71,8 @@ ipcMain.handle('update:check', async (_event, repo) => {
 });
 
 ipcMain.handle('update:download', async () => {
-  if (!app.isPackaged) {
-    return { error: 'La actualización solo funciona en la app instalada.' };
-  }
-
+  if (!autoUpdater) return { error: 'electron-updater no está disponible.' };
+  if (!app.isPackaged) return { error: 'La actualización solo funciona en la app instalada.' };
   try {
     autoUpdater.downloadUpdate();
     return { status: 'downloading' };
@@ -81,10 +82,8 @@ ipcMain.handle('update:download', async () => {
 });
 
 ipcMain.handle('update:install', async () => {
-  if (!app.isPackaged) {
-    return { error: 'La actualización solo funciona en la app instalada.' };
-  }
-
+  if (!autoUpdater) return { error: 'electron-updater no está disponible.' };
+  if (!app.isPackaged) return { error: 'La actualización solo funciona en la app instalada.' };
   try {
     autoUpdater.quitAndInstall();
     return { status: 'installing' };
@@ -101,12 +100,14 @@ app.on('window-all-closed', () => {
   }
 });
 
-autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking-for-update'));
-autoUpdater.on('update-available', info => sendUpdateStatus('update-available', { info }));
-autoUpdater.on('update-not-available', info => sendUpdateStatus('update-not-available', { info }));
-autoUpdater.on('download-progress', progress => sendUpdateStatus('download-progress', { progress }));
-autoUpdater.on('update-downloaded', info => sendUpdateStatus('update-downloaded', { info }));
-autoUpdater.on('error', err => sendUpdateStatus('error', { error: String(err) }));
+if (autoUpdater) {
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking-for-update'));
+  autoUpdater.on('update-available', info => sendUpdateStatus('update-available', { info }));
+  autoUpdater.on('update-not-available', info => sendUpdateStatus('update-not-available', { info }));
+  autoUpdater.on('download-progress', progress => sendUpdateStatus('download-progress', { progress }));
+  autoUpdater.on('update-downloaded', info => sendUpdateStatus('update-downloaded', { info }));
+  autoUpdater.on('error', err => sendUpdateStatus('error', { error: String(err) }));
+}
 
 app.on('activate', () => {
   if (win === null) {
