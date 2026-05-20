@@ -88,6 +88,15 @@ export class AzureDevOpsService {
     );
   }
 
+  private formatTesterName(point: any): string {
+    const name = point.tester?.displayName || point.tester?.name || point.testerName || point.assignedTo?.displayName || point.assignedTo?.name || point.lastResult?.tester?.displayName || point.lastResult?.owner?.displayName || point.lastResult?.owner?.name || '';
+    if (!name) {
+      return 'Sin asignar';
+    }
+    const cleaned = name.replace(/\(([^)]+)\)/g, '').trim();
+    return cleaned || 'Sin asignar';
+  }
+
   getMetrics(iterationIdOrPath: string): Observable<CMMIMetrics> {
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of({} as CMMIMetrics);
@@ -1095,6 +1104,7 @@ allPointsList.forEach(({ plan, suite, points }) => {
                     const lastUpdated = pt.lastUpdatedDate || pt.lastResultDetails?.dateCompleted || pt.lastRun?.dateCompleted || '';
                     const lastUpdatedTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
                     const isExecutedInSprint = lastUpdatedTime >= start && lastUpdatedTime <= end;
+                    const onTime = isExecutedInSprint || (lastUpdatedTime > 0 && lastUpdatedTime <= end);
 
                     if (isPlanForSprint || isExecutedInSprint) {
                       allPoints.push({
@@ -1106,9 +1116,10 @@ allPointsList.forEach(({ plan, suite, points }) => {
                         testCaseId: pt.testCase?.id ? parseInt(pt.testCase.id) : (pt.testCaseId ? parseInt(pt.testCaseId) : 0),
                         testCaseTitle: pt.testCaseTitle || pt.testCase?.name || pt.testCase?.title || `Test Case #${pt.testCase?.id || pt.testCaseId || ''}`,
                         outcome: pt.outcome || 'None',
-                        tester: pt.tester?.displayName || 'Sin asignar',
+                        tester: this.formatTesterName(pt),
                         lastUpdatedDate: lastUpdated,
-                        isExecutedInSprint
+                        isExecutedInSprint,
+                        onTime
                       });
                     }
                   });

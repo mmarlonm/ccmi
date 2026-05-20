@@ -5,7 +5,7 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 import { AIService } from '../../services/ai.service';
 import { PdfService } from '../../services/pdf.service';
 import { CMMIMetrics } from '../../models/metrics.model';
-import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown } from 'lucide-angular';
+import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight } from 'lucide-angular';
 import { Chart, registerables } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 
@@ -1635,6 +1635,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                     <th class="p-3">Test Point ID</th>
                     <th class="p-3">Test Case ID</th>
                     <th class="p-3">Tester</th>
+                    <th class="p-3 text-center">En Tiempo</th>
                     <th class="p-3 text-center">Resultado</th>
                   </tr>
                 </thead>
@@ -1660,7 +1661,15 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                         <td class="p-2 font-medium truncate max-w-[150px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
                         <td class="p-2 text-slate-500 font-mono text-[10px]">#{{ pt.testPointId }}</td>
                         <td class="p-2 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId); $event.stopPropagation()">#{{ pt.testCaseId }}</td>
-                        <td class="p-2 text-slate-500">{{ pt.tester || pt.testerName || 'Sin asignar' }}</td>
+                        <td class="p-2 text-slate-500">{{ pt.tester || 'Sin asignar' }}</td>
+                        <td class="p-2 text-center">
+                          <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
+                            'bg-emerald-100 text-emerald-700': pt.onTime,
+                            'bg-red-100 text-red-700': pt.onTime === false
+                          }">
+                            {{ pt.onTime ? 'Sí' : 'No' }}
+                          </span>
+                        </td>
                         <td class="p-2 text-center">
                           <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
                             'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
@@ -1699,8 +1708,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                 'text-green-600': metrics?.testExecution?.status === 'green',
                 'text-amber-500': metrics?.testExecution?.status === 'yellow',
                 'text-rose-500': metrics?.testExecution?.status === 'red'
-              }">{{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%</span></li>
-              
+              }">{{ (metrics?.testExecution?.rate | number:'1.2-2') || '0.00' }}%</span></li>
               <li>
                 <strong>Análisis de resultados e Acciones:</strong>
                 <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
@@ -1760,6 +1768,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   readonly ChevronDown = ChevronDown;
   readonly Layers = Layers;
   readonly Users = Users;
+  readonly CloudDownload = CloudDownload;
+  readonly Search = Search;
+  readonly DownloadCloud = DownloadCloud;
+  readonly ArrowUpRight = ArrowUpRight;
 
   private azureService = inject(AzureDevOpsService);
   private aiService = inject(AIService);
@@ -1897,6 +1909,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.isLoading = false;
     }
   }
+
 
   loadSavedSelection() {
     const saved = localStorage.getItem(this.STORAGE_KEY);
@@ -2572,8 +2585,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           } else {
             deliveryStatus = 'late';
             lateCount++;
-            const diffTime = closedTime - end;
-            daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // Usar días hábiles para calcular el retraso
+            daysLate = this.calculateBusinessDays(end, closedTime, this.getHolidays());
             totalLateDays += daysLate;
           }
         } else {
@@ -3318,22 +3331,97 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
               '#64748b', // Not Executed
               '#cbd5e1'  // Not Applicable
             ],
-            borderWidth: 1
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 8
           }
         ]
       },
       options: {
+        cutout: '65%',
         responsive: true,
         maintainAspectRatio: false,
+        layout: { padding: { top: 12, bottom: 12, left: 12, right: 12 } },
         plugins: {
           legend: {
             display: true,
             position: 'right',
-            labels: { color: textColor, font: { size: 10 } }
+            labels: { color: textColor, font: { size: 10 }, usePointStyle: true, pointStyle: 'circle' }
+          },
+          tooltip: {
+            enabled: true,
+            backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+            titleColor: isDark ? '#f8fafc' : '#0f172a',
+            bodyColor: isDark ? '#e2e8f0' : '#334155',
+            borderColor: isDark ? '#334155' : '#cbd5e1',
+            borderWidth: 1
           }
         }
       }
     });
+  }
+
+  /**
+   * Retorna un array de días festivos en formato YYYY-MM-DD
+   * Incluye días festivos colombianos
+   */
+  getHolidays(): string[] {
+    const year = new Date().getFullYear();
+    return [
+      // Días festivos fijos en Colombia
+      `${year}-01-01`, // Año Nuevo
+      `${year}-01-08`, // Epifanía
+      `${year}-03-29`, // Viernes Santo (ejemplo, variar según el año)
+      `${year}-05-01`, // Día del Trabajo
+      `${year}-06-10`, // Corpus Christi
+      `${year}-06-17`, // Sagrado Corazón
+      `${year}-07-01`, // San Pedro y San Pablo
+      `${year}-07-04`, // Independencia
+      `${year}-08-07`, // Batalla de Boyacá
+      `${year}-08-15`, // Asunción
+      `${year}-11-01`, // Todos los Santos
+      `${year}-11-11`, // Independencia de Cartagena
+      `${year}-12-08`, // Inmaculada Concepción
+      `${year}-12-25`, // Navidad
+    ];
+  }
+
+  /**
+   * Calcula los días hábiles entre dos fechas, excluyendo sábados, domingos y días festivos
+   * @param startDate - Fecha de inicio (timestamp)
+   * @param endDate - Fecha de fin (timestamp)
+   * @param holidays - Array de fechas festivas en formato YYYY-MM-DD
+   * @returns Número de días hábiles
+   */
+  calculateBusinessDays(startDate: number, endDate: number, holidays: string[] = []): number {
+    if (startDate >= endDate) return 0;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Normalizar fechas a medianoche
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    // Crear set de días festivos para búsqueda rápida
+    const holidaySet = new Set(holidays);
+
+    let businessDays = 0;
+    const currentDate = new Date(start);
+
+    while (currentDate <= end) {
+      const dayOfWeek = currentDate.getDay();
+      const dateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Si no es sábado (6) ni domingo (0) y no es día festivo
+      if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaySet.has(dateStr)) {
+        businessDays++;
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return businessDays;
   }
 
   async export() {

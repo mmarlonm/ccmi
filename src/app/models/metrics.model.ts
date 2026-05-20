@@ -184,6 +184,8 @@ export interface CMMIMetrics {
       outcome: string;
       tester: string;
       lastUpdatedDate?: string;
+      onTime?: boolean;
+      isExecutedInSprint?: boolean;
     }>;
   };
 }
