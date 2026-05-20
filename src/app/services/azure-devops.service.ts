@@ -25,7 +25,16 @@ export class AzureDevOpsService {
     if (!config || !config.azure.organization) return of([]);
     return this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/classificationnodes/Iterations?$depth=5&api-version=7.0`, { headers: this.getHeaders() })
       .pipe(
-        map(res => this.flattenNodes(res).filter(node => node.path.toLowerCase().includes('mayansoft'))),
+        map(res => {
+          const nodes = this.flattenNodes(res);
+          return nodes
+            .filter(node => node.path.toLowerCase().includes('mayansoft'))
+            .sort((a: any, b: any) => {
+              const da = a.startDate ? new Date(a.startDate).getTime() : 0;
+              const db = b.startDate ? new Date(b.startDate).getTime() : 0;
+              return da - db; // ascending: oldest → newest
+            });
+        }),
         catchError(() => of([]))
       );
   }
@@ -47,7 +56,8 @@ export class AzureDevOpsService {
     // ADO path from classificationnodes already includes project name, e.g:
     // \Bepensa - DSD Bebidas - OpeCD 2.0\Iteration\Sprint 36
     const nodePath = node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name);
-    const entry = { id: node.identifier, name: node.name, path: nodePath };
+    const attrs = node.attributes || {};
+    const entry = { id: node.identifier, name: node.name, path: nodePath, startDate: attrs.startDate || '' };
     this.iterationPathMap.set(node.identifier, nodePath);
     let result: any[] = [entry];
     if (node.children) {
@@ -117,11 +127,11 @@ export class AzureDevOpsService {
               if (ids.length === 0) return of(this.getEmptyMetrics());
 
               const fields = [
-                'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath',
+                'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
                 'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
                 'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
                 'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Priority',
-                'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State'
+                'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
               ].join(',');
 
               return this.getWorkItemDetails(ids, fields).pipe(
@@ -134,17 +144,37 @@ export class AzureDevOpsService {
                       .map((d: any) => d.fields['System.Parent'] as number)
                       .filter((pid: number) => !fetchedIds.has(pid))
                   )];
-                  if (parentIds.length === 0) return of(details);
-                  console.log(`ADO Service: Resolving ${parentIds.length} parents...`);
-                  return this.getWorkItemDetails(parentIds, fields).pipe(
-                    map((parents: any[]) => {
-                      const toAdd = parents.filter((p: any) => ['Feature', 'User Story'].includes(p.fields['System.WorkItemType']));
-                      return [...details, ...toAdd];
+
+                  const linkedIdsToFetch = new Set<number>();
+                  details.forEach((item: any) => {
+                    if (item.relations) {
+                      item.relations.forEach((rel: any) => {
+                        const idMatch = rel.url.match(/workItems\/(\d+)/i);
+                        if (idMatch) {
+                          const targetId = parseInt(idMatch[1]);
+                          if (!fetchedIds.has(targetId)) {
+                            linkedIdsToFetch.add(targetId);
+                          }
+                        }
+                      });
+                    }
+                  });
+
+                  const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
+                  if (additionalIds.length === 0) return of(details);
+                  console.log(`ADO Service: Resolving ${additionalIds.length} parents and linked items...`);
+                  return this.getWorkItemDetails(additionalIds, fields).pipe(
+                    map((extraItems: any[]) => {
+                      return [...details, ...extraItems];
                     })
                   );
                 }),
                 switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
-                map(details => this.processWorkItemsFlat(details, info)),
+                switchMap(details => {
+                  const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
+                  const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath);
+                  return of(metrics);
+                }),
                 catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
               );
             }),
@@ -203,17 +233,53 @@ export class AzureDevOpsService {
         if (ids.length === 0) return of(this.getEmptyMetrics());
 
         const fields = [
-          'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath',
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
           'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
           'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
-          'System.AssignedTo', 'Microsoft.VSTS.Common.Priority', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State'
+          'System.AssignedTo', 'Microsoft.VSTS.Common.Priority', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
         ].join(',');
 
           return this.getWorkItemDetails(ids, fields).pipe(
             timeout(20000),
-            switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
-            map(details => this.processWorkItemsFlat(details))
-          );
+            switchMap(details => {
+              const fetchedIds = new Set(details.map((d: any) => d.id));
+              const parentIds: number[] = [...new Set(
+                details
+                  .filter((d: any) => d.fields['System.Parent'])
+                  .map((d: any) => d.fields['System.Parent'] as number)
+                  .filter((pid: number) => !fetchedIds.has(pid))
+              )];
+
+              const linkedIdsToFetch = new Set<number>();
+              details.forEach((item: any) => {
+                if (item.relations) {
+                  item.relations.forEach((rel: any) => {
+                    const idMatch = rel.url.match(/workItems\/(\d+)/i);
+                    if (idMatch) {
+                      const targetId = parseInt(idMatch[1]);
+                      if (!fetchedIds.has(targetId)) {
+                        linkedIdsToFetch.add(targetId);
+                      }
+                    }
+                  });
+                }
+              });
+
+              const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
+              if (additionalIds.length === 0) return of(details);
+              console.log(`ADO Service WIQL: Resolving ${additionalIds.length} parents and linked items...`);
+              return this.getWorkItemDetails(additionalIds, fields).pipe(
+                map((extraItems: any[]) => {
+                  return [...details, ...extraItems];
+                })
+              );
+            }),
+             switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
+              switchMap(allDetails => {
+                const metrics = this.processWorkItemsFlat(allDetails, { path: iterationPath, name: iterationPath.split('\\').pop() || '' }, iterationPath);
+                return of(metrics);
+              })
+           );
       }),
       catchError(err => {
         console.error('WIQL Error or Timeout:', err);
@@ -293,7 +359,7 @@ export class AzureDevOpsService {
     );
   }
 
-  private processWorkItemsFlat(items: any[], iterationInfo?: any): CMMIMetrics {
+  private processWorkItemsFlat(items: any[], iterationInfo?: any, absoluteIterationPath?: string): CMMIMetrics {
     const iterationName = iterationInfo?.name || '';
     const startDate = iterationInfo?.attributes?.startDate || '';
     const endDate = iterationInfo?.attributes?.finishDate || '';
@@ -402,7 +468,8 @@ export class AzureDevOpsService {
             createdDate: b.fields['System.CreatedDate'],
             closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
             changedDate: b.fields['System.ChangedDate'],
-            status: b.fields['System.State']
+            status: b.fields['System.State'],
+            tags: b.fields['System.Tags'] || ''
           };
         });
 
@@ -435,6 +502,7 @@ export class AzureDevOpsService {
           project: p.fields['System.AreaPath'] || 'OPE20',
           type: p.fields['System.WorkItemType'],
           id: p.id.toString(),
+          parentId: p.fields['System.Parent']?.toString() || '',
           isw,
           level: p.fields['Custom.Level'] || 'ISW MID',
           size,
@@ -562,6 +630,242 @@ export class AzureDevOpsService {
     // Defect Density calculation
     const defectDensity = totalSize > 0 ? bugs.length / totalSize : 0;
 
+    // Defect Removal Efficiency (EED) calculation
+    const getLocalCalendarDate = (dateStr: string | undefined, isEndOfDay: boolean = false): number => {
+      if (!dateStr) return 0;
+      const d = new Date(dateStr);
+      const year = d.getUTCFullYear();
+      const month = d.getUTCMonth();
+      const day = d.getUTCDate();
+      const localDate = new Date(year, month, day);
+      if (isEndOfDay) {
+        localDate.setHours(23, 59, 59, 999);
+      } else {
+        localDate.setHours(0, 0, 0, 0);
+      }
+      return localDate.getTime();
+    };
+
+    const start = startDate ? getLocalCalendarDate(startDate, false) : 0;
+    const end = endDate ? getLocalCalendarDate(endDate, true) : 0;
+    const eedBugs: any[] = [];
+    const seenBugs = new Set<number>();
+    
+    // First, collect bugs linked to requirements
+    devItems.forEach(item => {
+      item.relatedBugs?.forEach(bug => {
+        // Skip UAT bugs for EED metric
+        const bugTags = (bug.tags || '').toLowerCase().split(';').map((t: string) => t.trim());
+        if (bugTags.some((t: string) => t === 'uat' || t.includes('uat'))) {
+          return;
+        }
+
+        if (!seenBugs.has(bug.id)) {
+          seenBugs.add(bug.id);
+          const state = bug.status || 'Active';
+          const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(state);
+          let closedTime = 0;
+          let alignment: 'on-time' | 'late' | 'none' = 'none';
+          
+          if (isClosed) {
+            const closedDateStr = bug.closedDate || bug.changedDate;
+            if (closedDateStr) {
+              closedTime = getLocalCalendarDate(closedDateStr, false);
+              const isWithinSprint = (!start || closedTime >= start) && (!end || closedTime <= end);
+              if (isWithinSprint) {
+                alignment = 'on-time';
+              } else {
+                alignment = 'late';
+              }
+            } else {
+              alignment = 'on-time';
+            }
+          }
+          
+          eedBugs.push({
+            project: item.project,
+            iteration: iterationName,
+            startDate,
+            endDate,
+            parentType: item.type === 'Feature' ? 'Feature' : 'User Story',
+            parentId: item.id,
+            isw: bug.assignedTo || item.isw || 'Sin asignar',
+            bugId: bug.id.toString(),
+            title: bug.title,
+            createdDate: bug.createdDate,
+            closedDate: bug.closedDate,
+            status: state,
+            alignment,
+            isKanban: false
+          });
+        }
+      });
+    });
+
+    // Then, collect standalone bugs in the iteration that weren't linked
+    bugs.forEach(b => {
+      const bId = parseInt(b.id.toString());
+      if (!seenBugs.has(bId)) {
+        // Skip UAT bugs for EED metric
+        const bugTagsStr = b.fields['System.Tags'] || '';
+        const bugTags = bugTagsStr.toLowerCase().split(';').map((t: string) => t.trim());
+        if (bugTags.some((t: string) => t === 'uat' || t.includes('uat'))) {
+          return;
+        }
+
+        seenBugs.add(bId);
+        const state = b.fields['System.State'];
+        const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(state);
+        let closedTime = 0;
+        let alignment: 'on-time' | 'late' | 'none' = 'none';
+        
+        if (isClosed) {
+          const closedDateStr = b.fields['Microsoft.VSTS.Common.ClosedDate'] || b.fields['System.ChangedDate'];
+          if (closedDateStr) {
+            closedTime = getLocalCalendarDate(closedDateStr, false);
+            const isWithinSprint = (!start || closedTime >= start) && (!end || closedTime <= end);
+            if (isWithinSprint) {
+              alignment = 'on-time';
+            } else {
+              alignment = 'late';
+            }
+          } else {
+            alignment = 'on-time';
+          }
+        }
+        
+        const assignedTo = b.fields['System.AssignedTo'];
+        const isw = getDisplayName(assignedTo) || 'Sin asignar';
+        
+        const createdDateStr = b.fields['System.CreatedDate'];
+        const createdTime = createdDateStr ? getLocalCalendarDate(createdDateStr, false) : 0;
+        const isKanban = start > 0 && createdTime > 0 && createdTime < start;
+
+        eedBugs.push({
+          project: b.fields['System.AreaPath'] || 'OPE20',
+          iteration: iterationName,
+          startDate,
+          endDate,
+          parentType: 'Standalone',
+          parentId: '',
+          isw: isw,
+          bugId: b.id.toString(),
+          title: b.fields['System.Title'] || '',
+          createdDate: b.fields['System.CreatedDate'],
+          closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
+          status: state,
+          alignment,
+          isKanban
+        });
+      }
+    });
+
+    const sprintBugs = eedBugs.filter(eb => !eb.isKanban);
+    const totalBugs = sprintBugs.length;
+    const closedEnTiempo = sprintBugs.filter(eb => eb.alignment === 'on-time').length;
+    const closedFueraTiempo = sprintBugs.filter(eb => eb.alignment === 'late').length;
+    const proposedCount = sprintBugs.filter(eb => ['Proposed', 'New'].includes(eb.status)).length;
+    const resolvedCount = sprintBugs.filter(eb => eb.status === 'Resolved').length;
+    const activeCount = sprintBugs.filter(eb => ['Active', 'Approved', 'Committed'].includes(eb.status)).length;
+    
+    // EED represents Defect Removal Efficiency: (Total Closed Bugs / Total Bugs) * 100
+    const eedRate = totalBugs > 0 ? ((closedEnTiempo + closedFueraTiempo) / totalBugs) * 100 : 100;
+    const eedStatus = eedRate >= 81 ? 'green' : (eedRate >= 71 ? 'yellow' : 'red');
+
+    // --- ESCAPED BUGS METRIC (3.6) CALCULATION ---
+    const getBugClassification = (tagsStr: string | undefined): 'testing' | 'uat' | 'produccion' | 'ignore' => {
+      const tags = (tagsStr || '').toLowerCase().split(';').map(t => t.trim());
+      
+      const hasNoInyectado = tags.some(t => 
+        t.includes('noinyectado') || 
+        t.includes('no inyectado') ||
+        (t.includes('no') && t.includes('inyect')) ||
+        (t.includes('sin') && t.includes('inyect'))
+      );
+      if (hasNoInyectado) {
+        return 'ignore';
+      }
+
+      const hasUat = tags.some(t => t.includes('uat'));
+      if (hasUat) {
+        const hasInyectado = tags.some(t => t.includes('inyectado'));
+        const hasSprint = tags.some(t => t.includes('sprint'));
+        const hasInyectadoSprint = (hasInyectado && hasSprint) || tags.some(t => t.includes('inyectado') && t.includes('sprint'));
+        return hasInyectadoSprint ? 'uat' : 'ignore';
+      }
+
+      const hasProd = tags.some(t => 
+        t.includes('prod') || 
+        t.includes('producci') || 
+        t.includes('escapado')
+      );
+      if (hasProd) {
+        return 'produccion';
+      }
+
+      return 'testing';
+    };
+
+    const escapedBugsList = bugs.map(b => {
+      const tagsStr = b.fields['System.Tags'] || '';
+      const classification = getBugClassification(tagsStr);
+      
+      if (classification === 'ignore') return null;
+
+      const bugIteration = absoluteIterationPath || iterationInfo?.path || b.fields['System.IterationPath'] || '';
+
+      return {
+        project: b.fields['System.AreaPath'] || 'OPE20',
+        iteration: bugIteration,
+        bugId: b.id.toString(),
+        title: b.fields['System.Title'] || '',
+        createdDate: b.fields['System.CreatedDate'],
+        closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
+        status: b.fields['System.State'] || '',
+        isw: getDisplayName(b.fields['System.AssignedTo']) || 'Sin asignar',
+        classification: classification
+      };
+    }).filter(b => b !== null);
+
+    let escapedBugsTesting = 0;
+    let escapedBugsUat = 0;
+    let escapedBugsProd = 0;
+
+    escapedBugsList.forEach((b: any) => {
+      if (b.classification === 'testing') escapedBugsTesting++;
+      else if (b.classification === 'uat') escapedBugsUat++;
+      else if (b.classification === 'produccion') escapedBugsProd++;
+    });
+
+    const escapedTotalBugs = escapedBugsTesting + escapedBugsUat + escapedBugsProd;
+    const escapedBeforeRelease = escapedBugsTesting + escapedBugsUat;
+    const escapedRate = escapedBeforeRelease > 0 ? (escapedBugsProd / escapedBeforeRelease) * 100 : 0;
+    const escapedStatus = escapedRate <= 33 ? 'green' : (escapedRate <= 40 ? 'yellow' : 'red');
+
+    // Print to console as requested
+    console.log(`\n=== METRIC 3.6: ESCAPED BUGS FOUND IN CONTEXT ===`);
+    console.log(`Sprint: "${iterationName}" (${absoluteIterationPath || iterationInfo?.path || 'N/A'})`);
+    console.log(`Total bugs resolved from sprint work items: ${bugs.length}`);
+    bugs.forEach(b => {
+      const tagsStr = b.fields['System.Tags'] || '';
+      const bugIteration = absoluteIterationPath || iterationInfo?.path || b.fields['System.IterationPath'] || '';
+      console.log(`- Bug #${b.id}: "${b.fields['System.Title']}" | Iteration: "${bugIteration}" (DevOps: "${b.fields['System.IterationPath']}") | Tags: "${tagsStr}" | Classification: ${getBugClassification(tagsStr)}`);
+    });
+    console.log(`Metrics calculation: Testing=${escapedBugsTesting}, UAT=${escapedBugsUat}, Prod=${escapedBugsProd}, Rate=${escapedRate.toFixed(2)}%, Status=${escapedStatus}`);
+    console.log(`==================================================\n`);
+
+    const escapedBugsResult = {
+      bugsTesting: escapedBugsTesting,
+      bugsUat: escapedBugsUat,
+      bugsProd: escapedBugsProd,
+      totalBugs: escapedTotalBugs,
+      rate: escapedRate,
+      status: escapedStatus as 'green' | 'yellow' | 'red',
+      stdDeviation: 0,
+      bugsList: escapedBugsList as any[],
+      rows: []
+    };
+
     return {
       iterationName,
       startDate,
@@ -600,16 +904,18 @@ export class AzureDevOpsService {
         density: defectDensity,
         status: defectDensity <= 0.18 ? 'green' : (defectDensity <= 0.23 ? 'yellow' : 'red')
       },
-      riskCriticality: {
-        risks: risks.map(i => ({
-          id: i.id,
-          title: i.fields['System.Title'],
-          impact: i.fields['Microsoft.VSTS.Common.Priority'] || 3,
-          probability: 0.5,
-          score: (i.fields['Microsoft.VSTS.Common.Priority'] || 3) * 5
-        })),
-        totalScore: risks.length > 0 ? 15 : 0 // Simplified
-      }
+      defectRemovalEfficiency: {
+        totalBugs: totalBugs,
+        closedOnTime: closedEnTiempo,
+        closedLate: closedFueraTiempo,
+        proposed: proposedCount,
+        resolved: resolvedCount,
+        active: activeCount,
+        rate: eedRate,
+        status: eedStatus,
+        bugsList: eedBugs
+      },
+      escapedBugs: escapedBugsResult
     };
   }
 
@@ -622,7 +928,228 @@ export class AzureDevOpsService {
       effortVariance: { planned: 0, actual: 0, rate: 0, stdDeviation: 0, avgIndividualRate: 0, absoluteRate: 0, status: 'green' },
       rework: { reqEffort: 0, reqRework: 0, bugRework: 0, totalRework: 0, rate: 0, status: 'green' },
       defectDensity: { bugs: 0, size: 0, density: 0, status: 'green' },
-      riskCriticality: { risks: [], totalScore: 0 }
+      defectRemovalEfficiency: {
+        totalBugs: 0,
+        closedOnTime: 0,
+        closedLate: 0,
+        proposed: 0,
+        resolved: 0,
+        active: 0,
+        rate: 0,
+        status: 'green',
+        bugsList: []
+      },
+      escapedBugs: {
+        bugsTesting: 0,
+        bugsUat: 0,
+        bugsProd: 0,
+        totalBugs: 0,
+        rate: 0,
+        status: 'green',
+        stdDeviation: 0,
+        bugsList: []
+      }
+    };
+  }
+
+  private fetchEscapedBugsData(): Observable<any> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) {
+      return of({
+        bugsTesting: 0,
+        bugsUat: 0,
+        bugsProd: 0,
+        totalBugs: 0,
+        rate: 0,
+        status: 'green',
+        stdDeviation: 0,
+        bugsList: [],
+        rows: []
+      });
+    }
+    const headers = this.getHeaders();
+    const project = config.azure.project;
+    const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${project.replace(/'/g, "''")}' AND [System.WorkItemType] = 'Bug' AND [System.CreatedDate] >= @today - 180`;
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+      { query: wiqlQuery },
+      { headers }
+    ).pipe(
+      timeout(15000),
+      switchMap(res => {
+        const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
+        if (ids.length === 0) {
+          return of({
+            bugsTesting: 0,
+            bugsUat: 0,
+            bugsProd: 0,
+            totalBugs: 0,
+            rate: 0,
+            status: 'green',
+            stdDeviation: 0,
+            bugsList: [],
+            rows: []
+          });
+        }
+        const fields = [
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.IterationPath', 'System.AreaPath',
+          'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.State', 'System.AssignedTo', 'System.Tags'
+        ].join(',');
+        
+        // Split IDs into chunks of 200 to avoid request URI too long error
+        const chunks: number[][] = [];
+        for (let i = 0; i < ids.length; i += 200) {
+          chunks.push(ids.slice(i, i + 200));
+        }
+
+        const chunkObs = chunks.map(chunk => this.getWorkItemDetails(chunk, fields));
+        return forkJoin(chunkObs).pipe(
+          map(results => {
+            // Flatten results array
+            const details: any[] = [];
+            results.forEach(res => details.push(...res));
+            return this.processEscapedBugs(details);
+          })
+        );
+      }),
+      catchError(err => {
+        console.error('Error in fetchEscapedBugsData:', err);
+        return of({
+          bugsTesting: 0,
+          bugsUat: 0,
+          bugsProd: 0,
+          totalBugs: 0,
+          rate: 0,
+          status: 'green',
+          stdDeviation: 0,
+          bugsList: [],
+          rows: []
+        });
+      })
+    );
+  }
+
+  private processEscapedBugs(details: any[]): any {
+    const getBugClassification = (tagsStr: string | undefined): 'testing' | 'uat' | 'produccion' | 'ignore' => {
+      const tags = (tagsStr || '').toLowerCase().split(';').map(t => t.trim());
+      
+      // Omit if "no inyectado" is found (e.g. noinyectado, no inyectado, no_inyectado, sin inyectar)
+      const hasNoInyectado = tags.some(t => 
+        t.includes('noinyectado') || 
+        t.includes('no inyectado') ||
+        (t.includes('no') && t.includes('inyect')) ||
+        (t.includes('sin') && t.includes('inyect'))
+      );
+      if (hasNoInyectado) {
+        return 'ignore';
+      }
+
+      // UAT with "inyectado sprint" tag (e.g. bugUAT with inyectadoSprint)
+      const hasUat = tags.some(t => t.includes('uat'));
+      if (hasUat) {
+        const hasInyectado = tags.some(t => t.includes('inyectado'));
+        const hasSprint = tags.some(t => t.includes('sprint'));
+        // Matches any tag like inyectadoSprint or if we have both tags
+        const hasInyectadoSprint = (hasInyectado && hasSprint) || tags.some(t => t.includes('inyectado') && t.includes('sprint'));
+        return hasInyectadoSprint ? 'uat' : 'ignore';
+      }
+
+      // Production bugs
+      const hasProd = tags.some(t => 
+        t.includes('prod') || 
+        t.includes('producci') || 
+        t.includes('escapado')
+      );
+      if (hasProd) {
+        return 'produccion';
+      }
+
+      return 'testing';
+    };
+
+    const getDisplayName = (val: any) => {
+      if (!val) return 'Sin asignar';
+      return typeof val === 'object' ? val.displayName : val;
+    };
+
+    const bugsList = details.map(b => {
+      const tagsStr = b.fields['System.Tags'] || '';
+      const classification = getBugClassification(tagsStr);
+      if (classification === 'ignore') return null;
+      return {
+        project: b.fields['System.AreaPath'] || 'OPE20',
+        iteration: b.fields['System.IterationPath'] || '',
+        bugId: b.id.toString(),
+        title: b.fields['System.Title'] || '',
+        createdDate: b.fields['System.CreatedDate'],
+        closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
+        status: b.fields['System.State'],
+        isw: getDisplayName(b.fields['System.AssignedTo']),
+        classification
+      };
+    }).filter(b => b !== null) as any[];
+
+    let bugsTesting = 0;
+    let bugsUat = 0;
+    let bugsProd = 0;
+
+    bugsList.forEach(b => {
+      if (b.classification === 'testing') bugsTesting++;
+      else if (b.classification === 'uat') bugsUat++;
+      else if (b.classification === 'produccion') bugsProd++;
+    });
+
+    const beforeRelease = bugsTesting + bugsUat;
+    const rate = beforeRelease > 0 ? (bugsProd / beforeRelease) * 100 : 0;
+    const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
+
+    const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string } } = {};
+    bugsList.forEach(b => {
+      const iter = b.iteration;
+      if (!iterationGroups[iter]) {
+        iterationGroups[iter] = { testing: 0, uat: 0, prod: 0, total: 0, project: b.project };
+      }
+      iterationGroups[iter].total++;
+      if (b.classification === 'testing') iterationGroups[iter].testing++;
+      else if (b.classification === 'uat') iterationGroups[iter].uat++;
+      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
+    });
+
+    const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
+      const preRelease = g.testing + g.uat;
+      const rowRate = preRelease > 0 ? Math.min((g.prod / preRelease) * 100, 150) : (g.prod > 0 ? 150 : 0);
+      return {
+        project: g.project,
+        iteration: iteration.split('\\').pop() || iteration,
+        fullIteration: iteration,
+        testing: g.testing,
+        uat: g.uat,
+        produccion: g.prod,
+        total: g.total,
+        rate: rowRate
+      };
+    });
+
+    // Calculate standard deviation of rates
+    const rates = rows.map(r => r.rate);
+    let stdDeviation = 0;
+    if (rates.length > 1) {
+      const mean = rates.reduce((sum, r) => sum + r, 0) / rates.length;
+      const variance = rates.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (rates.length - 1);
+      stdDeviation = Math.sqrt(variance);
+    }
+
+    return {
+      bugsTesting,
+      bugsUat,
+      bugsProd,
+      totalBugs: bugsList.length,
+      rate,
+      status,
+      stdDeviation,
+      bugsList,
+      rows
     };
   }
 }

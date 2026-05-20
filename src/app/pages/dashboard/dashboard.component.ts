@@ -12,8 +12,8 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 Chart.register(...registerables, annotationPlugin);
 
 import { FormsModule } from '@angular/forms';
-import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
 import { ConfigService } from '../../services/config.service';
+import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -63,7 +63,7 @@ import { ConfigService } from '../../services/config.service';
 
   <div *ngIf="metrics" class="space-y-12">
     <!-- Sprint Delivery Timeline & Compliance (Visual Widget) -->
-    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-600 overflow-hidden shadow-lg animate-in fade-in duration-500">
+    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-600 overflow-visible shadow-lg animate-in fade-in duration-500">
       <div class="p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div class="flex items-center gap-3">
@@ -112,7 +112,7 @@ import { ConfigService } from '../../services/config.service';
               <div class="text-[9px] text-slate-400 uppercase font-black tracking-wide">Fase Extendida (Tarde)</div>
               <div class="text-2xl font-black text-amber-600 dark:text-amber-400">
                 {{ timelineSummary.lateCount }} 
-                <span class="text-xs font-medium text-slate-400 dark:text-slate-500"> (+{{ timelineSummary.avgLateDays }}d prom)</span>
+                <span class="text-xs font-medium text-slate-400 dark:text-slate-500"> (+{{ timelineSummary.totalLateDays }} días)</span>
               </div>
             </div>
           </div>
@@ -129,7 +129,7 @@ import { ConfigService } from '../../services/config.service';
         </div>
 
         <!-- The Visual Timeline Track -->
-        <div class="relative pt-36 pb-16 px-4 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-slate-100 dark:border-slate-800 mb-6 overflow-hidden">
+        <div class="relative pt-28 pb-28 px-4 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-slate-100 dark:border-slate-800 mb-6 overflow-visible">
           
           <!-- Timeline grid and markers -->
           <div class="relative h-6 w-full flex items-center">
@@ -162,13 +162,20 @@ import { ConfigService } from '../../services/config.service';
               <span class="text-[10px] font-black text-slate-400 dark:text-slate-500">{{ addDays(metrics!.endDate, 15) | date:'dd MMM':'UTC' }}</span>
               <div class="w-1.5 h-1.5 rounded-full bg-rose-400 border border-white dark:border-slate-900 mt-1"></div>
             </div>
-
+          
             <!-- Dots for deliverables -->
             <ng-container *ngFor="let item of timelineSummary.items">
               <div 
                 [style.left.%]="item.leftPct"
-                [style.transform]="'translate(-50%, ' + (item.verticalTier * -28) + 'px)'"
-                class="absolute group/marker flex flex-col items-center z-10 select-none cursor-pointer transition-all duration-300">
+                [style.transform]="getTimelineTransform(item.verticalTier, 32)"
+                (click)="openWorkItem(item.id)"
+                class="absolute group/marker flex flex-col items-center z-10 hover:z-50 select-none cursor-pointer transition-all duration-300">
+                
+                <!-- Connection Line (Stem) to the track -->
+                <div *ngIf="item.verticalTier > 0" 
+                     class="absolute w-0.5 border-l border-dashed border-slate-350 dark:border-slate-650 z-0"
+                     [ngStyle]="getTimelineStemStyle(item.verticalTier, 32)">
+                </div>
                 
                 <!-- The Dot Marker -->
                 <div class="w-5 h-5 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-md transition-all duration-300 transform"
@@ -201,8 +208,19 @@ import { ConfigService } from '../../services/config.service';
                     <div><span class="text-slate-500 font-bold">ISW:</span> {{ item.isw || 'Sin asignar' }}</div>
                     <div><span class="text-slate-500 font-bold">Estado:</span> {{ item.status }}</div>
                     
+                    <!-- Child Bugs List -->
+                    <div *ngIf="item.relatedBugs?.length" class="mt-2 pt-2 border-t border-slate-800/40">
+                      <span class="text-rose-450 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
+                      <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                        <div *ngFor="let bug of item.relatedBugs" class="flex items-center justify-between text-[8px] text-slate-400">
+                          <span class="truncate max-w-[150px]">#{{ bug.id }}: {{ bug.title }}</span>
+                          <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="bug.status === 'Closed' || bug.status === 'Resolved' || bug.status === 'Done' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ bug.status }}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
-                      <span class="text-slate-500 font-bold">Entrega:</span>
+                      <span class="text-slate-550 font-bold">Entrega:</span>
                       <span class="font-bold uppercase" 
                         [ngClass]="{
                           'text-emerald-400': item.deliveryStatus === 'on-time',
@@ -223,12 +241,11 @@ import { ConfigService } from '../../services/config.service';
                 </div>
 
                 <!-- Label showing item ID -->
-                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400 mt-1 select-none pointer-events-none bg-white dark:bg-slate-800 px-1 rounded border border-slate-100 dark:border-slate-700 shadow-sm">
+                <span class="text-[8px] font-bold text-slate-500 dark:text-slate-400 mt-1 select-none bg-white dark:bg-slate-800 px-1 rounded border border-slate-100 dark:border-slate-700 shadow-sm transition-all group-hover/marker:text-blue-500 group-hover/marker:border-blue-200 group-hover/marker:underline">
                   #{{ item.id }}
                 </span>
               </div>
             </ng-container>
-
           </div>
         </div>
 
@@ -253,7 +270,7 @@ import { ConfigService } from '../../services/config.service';
     <!-- Section 3.1: Development Rate -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-blue-500 overflow-hidden">
       <div class="p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-2">
           <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software</h3>
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.developmentRate.status === 'green',
@@ -263,6 +280,10 @@ import { ConfigService } from '../../services/config.service';
             {{ metrics.developmentRate.status }}
           </div>
         </div>
+
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-blue-500">
+          Esta métrica mide el esfuerzo (tiempo) promedio de atención por unidad de tamaño (size) para los <strong>requerimientos</strong>.
+        </p>
 
         <!-- Summary KPIs -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
@@ -358,7 +379,7 @@ import { ConfigService } from '../../services/config.service';
                       {{ item.type === 'Feature' ? 'FT' : 'US' }}
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-blue-600 font-bold">#{{ item.id }}</td>
+                  <td class="px-3 py-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold" (click)="openWorkItem(item.id)">#{{ item.id }}</td>
                   <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300 max-w-[160px] truncate" [title]="item.isw">{{ item.isw }}</td>
                   <td class="px-3 py-2 text-left">
                     <div class="flex flex-col items-start gap-0.5">
@@ -441,7 +462,7 @@ import { ConfigService } from '../../services/config.service';
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                           <tr *ngFor="let task of item.tasks" class="hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                            <td class="px-3 py-1.5 text-blue-500 font-bold">#{{ task.id }}</td>
+                            <td class="px-3 py-1.5 text-blue-500 hover:text-blue-700 hover:underline cursor-pointer font-bold" (click)="openWorkItem(task.id)">#{{ task.id }}</td>
                             <td class="px-3 py-1.5 text-slate-700 dark:text-slate-300 max-w-[300px] truncate" [title]="task.title">{{ task.title }}</td>
                             <td class="px-3 py-1.5 text-slate-500 max-w-[120px] truncate" [title]="task.assignedTo">{{ task.assignedTo }}</td>
                             <td class="px-3 py-1.5 text-center font-medium">{{ formatEffort(task.originalEstimate) }}</td>
@@ -492,7 +513,7 @@ import { ConfigService } from '../../services/config.service';
     <!-- Section 3.2: Effort -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-violet-500 overflow-hidden">
       <div class="p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex flex-col">
             <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo</h3>
             <!-- Validation Warning -->
@@ -509,6 +530,10 @@ import { ConfigService } from '../../services/config.service';
             {{ metrics.effortVariance.status }}
           </div>
         </div>
+
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
+          Esta métrica mide el porcentaje de desviación entre el esfuerzo real y el esfuerzo planeado en la construcción de <strong>requerimientos</strong>. Considera el tiempo total estimado y el tiempo total real de las tareas asociadas a los elementos de trabajo.
+        </p>
 
         <!-- Summary KPIs (like image) -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -688,7 +713,7 @@ import { ConfigService } from '../../services/config.service';
                     (click)="toggleExpand(item.id, 2)">
                     <div class="flex items-center justify-between">
                       <div class="flex flex-col min-w-0">
-                        <span class="text-[10px] font-bold text-violet-500 truncate flex items-center gap-1">
+                        <span class="text-[10px] font-bold text-violet-500 hover:text-violet-750 hover:underline cursor-pointer truncate flex items-center gap-1" (click)="$event.stopPropagation(); openWorkItem(item.id)">
                           #{{ item.id }}
                           <lucide-icon [name]="Layers" size="8" class="text-slate-300"></lucide-icon>
                         </span>
@@ -790,7 +815,7 @@ import { ConfigService } from '../../services/config.service';
               <ng-container *ngFor="let item of metrics.developmentRate.items">
                 <tr class="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 cursor-pointer transition-colors"
                   (click)="toggleExpand(item.id, 3)">
-                  <td class="p-3 font-bold text-indigo-500">#{{ item.id }}</td>
+                  <td class="p-3 font-bold text-indigo-500 hover:text-indigo-750 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(item.id)">#{{ item.id }}</td>
                   <td class="p-3 text-slate-400">{{ item.type }}</td>
                   <td class="p-3 font-medium">{{ item.isw }}</td>
                   <td class="p-3 text-center font-bold text-slate-400">{{ getEffectiveSize(item) }}</td>
@@ -840,7 +865,7 @@ import { ConfigService } from '../../services/config.service';
                             <div class="flex items-center gap-3">
                               <lucide-icon [name]="Bug" size="12" class="text-rose-500"></lucide-icon>
                               <div class="flex flex-col">
-                                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Bug #{{ bug.id }}</span>
+                                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-500 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(bug.id)">Bug #{{ bug.id }}</span>
                                 <span class="text-[9px] text-slate-500 truncate max-w-[400px]">{{ bug.title }}</span>
                               </div>
                             </div>
@@ -893,7 +918,11 @@ import { ConfigService } from '../../services/config.service';
     <!-- Section 3.4: Defect -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-4">3.4 Métrica: Densidad de Defectos</h3>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.4 Métrica: Densidad de Defectos</h3>
+
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
+          Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
+        </p>
         
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -919,34 +948,624 @@ import { ConfigService } from '../../services/config.service';
       </div>
     </section>
 
-    <!-- Section 3.5: Risk -->
+    <!-- Section 3.5: Defect Removal Efficiency (EED) -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-amber-500 overflow-hidden">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-4">3.5 Métrica: Criticidad de Riesgos</h3>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center">
-            <div class="text-center">
-              <lucide-icon [name]="AlertTriangle" size="48" class="text-amber-500 mx-auto mb-2"></lucide-icon>
-              <div class="text-3xl font-bold">{{ metrics.riskCriticality.totalScore.toFixed(1) }}%</div>
-              <div class="text-xs opacity-50 uppercase">Score Ponderado</div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)</h3>
+          <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
+            'bg-green-100 text-green-700': metrics.defectRemovalEfficiency.status === 'green',
+            'bg-yellow-100 text-yellow-700': metrics.defectRemovalEfficiency.status === 'yellow',
+            'bg-red-100 text-red-700': metrics.defectRemovalEfficiency.status === 'red'
+          }">
+            {{ metrics.defectRemovalEfficiency.status }}
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-amber-500">
+          Esta métrica mide el porcentaje de bugs atendidos contra el total de bugs detectados durante el ciclo de vida de desarrollo. El resultado se expresa en porcentaje y permite evaluar cuántos bugs se detectan y se atienden satisfactoriamente antes de salir a producción. <br/><strong>Fórmula:</strong> KPI EED = (∑ Bugs Closed / # Total de bugs detectados) x 100. Se consideran atendidos en tiempo aquellos que fueron cerrados dentro de la vigencia del sprint.
+        </p>
+
+        <!-- KPI summary grid -->
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-4 mb-8">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Bugs</div>
+            <div class="text-2xl font-bold">{{ metrics.defectRemovalEfficiency.totalBugs }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-emerald-500 uppercase font-bold mb-1">Closed en Tiempo</div>
+            <div class="text-2xl font-bold text-emerald-600">{{ metrics.defectRemovalEfficiency.closedOnTime }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Closed fuera Tiempo</div>
+            <div class="text-2xl font-bold text-rose-600">{{ metrics.defectRemovalEfficiency.closedLate }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-blue-500 uppercase font-bold mb-1">Proposed</div>
+            <div class="text-2xl font-bold text-blue-600">{{ metrics.defectRemovalEfficiency.proposed }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-violet-500 uppercase font-bold mb-1">Resolved</div>
+            <div class="text-2xl font-bold text-violet-600">{{ metrics.defectRemovalEfficiency.resolved }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-amber-500 uppercase font-bold mb-1">Active</div>
+            <div class="text-2xl font-bold text-amber-600">{{ metrics.defectRemovalEfficiency.active }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">EED KPI</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-600': metrics.defectRemovalEfficiency.status === 'green',
+              'text-amber-500': metrics.defectRemovalEfficiency.status === 'yellow',
+              'text-rose-500': metrics.defectRemovalEfficiency.status === 'red'
+            }">
+              {{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%
             </div>
+            <div class="text-[8pt] opacity-50">Umbrales: 81%, 71%</div>
+          </div>
+        </div>
+
+        <!-- Línea de Tiempo del Sprint (EED) -->
+        <div class="mb-10 bg-slate-50 dark:bg-slate-800/10 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-visible">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h4 class="text-sm font-black text-slate-700 dark:text-slate-350 uppercase tracking-wider flex items-center gap-2">
+                <lucide-icon [name]="TrendingUp" size="16" class="text-amber-500"></lucide-icon>
+                LÍNEA DE TIEMPO DEL SPRINT (EED)
+              </h4>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Distribución de requerimientos (US/FT) en el tiempo con sus defectos asociados ramificados</p>
+            </div>
+            
+            <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+              <!-- Visual Filter Toggle -->
+              <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-[9px] font-black uppercase tracking-wider border border-slate-200/50 dark:border-slate-700/50">
+                <button (click)="eedTimelineFilter = 'all'" 
+                        [class]="eedTimelineFilter === 'all' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'" 
+                        class="px-2.5 py-1 rounded-lg transition-all duration-200 cursor-pointer">
+                  Ver Todo (Sprint + Kanban)
+                </button>
+                <button (click)="eedTimelineFilter = 'sprint'" 
+                        [class]="eedTimelineFilter === 'sprint' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'" 
+                        class="px-2.5 py-1 rounded-lg transition-all duration-200 cursor-pointer">
+                  Solo Sprint
+                </button>
+              </div>
+
+              <!-- Legend -->
+              <div class="flex flex-wrap gap-4 text-[9px] uppercase font-black text-slate-500">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></span>
+                  <span>Dentro de Sprint (A Tiempo)</span>
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/20"></span>
+                  <span>Fuera de Sprint (Tarde / Abierto)</span>
+                </span>
+                <span class="flex items-center gap-1.5" *ngIf="eedTimelineFilter === 'all'">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/20"></span>
+                  <span>Bugs de Otro Sprint (Kanban)</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Horizontal Timeline Track for EED -->
+          <div class="relative pt-32 pb-32 px-4 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-slate-100 dark:border-slate-800 mb-6 overflow-visible select-none">
+            
+            <!-- Timeline grid and markers -->
+            <div class="relative h-6 w-full flex items-center">
+              
+              <!-- Track line -->
+              <div class="absolute h-2 left-0 right-0 rounded-full flex overflow-hidden bg-slate-200 dark:bg-slate-700">
+                <!-- Sprint Track: 70% -->
+                <div class="h-full w-[70%] bg-gradient-to-r from-indigo-500/30 to-blue-500/50 border-r border-dashed border-indigo-400/50" title="Vigencia del Sprint"></div>
+                <!-- Post-Sprint Track: 30% -->
+                <div class="h-full w-[30%] bg-gradient-to-r from-amber-500/20 to-rose-500/30" title="Fase Extendida (Post-Sprint)"></div>
+              </div>
+
+              <!-- Start Sprint label marker -->
+              <div class="absolute left-0 -top-8 flex flex-col items-start select-none">
+                <span class="text-[8px] font-black text-slate-400 uppercase tracking-tight">Inicio Sprint</span>
+                <span class="text-[10px] font-black text-slate-700 dark:text-slate-200">{{ metrics!.startDate | date:'dd MMM':'UTC' }}</span>
+                <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 border border-white dark:border-slate-900 mt-1"></div>
+              </div>
+
+              <!-- End Sprint label marker -->
+              <div class="absolute left-[70%] -top-8 flex flex-col items-center select-none transform -translate-x-1/2">
+                <span class="text-[8px] font-black text-slate-400 uppercase tracking-tight">Fin Sprint</span>
+                <span class="text-[10px] font-black text-slate-700 dark:text-slate-200">{{ metrics!.endDate | date:'dd MMM':'UTC' }}</span>
+                <div class="w-1.5 h-1.5 rounded-full bg-red-500 border border-white dark:border-slate-900 mt-1"></div>
+              </div>
+
+              <!-- End Timeline label marker -->
+              <div class="absolute right-0 -top-8 flex flex-col items-end select-none">
+                <span class="text-[8px] font-black text-slate-400 uppercase tracking-tight">Fase Ext. (+15 días)</span>
+                <span class="text-[10px] font-black text-slate-400 dark:text-slate-500">{{ addDays(metrics!.endDate, 15) | date:'dd MMM':'UTC' }}</span>
+                <div class="w-1.5 h-1.5 rounded-full bg-rose-400 border border-white dark:border-slate-900 mt-1"></div>
+              </div>
+
+              <ng-container *ngFor="let node of getFilteredEEDTimelineData(); let idx = index">
+                <div 
+                  [style.left.%]="node.leftPct"
+                  [style.transform]="getEEDTransform(node.verticalTier, 44)"
+                  (mouseenter)="hoveredNodeId = node.id"
+                  (mouseleave)="hoveredNodeId = null"
+                  [style.zIndex]="hoveredNodeId === node.id ? 50 : 10"
+                  class="absolute bottom-3 flex flex-col items-center overflow-visible group/timeline-node select-none cursor-pointer">
+                  
+                  <!-- Connection Line (Stem) to the track -->
+                  <div *ngIf="node.verticalTier > 0" 
+                       class="absolute w-0.5 border-l border-dashed border-slate-350 dark:border-slate-650 z-0" 
+                       [ngStyle]="getEEDStemStyle(node.verticalTier, 44)">
+                  </div>
+
+                  <!-- Horizontal bug branch line -->
+                  <!-- Extending to the right if leftPct <= 75 -->
+                  <div *ngIf="node.bugs?.length && node.leftPct <= 75" 
+                       class="absolute left-3 top-3 w-4 border-t border-dashed border-slate-350 dark:border-slate-650 z-0">
+                  </div>
+                  <!-- Extending to the left if leftPct > 75 -->
+                  <div *ngIf="node.bugs?.length && node.leftPct > 75" 
+                       class="absolute right-3 top-3 w-4 border-t border-dashed border-slate-350 dark:border-slate-650 z-0">
+                  </div>
+
+                  <!-- Leaf Bugs container (Right side) -->
+                  <div *ngIf="node.bugs?.length && node.leftPct <= 75" 
+                       class="absolute left-7 top-1 flex items-center gap-1 z-30">
+                    <div *ngFor="let bug of node.bugs" 
+                         (click)="$event.stopPropagation(); openWorkItem(bug.id)" 
+                         [title]="'Bug #' + bug.id + ': ' + bug.title + ' (' + bug.status + ')'"
+                         class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
+                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
+                      <span>🐞</span>
+                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
+                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <!-- Leaf Bugs container (Left side) -->
+                  <div *ngIf="node.bugs?.length && node.leftPct > 75" 
+                       class="absolute right-7 top-1 flex items-center gap-1 flex-row-reverse z-30">
+                    <div *ngFor="let bug of node.bugs" 
+                         (click)="$event.stopPropagation(); openWorkItem(bug.id)" 
+                         [title]="'Bug #' + bug.id + ': ' + bug.title + ' (' + bug.status + ')'"
+                         class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
+                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
+                      <span>🐞</span>
+                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
+                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Central Node Dot (US/FT/ST) -->
+                  <div class="w-6 h-6 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-md transition-all duration-300 transform hover:scale-125 cursor-pointer z-25"
+                    [ngClass]="{
+                      'bg-emerald-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'dentro',
+                      'bg-rose-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'fuera',
+                      'bg-blue-500 text-white shadow-sm shadow-blue-500/30': node.type === 'Standalone'
+                    }"
+                    (click)="openWorkItem(node.id)">
+                    <span class="text-[8px] font-black leading-none">
+                      {{ node.type === 'Feature' ? 'FT' : (node.type === 'User Story' ? 'US' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
+                    </span>
+                  </div>
+
+                  <!-- Label showing ID (opens in browser) -->
+                  <span class="text-[8px] font-black mt-0.5 select-none cursor-pointer text-slate-650 dark:text-slate-400 hover:text-indigo-500 hover:underline bg-white dark:bg-slate-800 px-1 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700 z-20"
+                    (click)="openWorkItem(node.id)">
+                    {{ node.id === 'kanban_standalone' ? 'Bugs Kanban' : node.id === 'sprint_standalone' ? 'Bugs Sprint' : '#' + node.id }}
+                  </span>
+
+                  <!-- Rich Tooltip on Hover -->
+                  <div class="absolute bottom-8 scale-0 group-hover/timeline-node:scale-100 transition-all duration-200 origin-bottom bg-slate-950/95 dark:bg-slate-900/95 text-white p-3 rounded-xl border border-slate-800 shadow-xl w-60 z-50 text-left pointer-events-none group-hover/timeline-node:pointer-events-auto">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
+                      <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase text-white"
+                        [ngClass]="{
+                          'bg-purple-600': node.type === 'Feature',
+                          'bg-blue-600': node.type === 'User Story',
+                          'bg-emerald-600': node.type === 'SprintStandalone',
+                          'bg-blue-500': node.type === 'Standalone'
+                        }">
+                        {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'USER STORY' : node.type === 'SprintStandalone' ? 'BUGS SIN US/FT' : 'KANBAN (OTRO SPRINT)') }}
+                      </span>
+                      <span class="text-[10px] font-black text-slate-400">{{ ['kanban_standalone', 'sprint_standalone'].includes(node.id) ? '' : '#' + node.id }}</span>
+                    </div>
+                    <div class="text-[10px] font-bold mb-1 truncate">{{ node.title }}</div>
+                    
+                    <div class="text-[9px] space-y-0.5 text-slate-300">
+                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">ISW:</span> {{ node.isw || 'Sin asignar' }}</div>
+                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">Estado:</span> {{ node.status }}</div>
+                      <div *ngIf="node.bugs?.length"><span class="text-rose-400 font-bold">Defectos:</span> {{ node.bugs.length }} bugs</div>
+                      
+                      <!-- Child Stories List (for Feature) -->
+                      <div *ngIf="node.type === 'Feature' && getChildStories(node.id).length" class="mt-2 pt-2 border-t border-slate-800/40">
+                        <span class="text-blue-400 font-bold block mb-1">👤 Historias de Usuario (Hijos):</span>
+                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                          <div *ngFor="let story of getChildStories(node.id)" class="flex items-center justify-between text-[8px] text-slate-400">
+                            <span class="truncate max-w-[150px]">#{{ story.id }}: {{ story.title }}</span>
+                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(story.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ story.status }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Child Tasks List (for User Story) -->
+                      <div *ngIf="node.type === 'User Story' && node.tasks?.length" class="mt-2 pt-2 border-t border-slate-800/40">
+                        <span class="text-indigo-400 font-bold block mb-1">📋 Tareas (Hijas):</span>
+                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                          <div *ngFor="let task of node.tasks" class="flex items-center justify-between text-[8px] text-slate-400">
+                            <span class="truncate max-w-[150px]">#{{ task.id }}: {{ task.title }}</span>
+                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(task.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ task.status }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Child Bugs List -->
+                      <div *ngIf="node.bugs?.length" class="mt-2 pt-2 border-t border-slate-800/40">
+                        <span class="text-rose-450 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
+                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                          <div *ngFor="let bug of node.bugs" class="flex items-center justify-between text-[8px] text-slate-400">
+                            <span class="truncate max-w-[150px]">#{{ bug.id }}: {{ bug.title }}</span>
+                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="bug.status === 'Closed' || bug.status === 'Resolved' || bug.status === 'Done' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ bug.status }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)" class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
+                        <span class="text-slate-550 font-bold">Entrega:</span>
+                        <span class="font-bold uppercase" 
+                          [ngClass]="node.deliveryStatus === 'dentro' ? 'text-emerald-400' : 'text-rose-400'">
+                          {{ node.deliveryStatus === 'dentro' ? 'Dentro del Sprint' : 'Fuera / Tarde' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div class="lg:col-span-2">
+            <!-- Bugs Table for EED - separated in two tables -->
+            <div class="space-y-8">
+              
+              <!-- Sprint Bugs Table -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-3 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">Defectos del Sprint (US y FT)</h5>
+                  </div>
+                  <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-100 dark:border-slate-800/50">Cantidad: {{ getSprintBugsList().length }}</span>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <table class="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                    <thead class="bg-slate-50 dark:bg-slate-800/50 text-[10px] text-slate-400 uppercase font-bold">
+                      <tr>
+                        <th class="px-4 py-3 text-left">Proyecto</th>
+                        <th class="px-4 py-3 text-left">Iteración</th>
+                        <th class="px-4 py-3 text-center">Inicio</th>
+                        <th class="px-4 py-3 text-center">Fin</th>
+                        <th class="px-4 py-3 text-left">Tipo</th>
+                        <th class="px-4 py-3 text-center">ID</th>
+                        <th class="px-4 py-3 text-left">ISW</th>
+                        <th class="px-4 py-3 text-center">Bug</th>
+                        <th class="px-4 py-3 text-left">Título del Bug</th>
+                        <th class="px-4 py-3 text-center">Creación</th>
+                        <th class="px-4 py-3 text-center">Cierre</th>
+                        <th class="px-4 py-3 text-center">Estado</th>
+                        <th class="px-4 py-3 text-left">Observación</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                      <tr *ngFor="let item of getSprintBugsList()" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
+                        <td class="px-4 py-2.5 truncate max-w-[100px]" [title]="item.project">{{ item.project }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[120px]" [title]="item.iteration">{{ item.iteration }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.startDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.endDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5 font-medium">{{ item.parentType }}</td>
+                        <td class="px-4 py-2.5 text-center font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" (click)="item.parentId && openWorkItem(item.parentId)">{{ item.parentId || '—' }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[90px]" [title]="item.isw">{{ item.isw }}</td>
+                        <td class="px-4 py-2.5 text-center font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer" (click)="openWorkItem(item.bugId)">{{ item.bugId }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">{{ item.title }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.createdDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.closedDate ? (item.closedDate | date:'dd/MM/yyyy') : '—' }}</td>
+                        <td class="px-4 py-2.5 text-center">
+                          <span class="px-2 py-0.5 rounded-full text-[9px] font-bold" [ngClass]="{
+                            'bg-green-100 text-green-700': ['Closed', 'Done', 'Completed'].includes(item.status),
+                            'bg-blue-100 text-blue-700': ['Proposed', 'New'].includes(item.status),
+                            'bg-violet-100 text-violet-700': item.status === 'Resolved',
+                            'bg-amber-100 text-amber-700': ['Active', 'Approved'].includes(item.status)
+                          }">{{ item.status }}</span>
+                        </td>
+                        <td class="px-4 py-2.5">
+                          <span class="font-medium" [ngClass]="{
+                            'text-green-600': item.alignment === 'on-time',
+                            'text-rose-500': item.alignment === 'late',
+                            'text-slate-400': item.alignment === 'none'
+                          }">
+                            {{ item.alignment === 'on-time' ? 'Se cerró en tiempo' : item.alignment === 'late' ? 'Se cerró fuera de tiempo' : 'No cerrado' }}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr *ngIf="getSprintBugsList().length === 0">
+                        <td colspan="13" class="text-center py-6 text-slate-400 dark:text-slate-500 italic">No se detectaron bugs del sprint en este periodo.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Kanban/Otro Sprint Bugs Table -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-3 rounded-full bg-blue-500"></span>
+                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">Defectos de Otros Sprints (Atendidos por Kanban)</h5>
+                  </div>
+                  <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-100 dark:border-slate-800/50">Cantidad: {{ getKanbanBugsList().length }}</span>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <table class="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                    <thead class="bg-slate-50 dark:bg-slate-800/50 text-[10px] text-slate-400 uppercase font-bold">
+                      <tr>
+                        <th class="px-4 py-3 text-left">Proyecto</th>
+                        <th class="px-4 py-3 text-left">Iteración</th>
+                        <th class="px-4 py-3 text-center">Inicio</th>
+                        <th class="px-4 py-3 text-center">Fin</th>
+                        <th class="px-4 py-3 text-left">Tipo</th>
+                        <th class="px-4 py-3 text-center">ID</th>
+                        <th class="px-4 py-3 text-left">ISW</th>
+                        <th class="px-4 py-3 text-center">Bug</th>
+                        <th class="px-4 py-3 text-left">Título del Bug</th>
+                        <th class="px-4 py-3 text-center">Creación</th>
+                        <th class="px-4 py-3 text-center">Cierre</th>
+                        <th class="px-4 py-3 text-center">Estado</th>
+                        <th class="px-4 py-3 text-left">Observación</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                      <tr *ngFor="let item of getKanbanBugsList()" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
+                        <td class="px-4 py-2.5 truncate max-w-[100px]" [title]="item.project">{{ item.project }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[120px]" [title]="item.iteration">{{ item.iteration }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.startDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.endDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5">
+                          <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                title="Bug de otro sprint atendido por Kanban">
+                            Otro Sprint (Kanban)
+                          </span>
+                        </td>
+                        <td class="px-4 py-2.5 text-center font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" (click)="item.parentId && openWorkItem(item.parentId)">{{ item.parentId || '—' }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[90px]" [title]="item.isw">{{ item.isw }}</td>
+                        <td class="px-4 py-2.5 text-center font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer" (click)="openWorkItem(item.bugId)">{{ item.bugId }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">{{ item.title }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.createdDate | date:'dd/MM/yyyy' }}</td>
+                        <td class="px-4 py-2.5 text-center">{{ item.closedDate ? (item.closedDate | date:'dd/MM/yyyy') : '—' }}</td>
+                        <td class="px-4 py-2.5 text-center">
+                          <span class="px-2 py-0.5 rounded-full text-[9px] font-bold" [ngClass]="{
+                            'bg-green-100 text-green-700': ['Closed', 'Done', 'Completed'].includes(item.status),
+                            'bg-blue-100 text-blue-700': ['Proposed', 'New'].includes(item.status),
+                            'bg-violet-100 text-violet-700': item.status === 'Resolved',
+                            'bg-amber-100 text-amber-700': ['Active', 'Approved'].includes(item.status)
+                          }">{{ item.status }}</span>
+                        </td>
+                        <td class="px-4 py-2.5">
+                          <span class="font-medium text-slate-450 dark:text-slate-500">
+                            —
+                          </span>
+                        </td>
+                      </tr>
+                      <tr *ngIf="getKanbanBugsList().length === 0">
+                        <td colspan="13" class="text-center py-6 text-slate-400 dark:text-slate-500 italic">No se detectaron bugs Kanban de otros sprints en este periodo.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-2 italic leading-relaxed">
+              La tabla indica los bugs creados a partir de las pruebas de requerimientos u otros bugs que tengan una relación "Affected by" o "Related". Para efectos de medición, los bugs relacionados sólo se contabilizan una vez aunque estén relacionados a varios ítems y aparezcan en la tabla más de una vez.
+            </p>
           </div>
 
           <div class="space-y-4">
             <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
-              <li><strong>Meta establecida para el periodo:</strong> 30%</li>
-              <li><strong>Resultado del periodo:</strong> <span class="text-amber-600 font-bold">{{ metrics.riskCriticality.totalScore.toFixed(1) }}%</span></li>
+              <li><strong>Meta establecida para el periodo:</strong> 81%</li>
+              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
+                'text-green-600': metrics.defectRemovalEfficiency.status === 'green',
+                'text-amber-500': metrics.defectRemovalEfficiency.status === 'yellow',
+                'text-rose-500': metrics.defectRemovalEfficiency.status === 'red'
+              }">{{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</span></li>
               
-              <li *ngIf="metricAnalyses['risk']">
+              <li *ngIf="metricAnalyses['eed']">
                 <strong>Análisis de resultados e Acciones:</strong>
-                <div class="mt-2 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
-                  {{ metricAnalyses['risk'] }}
+                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
+                  {{ metricAnalyses['eed'] }}
                 </div>
               </li>
             </ul>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Section 3.6: Escaped Defects / Bugs Escapados -->
+    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
+      <div class="p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <lucide-icon [name]="Bug" size="18" class="text-indigo-500"></lucide-icon>
+              3.6 Métrica: Porcentaje de Bugs Escapados
+            </h3>
+            <span class="text-xs text-indigo-500 font-bold uppercase tracking-wider">Métrica de Alta Madurez QPPO</span>
+          </div>
+
+        </div>
+
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
+          Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
+          <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100
+        </p>
+
+        <!-- KPI summary grid -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Bugs Testing</div>
+            <div class="text-2xl font-bold">{{ filteredEscapedBugs.bugsTesting }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-indigo-500 uppercase font-bold mb-1">Bugs UAT</div>
+            <div class="text-2xl font-bold text-indigo-600">{{ filteredEscapedBugs.bugsUat }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Bugs Producción</div>
+            <div class="text-2xl font-bold text-rose-600">{{ filteredEscapedBugs.bugsProd }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Bugs</div>
+            <div class="text-2xl font-bold">{{ filteredEscapedBugs.totalBugs }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">KPI Bugs Escapados</div>
+            <div class="text-2xl font-black" [ngClass]="{
+              'text-emerald-600': filteredEscapedBugs.status === 'green',
+              'text-amber-500': filteredEscapedBugs.status === 'yellow',
+              'text-rose-500': filteredEscapedBugs.status === 'red'
+            }">
+              {{ filteredEscapedBugs.rate.toFixed(2) }}%
+            </div>
+            <div class="text-[8px] text-slate-400 mt-0.5">Umbrales: 33%, 40%</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
+            <div class="text-2xl font-black text-slate-800 dark:text-white">
+              {{ filteredEscapedBugs.stdDeviation.toFixed(2) }}%
+            </div>
+            <div class="text-[8px] text-slate-400 mt-0.5">Umbral: 30.00%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <!-- Table -->
+          <div class="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                    <th class="p-3 w-8"></th>
+                    <th class="p-3">Proyecto</th>
+                    <th class="p-3">Iteración</th>
+                    <th class="p-3 text-center">Testing</th>
+                    <th class="p-3 text-center">UAT</th>
+                    <th class="p-3 text-center">Prod</th>
+                    <th class="p-3 text-center">Total</th>
+                    <th class="p-3 text-center">%</th>
+                  </tr>
+                </thead>
+                <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
+                  <ng-container *ngFor="let r of filteredEscapedBugs.rows">
+                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors">
+                      <td class="p-3 text-center">
+                        <button *ngIf="r.bugs?.length" (click)="toggleExpandBugRow(r.fullIteration)"
+                          class="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
+                          <lucide-icon [name]="ChevronDown" size="14" class="transition-transform duration-200"
+                            [class.-rotate-90]="!expandedBugRows.has(r.fullIteration)"></lucide-icon>
+                        </button>
+                        <span *ngIf="!r.bugs?.length" class="text-slate-200 text-xs">—</span>
+                      </td>
+                      <td class="p-3 font-medium truncate max-w-[120px]" [title]="r.projectFull">{{ r.project }}</td>
+                      <td class="p-3 font-medium">{{ r.iteration }}</td>
+                      <td class="p-3 text-center text-slate-500">{{ r.testing }}</td>
+                      <td class="p-3 text-center text-indigo-500">{{ r.uat }}</td>
+                      <td class="p-3 text-center text-rose-500">{{ r.produccion }}</td>
+                      <td class="p-3 text-center font-bold">{{ r.total }}</td>
+                      <td class="p-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full font-bold text-[10px]" [ngClass]="{
+                          'bg-emerald-100 text-emerald-700': r.rate <= 33,
+                          'bg-amber-100 text-amber-700': r.rate > 33 && r.rate <= 40,
+                          'bg-red-100 text-red-700': r.rate > 40
+                        }">
+                          {{ r.rate.toFixed(1) }}%
+                        </span>
+                      </td>
+                    </tr>
+                    <!-- Expanded bugs details row -->
+                    <tr *ngIf="expandedBugRows.has(r.fullIteration)" class="bg-slate-50/70 dark:bg-slate-800/40">
+                      <td colspan="8" class="p-0">
+                        <div class="p-4">
+                          <div class="space-y-2 max-h-96 overflow-y-auto">
+                            <div *ngFor="let bug of r.bugs" class="bg-white dark:bg-slate-700/50 p-3 rounded-lg border border-slate-200 dark:border-slate-600 text-[10px]">
+                              <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                  <div class="flex items-center gap-2 mb-1">
+                                    <span class="font-bold text-blue-600 dark:text-blue-400">#{{ bug.id }}</span>
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase" [ngClass]="{
+                                      'bg-slate-200 text-slate-700': bug.classification === 'testing',
+                                      'bg-indigo-200 text-indigo-700': bug.classification === 'uat',
+                                      'bg-rose-200 text-rose-700': bug.classification === 'produccion'
+                                    }">
+                                      {{ bug.classification }}
+                                    </span>
+                                  </div>
+                                  <div class="text-slate-700 dark:text-slate-300 truncate max-w-md" [title]="bug.title">{{ bug.title }}</div>
+                                  <div class="text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
+                                    <div><span class="font-bold">Estado:</span> {{ bug.status }}</div>
+                                    <div><span class="font-bold">Creado:</span> {{ bug.createdDate | date:'dd/MM/yyyy' }}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div *ngIf="!r.bugs?.length" class="text-center py-4 text-slate-400 italic">
+                              No hay bugs para esta fila.
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-container>
+                  <tr *ngIf="filteredEscapedBugs.rows.length === 0">
+                    <td colspan="8" class="text-center py-6 text-slate-400 italic">No hay datos de bugs para los filtros seleccionados.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div class="h-80">
+              <canvas #escapedChart></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
+          <div class="space-y-4">
+            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
+              <li><strong>Umbral Verde:</strong> &le; 33.00% | <strong>Umbral Rojo:</strong> &gt; 40.00%</li>
+              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
+                'text-green-600': filteredEscapedBugs.status === 'green',
+                'text-amber-500': filteredEscapedBugs.status === 'yellow',
+                'text-rose-500': filteredEscapedBugs.status === 'red'
+              }">{{ filteredEscapedBugs.rate.toFixed(2) }}%</span></li>
+              
+              <li *ngIf="metricAnalyses['escaped']">
+                <strong>Análisis de resultados e Acciones:</strong>
+                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
+                  {{ metricAnalyses['escaped'] }}
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
       </div>
     </section>
   </div>
@@ -979,7 +1598,8 @@ import { ConfigService } from '../../services/config.service';
       [config]="config"
       [metricAnalyses]="metricAnalyses"
       [charts]="chartImages"
-      [period]="selectedIterationName">
+      [period]="selectedIterationName"
+      [filteredEscapedBugs]="filteredEscapedBugs">
     </app-pdf-template>
   </div>
 </div>
@@ -1018,12 +1638,35 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   expandedItemsM1 = new Set<string>();
   expandedItemsM2 = new Set<string>();
   expandedItemsM3 = new Set<string>();
+  expandedItemsEED = new Set<string>();
   expandedBugs = new Set<number>();
+  expandedBugRows = new Set<string>();
+  hoveredNodeId: any = null;
   iswMetrics: any[] = [];
   iswList: string[] = [];
   selectedISW: string = '';
   private rawMetrics?: CMMIMetrics;
-  timelineSummary: any = { onTimeCount: 0, lateCount: 0, openCount: 0, avgLateDays: 0, items: [] };
+  timelineSummary: any = { onTimeCount: 0, lateCount: 0, openCount: 0, avgLateDays: 0, totalLateDays: 0, items: [] };
+  eedTimelineData: any[] = [];
+  eedTimelineFilter: 'all' | 'sprint' = 'all';
+  iterationsLoaded = false; // guarantees loadData() always uses fresh iteration metadata
+
+  getFilteredEEDTimelineData() {
+    if (this.eedTimelineFilter === 'sprint') {
+      return this.eedTimelineData.filter(node => node.type !== 'Standalone');
+    }
+    return this.eedTimelineData;
+  }
+
+  getSprintBugsList() {
+    if (!this.metrics?.defectRemovalEfficiency?.bugsList) return [];
+    return this.metrics.defectRemovalEfficiency.bugsList.filter((item: any) => !item.isKanban);
+  }
+
+  getKanbanBugsList() {
+    if (!this.metrics?.defectRemovalEfficiency?.bugsList) return [];
+    return this.metrics.defectRemovalEfficiency.bugsList.filter((item: any) => item.isKanban);
+  }
 
   toggleExpandBug(bugId: number, event?: Event) {
     if (event) event.stopPropagation();
@@ -1034,13 +1677,34 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  toggleExpandBugRow(iterationPath: string) {
+    if (this.expandedBugRows.has(iterationPath)) {
+      this.expandedBugRows.delete(iterationPath);
+    } else {
+      this.expandedBugRows.add(iterationPath);
+    }
+  }
+
   private readonly STORAGE_KEY = 'cmmi5_dashboard_selection';
 
   @ViewChild('devRateChart') devRateChartCanvas!: ElementRef;
   @ViewChild('effortChart') effortChartCanvas!: ElementRef;
   @ViewChild('defectChart') defectChartCanvas!: ElementRef;
+  @ViewChild('escapedChart') escapedChartCanvas!: ElementRef;
+
+  filteredEscapedBugs = {
+    bugsTesting: 0,
+    bugsUat: 0,
+    bugsProd: 0,
+    totalBugs: 0,
+    rate: 0,
+    status: 'green' as 'green' | 'yellow' | 'red',
+    stdDeviation: 0,
+    rows: [] as any[]
+  };
 
   private charts: Chart[] = [];
+  escapedChart: Chart | null = null;
 
   ngOnInit() {
     this.loadSavedSelection();
@@ -1076,10 +1740,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   loadIterations() {
-    this.azureService.getIterationNodes().subscribe(data => {
-      this.iterations = data;
-      if (!this.selectedIteration && data.length > 0) {
-        this.selectedIteration = data[0].id;
+    this.azureService.getIterationNodes().subscribe({
+      next: data => {
+        this.iterations = data;
+        this.iterationsLoaded = true;
+
+        // Safety net: if the saved sprint was deleted from ADO, pick the latest
+        if (this.selectedIteration && this.iterations.length > 0) {
+          const stillExists = this.iterations.some(i => i.id === this.selectedIteration);
+          if (!stillExists) {
+            this.selectedIteration = this.iterations[this.iterations.length - 1].id;
+          }
+        }
+
+        // Always trigger a fresh data load with the latest iteration metadata
+        this.loadData();
+      },
+      error: err => {
+        console.error('Dashboard: Failed to load iterations', err);
+        this.iterationsLoaded = true; // unblock loadData even on failure
+        if (!this.selectedIteration) {
+          this.isLoading = false;
+        } else {
+          this.loadData(); // retry with saved sprint
+        }
       }
     });
   }
@@ -1095,10 +1779,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   loadData() {
-    if (!this.isConfigured() || !this.selectedIteration) {
+    // Guard: iterations must be loaded before we can fetch metrics (prevents race from ngOnInit)
+    if (!this.iterationsLoaded) return;
+    if (!this.isConfigured()) {
       this.isLoading = false;
       return;
     }
+
+    // Safety net: if selectedIteration is empty (nothing saved) or the saved sprint was deleted,
+    // fall back to the most-recently-started sprint (iterations are already date-sorted ascending).
+    if (!this.selectedIteration && this.iterations.length > 0) {
+      this.selectedIteration = this.iterations[this.iterations.length - 1].id;
+    }
+    if (this.selectedIteration && this.iterations.length > 0) {
+      const stillExists = this.iterations.some(i => i.id === this.selectedIteration);
+      if (!stillExists) {
+        this.selectedIteration = this.iterations[this.iterations.length - 1].id;
+      }
+    }
+
+    if (!this.selectedIteration) {
+      this.isLoading = false;
+      return;
+    }
+
     this.isLoading = true;
     this.azureService.getMetrics(this.selectedIteration).subscribe({
       next: (data) => {
@@ -1154,7 +1858,240 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
 
     this.metrics = filtered;
+    
+    // Auto-expand EED timeline items that have bugs
+    if (this.metrics?.developmentRate?.items) {
+      this.expandedItemsEED.clear();
+      this.metrics.developmentRate.items.forEach(item => {
+        if (item.relatedBugs && item.relatedBugs.length > 0) {
+          this.expandedItemsEED.add(item.id);
+        }
+      });
+      this.expandedItemsEED.add('kanban_standalone');
+      this.expandedItemsEED.add('sprint_standalone');
+    }
+
     this.recalculateTotals();
+    this.eedTimelineData = this.getEEDTimelineData();
+    this.updateEscapedBugsFilteredData();
+  }
+
+  onEscapedFilterChange() {
+    this.updateEscapedBugsFilteredData();
+  }
+
+  updateEscapedBugsFilteredData() {
+    if (!this.metrics?.escapedBugs?.bugsList) return;
+
+    const list = this.metrics.escapedBugs.bugsList;
+    const selectedIterationNode = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
+    const selectedIterationPath = selectedIterationNode?.path || selectedIterationNode?.name || '';
+    const start = this.metrics.startDate ? new Date(this.metrics.startDate).getTime() : 0;
+    const end = this.metrics.endDate ? new Date(new Date(this.metrics.endDate).setHours(23, 59, 59, 999)).getTime() : Infinity;
+
+    console.log('--- updateEscapedBugsFilteredData Debug ---');
+    console.log('Selected Area:', this.selectedArea);
+    console.log('Selected Iteration:', this.selectedIteration);
+    console.log('Selected Iteration Path:', selectedIterationPath);
+    console.log('Total bugs in raw list:', list.length);
+
+    const filteredList = list.filter((b: any) => {
+      console.log(`Checking Bug #${b.bugId}: iteration="${b.iteration}", project="${b.project}"`);
+      if (this.selectedArea) {
+        const normSelectedArea = this.selectedArea.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/').replace('/area/', '/');
+        const normBugArea = b.project.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/').replace('/area/', '/');
+        if (normBugArea !== normSelectedArea && !normBugArea.startsWith(normSelectedArea + '/')) {
+          console.log(`  Filtered out by Area. normBugArea="${normBugArea}" vs normSelectedArea="${normSelectedArea}"`);
+          return false;
+        }
+      }
+      if (selectedIterationPath) {
+        const normSelectedIter = selectedIterationPath.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/');
+        const normBugIter = b.iteration.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/');
+        const normSelectedName = (selectedIterationNode?.name || '').toLowerCase();
+        const bugIterationShort = (b.iteration.split('\\').pop() || b.iteration).toLowerCase();
+        console.log(`  Iteration check: normBugIter="${normBugIter}", normSelectedIter="${normSelectedIter}"`);
+        console.log(`  Name check: bugIterationShort="${bugIterationShort}", normSelectedName="${normSelectedName}"`);
+        if (normBugIter !== normSelectedIter && bugIterationShort !== normSelectedName) {
+          console.log('  Filtered out by Iteration');
+          return false;
+        }
+      }
+      console.log('  Bug accepted!');
+      return true;
+    });
+    console.log('Filtered List count:', filteredList.length);
+
+    let bugsTesting = 0;
+    let bugsUat = 0;
+    let bugsProd = 0;
+
+    filteredList.forEach((b: any) => {
+      if (b.classification === 'testing') bugsTesting++;
+      else if (b.classification === 'uat') bugsUat++;
+      else if (b.classification === 'produccion') bugsProd++;
+    });
+
+    const beforeRelease = bugsTesting + bugsUat;
+    const rate = beforeRelease > 0 ? (bugsProd / beforeRelease) * 100 : 0;
+    const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
+
+    const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string, bugs: any[] } } = {};
+    filteredList.forEach((b: any) => {
+      const iter = b.iteration;
+      if (!iterationGroups[iter]) {
+        iterationGroups[iter] = { testing: 0, uat: 0, prod: 0, total: 0, project: b.project, bugs: [] };
+      }
+      iterationGroups[iter].total++;
+      iterationGroups[iter].bugs.push(b);
+      if (b.classification === 'testing') iterationGroups[iter].testing++;
+      else if (b.classification === 'uat') iterationGroups[iter].uat++;
+      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
+    });
+
+    const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
+      const preRelease = g.testing + g.uat;
+      const rowRate = preRelease > 0 ? Math.min((g.prod / preRelease) * 100, 150) : (g.prod > 0 ? 150 : 0);
+      return {
+        project: g.project.split('\\').pop() || g.project,
+        projectFull: g.project,
+        iteration: iteration.split('\\').pop() || iteration,
+        fullIteration: iteration,
+        testing: g.testing,
+        uat: g.uat,
+        produccion: g.prod,
+        total: g.total,
+        rate: rowRate,
+        bugs: g.bugs
+      };
+    });
+
+    const historyRates = [12.5, 18.2, 8.5, 15.0, rate];
+    let stdDeviation = 0;
+    if (historyRates.length > 1) {
+      const mean = historyRates.reduce((sum, r) => sum + r, 0) / historyRates.length;
+      const variance = historyRates.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (historyRates.length - 1);
+      stdDeviation = Math.sqrt(variance);
+    }
+
+    this.filteredEscapedBugs = {
+      bugsTesting,
+      bugsUat,
+      bugsProd,
+      totalBugs: filteredList.length,
+      rate,
+      status,
+      stdDeviation,
+      rows: rows.sort((a, b) => a.iteration.localeCompare(b.iteration))
+    };
+
+    setTimeout(() => this.updateEscapedChart(), 50);
+  }
+
+  updateEscapedChart() {
+    if (!this.escapedChartCanvas) return;
+
+    if (this.escapedChart) {
+      this.escapedChart.destroy();
+      this.escapedChart = null;
+    }
+
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+    let labels = ['S1', 'S2', 'S3', 'S4', 'Actual'];
+    const match = this.selectedIterationName.match(/Sprint\s*(\d+)/i);
+    if (match) {
+      const currentNum = parseInt(match[1]);
+      labels = [
+        `Sprint ${currentNum - 4}`,
+        `Sprint ${currentNum - 3}`,
+        `Sprint ${currentNum - 2}`,
+        `Sprint ${currentNum - 1}`,
+        `Sprint ${currentNum}`
+      ];
+    } else {
+      labels = ['Anterior 4', 'Anterior 3', 'Anterior 2', 'Anterior 1', this.selectedIterationName];
+    }
+    const rates = [12.5, 18.2, 8.5, 15.0, this.filteredEscapedBugs.rate];
+
+    this.escapedChart = new Chart(this.escapedChartCanvas.nativeElement, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '% Bugs Escapados',
+            data: rates,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#6366f1',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            grid: { color: gridColor },
+            ticks: { color: textColor },
+            min: 0,
+            max: 150,
+            title: { display: true, text: '% Escapados', color: textColor, font: { size: 10 } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: textColor }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          annotation: {
+            annotations: {
+              target: {
+                type: 'line',
+                yMin: 33,
+                yMax: 33,
+                borderColor: '#22c55e',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: {
+                  content: 'Umbral Verde (33%)',
+                  display: true,
+                  position: 'start',
+                  backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                  color: '#fff',
+                  font: { size: 8 }
+                }
+              },
+              limit: {
+                type: 'line',
+                yMin: 40,
+                yMax: 40,
+                borderColor: '#ef4444',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: {
+                  content: 'Umbral Rojo (40%)',
+                  display: true,
+                  position: 'end',
+                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                  color: '#fff',
+                  font: { size: 8 }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
   }
 
   /** Called when user changes size inline in the table */
@@ -1216,7 +2153,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   /** Toggle collapse state of an item row for a specific section */
   toggleExpand(id: string, section: number = 1): void {
-    const set = section === 1 ? this.expandedItemsM1 : (section === 2 ? this.expandedItemsM2 : this.expandedItemsM3);
+    const set = section === 1 ? this.expandedItemsM1 : 
+                section === 2 ? this.expandedItemsM2 : 
+                section === 3 ? this.expandedItemsM3 : this.expandedItemsEED;
     if (set.has(id)) {
       set.delete(id);
     } else {
@@ -1515,8 +2454,172 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       lateCount,
       openCount,
       avgLateDays,
+      totalLateDays,
       items: processedItems
     };
+  }
+
+  getEEDTimelineData(): any[] {
+    if (!this.metrics?.developmentRate?.items) return [];
+
+    const end = this.metrics.endDate ? this.getLocalCalendarDate(this.metrics.endDate, true) : 0;
+    const tree: any[] = [];
+    const seenBugs = new Set<number>();
+
+    // 1. Process all User Stories and Features
+    this.metrics.developmentRate.items.forEach(item => {
+      const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
+      let deliveryStatus: 'dentro' | 'fuera' = 'fuera';
+      
+      const closedDateStr = item.closedDate || item.changedDate;
+      if (isClosed && closedDateStr) {
+        const closedTime = this.getLocalCalendarDate(closedDateStr, false);
+        if (closedTime <= end) {
+          deliveryStatus = 'dentro';
+        }
+      }
+
+      // Process its related bugs
+      const itemBugs = (item.relatedBugs || []).map(bug => {
+        seenBugs.add(bug.id);
+        const bugState = bug.status || 'Active';
+        const bugClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(bugState);
+        let bugDeliveryStatus: 'dentro' | 'fuera' = 'fuera';
+        
+        const bugClosedDateStr = bug.closedDate || bug.changedDate;
+        if (bugClosed) {
+          if (bugClosedDateStr) {
+            const bugClosedTime = this.getLocalCalendarDate(bugClosedDateStr, false);
+            if (bugClosedTime <= end) {
+              bugDeliveryStatus = 'dentro';
+            }
+          }
+        }
+        
+        return {
+          id: bug.id,
+          title: bug.title,
+          status: bugState,
+          deliveryStatus: bugDeliveryStatus,
+          closedDate: bugClosedDateStr,
+          assignedTo: bug.assignedTo
+        };
+      });
+
+      tree.push({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        status: item.status,
+        deliveryStatus,
+        closedDate: closedDateStr,
+        isw: item.isw,
+        bugs: itemBugs,
+        tasks: item.tasks || [],
+        parentId: item.parentId || '',
+        leftPct: this.getItemTimelinePosition(item)
+      });
+    });
+
+    // 2. Process Standalone bugs (those in defectRemovalEfficiency.bugsList not linked to any requirement)
+    const allEEDBugs = this.metrics.defectRemovalEfficiency.bugsList || [];
+    
+    // Split into Kanban standalone bugs and Sprint standalone bugs
+    const kanbanBugs = allEEDBugs.filter(b => b.isKanban);
+    const sprintStandaloneBugs = allEEDBugs.filter(b => !b.isKanban && (b.parentType === 'Standalone' || !seenBugs.has(parseInt(b.bugId))));
+
+    const start = this.metrics?.startDate ? this.getLocalCalendarDate(this.metrics.startDate, false) : 0;
+    const sprintDuration = end - start;
+
+    const getTimelinePctForBugs = (bugsList: any[]) => {
+      let avgTime = 0;
+      let count = 0;
+      bugsList.forEach(b => {
+        if (b.closedDate) {
+          avgTime += this.getLocalCalendarDate(b.closedDate, false);
+          count++;
+        }
+      });
+      const closedTime = count > 0 ? (avgTime / count) : 0;
+      let leftPct = 85; // fallback
+      if (closedTime && sprintDuration > 0) {
+        if (closedTime <= end) {
+          const relativeTime = closedTime - start;
+          const pct = relativeTime / sprintDuration;
+          leftPct = Math.min(Math.max(pct * 70, 2), 70);
+        } else {
+          const diffTime = closedTime - end;
+          const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const extPercent = Math.min(daysLate / 15, 1);
+          leftPct = Math.min(Math.max(70 + extPercent * 28, 70), 98);
+        }
+      }
+      return leftPct;
+    };
+
+    if (kanbanBugs.length > 0) {
+      const leftPct = getTimelinePctForBugs(kanbanBugs);
+      tree.push({
+        id: 'kanban_standalone',
+        type: 'Standalone',
+        title: 'Bugs de Otro Sprint (Atendidos por Kanban)',
+        status: '',
+        deliveryStatus: 'dentro',
+        leftPct,
+        bugs: kanbanBugs.map(b => ({
+          id: parseInt(b.bugId),
+          title: b.title,
+          status: b.status,
+          deliveryStatus: b.alignment === 'on-time' ? 'dentro' : 'fuera',
+          closedDate: b.closedDate,
+          assignedTo: b.isw
+        })),
+        verticalTier: 0
+      });
+    }
+
+    if (sprintStandaloneBugs.length > 0) {
+      const leftPct = getTimelinePctForBugs(sprintStandaloneBugs);
+      // Determine deliveryStatus for the group: 'fuera' if any bug is late or open (none)
+      const hasLateOrOpen = sprintStandaloneBugs.some(b => b.alignment === 'late' || b.alignment === 'none');
+      tree.push({
+        id: 'sprint_standalone',
+        type: 'SprintStandalone',
+        title: 'Bugs del Sprint (Sin Story/FT)',
+        status: '',
+        deliveryStatus: hasLateOrOpen ? 'fuera' : 'dentro',
+        leftPct,
+        bugs: sprintStandaloneBugs.map(b => ({
+          id: parseInt(b.bugId),
+          title: b.title,
+          status: b.status,
+          deliveryStatus: b.alignment === 'on-time' ? 'dentro' : 'fuera',
+          closedDate: b.closedDate,
+          assignedTo: b.isw
+        })),
+        verticalTier: 0
+      });
+    }
+
+    // Sort tree by leftPct to calculate vertical stacking (tiers)
+    tree.sort((a, b) => a.leftPct - b.leftPct);
+
+    // Calculate vertical tier to prevent overlap
+    const pctThreshold = 4.5;
+    tree.forEach((item, index) => {
+      let tier = 0;
+      // Compare with previous items to find overlap
+      for (let i = 0; i < index; i++) {
+        const prev = tree[i];
+        if (Math.abs(item.leftPct - prev.leftPct) < pctThreshold && prev.verticalTier === tier) {
+          tier++;
+          i = -1; // Restart loop to check if we overlap with this new tier too
+        }
+      }
+      item.verticalTier = tier;
+    });
+
+    return tree;
   }
 
   getDeliveryInfo(item: any) {
@@ -1527,7 +2630,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const closedDateStr = item.closedDate || item.changedDate;
     
     if (closedDateStr) {
-      const closedTime = new Date(closedDateStr).getTime();
+      const closedTime = this.getLocalCalendarDate(closedDateStr, false);
       if (closedTime <= end) {
         return { status: 'on-time', days: 0, date: closedDateStr };
       } else {
@@ -1555,7 +2658,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const closedDateStr = item.closedDate || item.changedDate;
     if (!closedDateStr) return 35;
     
-    const closedTime = new Date(closedDateStr).getTime();
+    const closedTime = this.getLocalCalendarDate(closedDateStr, false);
     
     if (closedTime <= end) {
       const relativeTime = closedTime - start;
@@ -1567,6 +2670,72 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const pctLate = Math.min(daysLate / 15, 1);
       return Math.min(Math.max(70 + (pctLate * 25), 72), 95);
     }
+  }
+
+  getEEDFactor(tier: number): number {
+    if (!tier) return 0;
+    const isOdd = tier % 2 !== 0;
+    return isOdd ? -Math.ceil(tier / 2) : (tier / 2);
+  }
+
+  getTimelineTransform(tier: number, step: number = 36): string {
+    const factor = this.getEEDFactor(tier);
+    return `translate(-50%, ${factor * step}px)`;
+  }
+
+  getChildStories(featureId: string): any[] {
+    if (!this.metrics?.developmentRate?.items) return [];
+    return this.metrics.developmentRate.items.filter(item => item.parentId === featureId && item.type === 'User Story');
+  }
+
+  getTimelineStemStyle(tier: number, step: number = 36) {
+    const factor = this.getEEDFactor(tier);
+    if (factor === 0) return { display: 'none' };
+    const height = Math.abs(factor * step);
+    if (factor < 0) {
+      return { top: '10px', height: `${height}px` };
+    } else {
+      return { top: `${10 - height}px`, height: `${height}px` };
+    }
+  }
+
+  getEEDTransform(tier: number, step: number = 44): string {
+    const factor = this.getEEDFactor(tier);
+    return `translate(-50%, ${factor * step}px)`;
+  }
+
+  getEEDStemStyle(tier: number, step: number = 44) {
+    const factor = this.getEEDFactor(tier);
+    if (factor === 0) return { display: 'none' };
+    const height = Math.abs(factor * step);
+    if (factor < 0) {
+      return { top: '12px', height: `${height}px` };
+    } else {
+      return { top: `${12 - height}px`, height: `${height}px` };
+    }
+  }
+
+  openWorkItem(id: number | string | undefined): void {
+    if (!id || id === 'standalone' || id === 'kanban_standalone' || id === 'sprint_standalone') return;
+    const org = this.config?.azure?.organization;
+    const proj = this.config?.azure?.project;
+    if (!org || !proj) return;
+    const url = `https://dev.azure.com/${org}/${proj}/_workitems/edit/${id}`;
+    
+    // Check if running inside Electron
+    const win = window as any;
+    if (win.require) {
+      try {
+        const { shell } = win.require('electron');
+        shell.openExternal(url);
+        return;
+      } catch (e) {
+        console.error('Failed to open external link using Electron shell:', e);
+      }
+    }
+    
+    // Fallback to standard web browser open
+    window.open(url, '_blank');
   }
 
   addDays(dateStr: string | undefined, days: number): Date {
@@ -1878,6 +3047,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   runAI() {
     if (!this.metrics) return;
     this.isAnalyzing = true;
+    this.aiAnalysis = '';
+    this.metricAnalyses = {};
     this.aiService.analyzeMetrics(this.metrics).subscribe({
       next: (res) => {
         this.aiAnalysis = res;
@@ -1893,6 +3064,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   parseAnalysis(text: string) {
+    this.metricAnalyses = {};
     const segments = text.split('[METRICA_FIN]');
     segments.forEach(seg => {
       const lowerSeg = seg.toLowerCase();
@@ -1904,7 +3076,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricAnalyses['tasa de retrabajo'] = val;
       }
       if (lowerSeg.includes('densidad de defectos')) this.metricAnalyses['densidad de defectos'] = seg.split(']')[1]?.trim();
-      if (lowerSeg.includes('criticidad de riesgos')) this.metricAnalyses['risk'] = seg.split(']')[1]?.trim();
+      if (lowerSeg.includes('eficiencia en la eliminación de defectos') || lowerSeg.includes('eed') || lowerSeg.includes('eliminación de defectos')) {
+        const val = seg.split(']')[1]?.trim();
+        this.metricAnalyses['eed'] = val;
+        this.metricAnalyses['eficiencia de eliminación de defectos'] = val;
+      }
+      if (lowerSeg.includes('porcentaje de bugs escapados') || lowerSeg.includes('bugs escapados') || lowerSeg.includes('escapados')) {
+        const val = seg.split(']')[1]?.trim();
+        this.metricAnalyses['escaped'] = val;
+        this.metricAnalyses['bugs escapados'] = val;
+      }
     });
   }
 
@@ -1917,7 +3098,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.chartImages = {
         devRate: this.charts[0]?.toBase64Image() || '',
         effort: this.charts[1]?.toBase64Image() || '',
-        defect: this.charts[2]?.toBase64Image() || ''
+        defect: this.charts[2]?.toBase64Image() || '',
+        escaped: this.escapedChart?.toBase64Image() || ''
       };
 
       // Wait for template to update with images

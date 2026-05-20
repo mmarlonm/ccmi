@@ -15,6 +15,7 @@ export interface CMMIMetrics {
       project: string;
       type: string;
       id: string;
+      parentId?: string;
       isw: string;
       level: string;
       size: number;
@@ -53,6 +54,7 @@ export interface CMMIMetrics {
         closedDate?: string;
         changedDate?: string;
         status?: string;
+        tags?: string;
         tasks: Array<{
           id: number;
           title: string;
@@ -93,9 +95,67 @@ export interface CMMIMetrics {
     density: number;
     status: 'green' | 'yellow' | 'red';
   };
-  riskCriticality: {
+  defectRemovalEfficiency: {
+    totalBugs: number;
+    closedOnTime: number;
+    closedLate: number;
+    proposed: number;
+    resolved: number;
+    active: number;
+    rate: number;
+    status: 'green' | 'yellow' | 'red';
+    bugsList: Array<{
+      project: string;
+      iteration: string;
+      startDate: string;
+      endDate: string;
+      parentType: string;
+      parentId: string;
+      isw: string;
+      bugId: string;
+      title: string;
+      createdDate: string;
+      closedDate: string;
+      status: string;
+      alignment: 'on-time' | 'late' | 'none';
+      isKanban?: boolean;
+      tags?: string;
+      classification?: 'testing' | 'uat' | 'produccion';
+    }>;
+  };
+  escapedBugs?: {
+    bugsTesting: number;
+    bugsUat: number;
+    bugsProd: number;
+    totalBugs: number;
+    rate: number;
+    status: 'green' | 'yellow' | 'red';
+    stdDeviation: number;
+    bugsList: Array<{
+      project: string;
+      iteration: string;
+      bugId: string;
+      title: string;
+      createdDate: string;
+      closedDate?: string;
+      status: string;
+      isw: string;
+      classification: 'testing' | 'uat' | 'produccion';
+    }>;
+    rows?: Array<{
+      project: string;
+      iteration: string;
+      fullIteration: string;
+      testing: number;
+      uat: number;
+      produccion: number;
+      total: number;
+      rate: number;
+    }>;
+  };
+  riskCriticality?: {
     risks: Array<{
-      id: string;
+      id: number;
       title: string;
       impact: number;
       probability: number;

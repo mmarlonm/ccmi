@@ -254,7 +254,7 @@ export class ReportCompletionComponent implements OnInit {
         this.iterations = iters;
         
         if (!this.selectedIteration && iters.length > 0) {
-          this.selectedIteration = iters[0].id;
+          this.selectedIteration = iters[iters.length - 1].id;
           this.loadData();
         } else if (this.selectedIteration) {
           this.loadData();

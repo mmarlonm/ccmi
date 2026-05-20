@@ -70,8 +70,13 @@ ${iswSummary}
       4. Densidad de Defectos: ${metrics.defectDensity.density.toFixed(3)}
          (Semáforo: Verde ≤ 0.18 | Amarillo 0.18–0.23 | Rojo > 0.23)
 
-      5. Criticidad de Riesgos: ${metrics.riskCriticality.totalScore.toFixed(1)}%
-         (Semáforo: Verde ≤ 30% | Amarillo 30–65% | Rojo > 65%)
+      5. Eficiencia en la Eliminación de Defectos (EED): ${metrics.defectRemovalEfficiency.rate.toFixed(2)}%
+         (Semáforo: Verde ≥ 81% | Amarillo 71%–80% | Rojo < 71%)
+         Total Bugs: ${metrics.defectRemovalEfficiency.totalBugs} | Closed en Tiempo: ${metrics.defectRemovalEfficiency.closedOnTime} | Closed fuera de Tiempo: ${metrics.defectRemovalEfficiency.closedLate}
+
+      6. Porcentaje de Bugs Escapados: ${metrics.escapedBugs?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≤ 33% | Amarillo 33%–40% | Rojo > 40%)
+         Bugs Testing: ${metrics.escapedBugs?.bugsTesting ?? 0} | Bugs UAT: ${metrics.escapedBugs?.bugsUat ?? 0} | Bugs Producción: ${metrics.escapedBugs?.bugsProd ?? 0} | Total Bugs: ${metrics.escapedBugs?.totalBugs ?? 0}
 
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
