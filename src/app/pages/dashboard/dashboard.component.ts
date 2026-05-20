@@ -1623,43 +1623,60 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <!-- Table -->
-          <div class="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div class="lg:col-span-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div class="overflow-x-auto max-h-96">
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr class="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                    <th class="p-3">Plan / Suite</th>
-                    <th class="p-3">ID Caso</th>
-                    <th class="p-3">Caso de Prueba</th>
+                    <th class="p-3 w-8"></th>
+                    <th class="p-3">Test Title</th>
+                    <th class="p-3">Test Point ID</th>
+                    <th class="p-3">Test Case ID</th>
                     <th class="p-3">Tester</th>
                     <th class="p-3 text-center">Resultado</th>
                   </tr>
                 </thead>
                 <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
-                  <tr *ngFor="let pt of metrics?.testExecution?.testPoints" class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors">
-                    <td class="p-3 font-medium">
-                      <div class="text-[10px] font-bold truncate max-w-[150px]">{{ pt.planName }}</div>
-                      <div class="text-[9px] text-slate-400 truncate max-w-[150px]">{{ pt.suiteName }}</div>
-                    </td>
-                    <td class="p-3 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId)">#{{ pt.testCaseId }}</td>
-                    <td class="p-3 max-w-[200px] truncate" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
-                    <td class="p-3 text-slate-500">{{ pt.tester }}</td>
-                    <td class="p-3 text-center">
-                      <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
-                        'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
-                        'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
-                        'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
-                        'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
-                        'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
-                      }">
-                        {{ pt.outcome }}
-                      </span>
-                    </td>
-                  </tr>
+                  <ng-container *ngFor="let group of getGroupedTestPoints()">
+                    <!-- Parent row -->
+                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors" 
+                        [class.bg-emerald-50]="expandedTestPoints.has(group.key)"
+                        (click)="toggleExpandTestPoints(group.key)">
+                      <td class="p-3 text-center">
+                        <lucide-icon [name]="ChevronDown" size="14" class="transition-transform duration-200 inline-block"
+                          [class.-rotate-90]="!expandedTestPoints.has(group.key)"></lucide-icon>
+                      </td>
+                      <td class="p-3 font-bold truncate" [title]="group.title">{{ group.title }}
+                        <span class="ml-2 text-[9px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{{ group.points.length }}</span>
+                      </td>
+                      <td colspan="4" class="p-3 text-slate-400 italic">Click to expand</td>
+                    </tr>
+                    <!-- Child rows -->
+                    <ng-container *ngIf="expandedTestPoints.has(group.key)">
+                      <tr *ngFor="let pt of group.points" class="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white/50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td></td>
+                        <td class="p-2 font-medium truncate max-w-[150px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
+                        <td class="p-2 text-slate-500 font-mono text-[10px]">#{{ pt.testPointId }}</td>
+                        <td class="p-2 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId); $event.stopPropagation()">#{{ pt.testCaseId }}</td>
+                        <td class="p-2 text-slate-500">{{ pt.tester || pt.testerName || 'Sin asignar' }}</td>
+                        <td class="p-2 text-center">
+                          <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
+                            'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
+                            'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
+                            'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
+                            'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                            'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
+                          }">
+                            {{ pt.outcome }}
+                          </span>
+                        </td>
+                      </tr>
+                    </ng-container>
+                  </ng-container>
                   <tr *ngIf="!metrics?.testExecution?.testPoints?.length">
-                    <td colspan="5" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para este periodo.</td>
+                    <td colspan="6" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para este periodo.</td>
                   </tr>
                 </tbody>
               </table>
@@ -1667,7 +1684,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
 
           <!-- Chart -->
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+          <div class="lg:col-span-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
             <div class="h-80">
               <canvas #testExecChart></canvas>
             </div>
@@ -1769,6 +1786,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   expandedItemsEED = new Set<string>();
   expandedBugs = new Set<number>();
   expandedBugRows = new Set<string>();
+  expandedTestPoints = new Set<string>();
   hoveredNodeId: any = null;
   iswMetrics: any[] = [];
   iswList: string[] = [];
@@ -1811,6 +1829,39 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     } else {
       this.expandedBugRows.add(iterationPath);
     }
+  }
+
+  toggleExpandTestPoints(groupKey: string) {
+    if (this.expandedTestPoints.has(groupKey)) {
+      this.expandedTestPoints.delete(groupKey);
+    } else {
+      this.expandedTestPoints.add(groupKey);
+    }
+  }
+
+  private _groupedTestPoints: { key: string; title: string; points: any[] }[] = [];
+  private _testPointsVersion = 0;
+
+  getGroupedTestPoints() {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints) return [];
+
+    // Detect changes by length (simple) and rebuild groups by suite
+    const version = testPoints.length;
+    if (version !== this._testPointsVersion) {
+      this._testPointsVersion = version;
+      const groups: { [key: string]: { title: string; points: any[] } } = {};
+      testPoints.forEach((pt: any) => {
+        const planId = pt.planId || '0';
+        const suiteId = pt.suiteId || '0';
+        const suiteName = pt.suiteName || pt.planName || 'Sin título';
+        const key = `${planId}_${suiteId}`;
+        if (!groups[key]) groups[key] = { title: suiteName, points: [] };
+        groups[key].points.push(pt);
+      });
+      this._groupedTestPoints = Object.entries(groups).map(([key, val]) => ({ key, title: val.title, points: val.points }));
+    }
+    return this._groupedTestPoints;
   }
 
   private readonly STORAGE_KEY = 'cmmi5_dashboard_selection';

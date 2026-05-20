@@ -952,7 +952,7 @@ export class AzureDevOpsService {
     return tryUrl(0);
   }
 
-  getTestPlans(): Observable<any[]> {
+  getTestPlans(iterationPath?: string): Observable<any[]> {
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of([]);
     const org = encodeURIComponent(config.azure.organization);
@@ -964,7 +964,31 @@ export class AzureDevOpsService {
     ];
     return this.getWithFallback(urls).pipe(
       map(res => {
-        const plans = res?.value || [];
+        let plans = res?.value || [];
+        if (iterationPath) {
+          const normalizedPath = iterationPath.toLowerCase().replace(/\\/g, '/');
+          const iterationParts = normalizedPath.split(/[\/]/).map(s => s.trim()).filter(Boolean);
+          const sprintSegment = iterationParts.length > 0 ? iterationParts[iterationParts.length - 1] : '';
+
+          plans = plans.filter((p: any) => {
+            const pArea = (p.areaPath || '').toLowerCase().replace(/\\/g, '/');
+            const pIter = (p.iteration || '').toLowerCase().replace(/\\/g, '/');
+            const pName = (p.name || '').toLowerCase();
+
+            // Require Mayansoft area
+            if (!pArea.includes('mayansoft')) return false;
+
+            // If plan iteration contains the full normalized path, accept
+            if (pIter && normalizedPath && pIter.includes(normalizedPath)) return true;
+
+            // Otherwise accept if plan iteration or plan name contains the sprint segment (e.g., 'sprint 30')
+            if (sprintSegment) {
+              if ((pIter && pIter.includes(sprintSegment)) || (pName && pName.includes(sprintSegment))) return true;
+            }
+
+            return false;
+          });
+        }
         return plans;
       })
     );
@@ -1006,7 +1030,7 @@ export class AzureDevOpsService {
     );
   }
 
-  enrichMetricsWithTestExecution(metrics: CMMIMetrics, absoluteIterationPath: string): Observable<CMMIMetrics> {
+enrichMetricsWithTestExecution(metrics: CMMIMetrics, absoluteIterationPath: string): Observable<CMMIMetrics> {
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of(metrics);
 
@@ -1014,12 +1038,12 @@ export class AzureDevOpsService {
     const end = metrics.endDate ? new Date(new Date(metrics.endDate).setHours(23, 59, 59, 999)).getTime() : Infinity;
 
 
-    return this.getTestPlans().pipe(
+    return this.getTestPlans(absoluteIterationPath).pipe(
       switchMap(plans => {
         if (plans.length === 0) {
-          console.warn(`ADO Service: No test plans returned by API.`);
-          metrics.testExecution = this.getEmptyTestExecution();
-          return of(metrics);
+            console.warn(`ADO Service: No test plans returned by API.`);
+            metrics.testExecution = this.getEmptyTestExecution();
+            return of(metrics);
         }
 
         const planSuiteObs = plans.map(plan => 
@@ -1056,19 +1080,19 @@ export class AzureDevOpsService {
                 const teamSegment = iterationParts.length > 1 ? iterationParts[iterationParts.length - 2] : '';
 
 
-                allPointsList.forEach(({ plan, suite, points }) => {
-                  const planIteration = plan.iteration?.path || '';
+allPointsList.forEach(({ plan, suite, points }) => {
+                   const planIteration = plan.iteration || '';
                   const normalizedPlanIteration = planIteration.toLowerCase().replace(/\\/g, '/');
                   const isPlanInIteration = normalizedIterationPath && normalizedPlanIteration.includes(normalizedIterationPath);
 
                   const planNameLower = plan.name ? plan.name.toLowerCase() : '';
-                  const matchesSprintName = sprintSegment && planNameLower.includes(sprintSegment);
-                  const matchesTeamName = teamSegment ? planNameLower.includes(teamSegment) : true;
-                  const isPlanForSprint = isPlanInIteration || (matchesSprintName && matchesTeamName);
+                  // Consider plan relevant if any iteration segment appears in plan iteration/name/area
+                  const planMatchesAnySegment = iterationParts.some(seg => seg && (planNameLower.includes(seg) || (plan.areaPath || '').toLowerCase().includes(seg) || normalizedPlanIteration.includes(seg)));
+                  const isPlanForSprint = isPlanInIteration || planMatchesAnySegment;
 
 
                   points.forEach((pt: any) => {
-                    const lastUpdated = pt.lastUpdatedDate || pt.lastResultDetails?.dateCompleted || '';
+                    const lastUpdated = pt.lastUpdatedDate || pt.lastResultDetails?.dateCompleted || pt.lastRun?.dateCompleted || '';
                     const lastUpdatedTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
                     const isExecutedInSprint = lastUpdatedTime >= start && lastUpdatedTime <= end;
 
@@ -1079,8 +1103,8 @@ export class AzureDevOpsService {
                         suiteId: suite.id,
                         suiteName: suite.name,
                         testPointId: pt.id,
-                        testCaseId: pt.testCase?.id ? parseInt(pt.testCase.id) : 0,
-                        testCaseTitle: pt.testCaseTitle || pt.testCase?.name || `Test Case #${pt.testCase?.id || ''}`,
+                        testCaseId: pt.testCase?.id ? parseInt(pt.testCase.id) : (pt.testCaseId ? parseInt(pt.testCaseId) : 0),
+                        testCaseTitle: pt.testCaseTitle || pt.testCase?.name || pt.testCase?.title || `Test Case #${pt.testCase?.id || pt.testCaseId || ''}`,
                         outcome: pt.outcome || 'None',
                         tester: pt.tester?.displayName || 'Sin asignar',
                         lastUpdatedDate: lastUpdated,
