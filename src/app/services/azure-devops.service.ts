@@ -82,7 +82,6 @@ export class AzureDevOpsService {
       map(res => {
         const team = res.value?.[0];
         this.cachedTeamId = team?.id || '';
-        console.log('Team found:', team?.name, 'ID:', this.cachedTeamId);
         return this.cachedTeamId || '';
       }),
       catchError(() => of(''))
@@ -96,21 +95,17 @@ export class AzureDevOpsService {
     const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(iterationIdOrPath);
 
     if (isGuid) {
-      console.log(`ADO Service: Fetching metrics for iteration GUID ${iterationIdOrPath}...`);
       return this.getDefaultTeam().pipe(
         timeout(10000),
         switchMap(teamId => {
-          console.log(`ADO Service: Team ID identified: ${teamId || 'None (using WIQL fallback)'}`);
           if (!teamId) {
             const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-            console.log(`ADO Service: No team ID, falling back to WIQL using path: ${path}`);
             return this.getMetricsWIQL(path);
           }
 
           const workItemsUrl = `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${iterationIdOrPath}/workitems?api-version=7.0`;
           const iterationInfoUrl = `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${iterationIdOrPath}?api-version=7.0`;
           
-          console.log('ADO Service: Fetching iteration workitems and info...');
 
           return forkJoin({
             workItems: this.http.get<any>(workItemsUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(e => { console.error('Work items fetch failed', e); return of({ workItemRelations: [] }); })),
@@ -123,7 +118,6 @@ export class AzureDevOpsService {
                 return of(this.getEmptyMetrics());
               }
               const ids: number[] = relations.filter(r => r.target).map(r => r.target.id);
-              console.log(`ADO Service: Found ${ids.length} work items in iteration.`);
               if (ids.length === 0) return of(this.getEmptyMetrics());
 
               const fields = [
@@ -162,7 +156,6 @@ export class AzureDevOpsService {
 
                   const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
                   if (additionalIds.length === 0) return of(details);
-                  console.log(`ADO Service: Resolving ${additionalIds.length} parents and linked items...`);
                   return this.getWorkItemDetails(additionalIds, fields).pipe(
                     map((extraItems: any[]) => {
                       return [...details, ...extraItems];
@@ -181,7 +174,6 @@ export class AzureDevOpsService {
             catchError(err => {
               console.warn('ADO Service: Team API logic failed, trying WIQL fallback');
               const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-              console.log(`ADO Service: Falling back to WIQL using path: ${path}`);
               return this.getMetricsWIQL(path);
             })
           );
@@ -218,7 +210,6 @@ export class AzureDevOpsService {
       path = `${iterationSegmentMatch[1]}\\${iterationSegmentMatch[2]}`;
     }
 
-    console.log('WIQL path:', path);
     const escaped = path.replace(/'/g, "''");
     const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.IterationPath] UNDER '${escaped}'`;
 
@@ -267,7 +258,6 @@ export class AzureDevOpsService {
 
               const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
               if (additionalIds.length === 0) return of(details);
-              console.log(`ADO Service WIQL: Resolving ${additionalIds.length} parents and linked items...`);
               return this.getWorkItemDetails(additionalIds, fields).pipe(
                 map((extraItems: any[]) => {
                   return [...details, ...extraItems];
@@ -340,7 +330,6 @@ export class AzureDevOpsService {
             const match = text.match(/Size\s*=\s*(\d+(?:\.\d+)?)/i);
             if (match) {
               item.fields['_discussionSize'] = parseFloat(match[1]);
-              console.log(`FT ${item.id}: found Size=${match[1]} in discussion`);
               break;
             }
           }
@@ -843,16 +832,10 @@ export class AzureDevOpsService {
     const escapedStatus = escapedRate <= 33 ? 'green' : (escapedRate <= 40 ? 'yellow' : 'red');
 
     // Print to console as requested
-    console.log(`\n=== METRIC 3.6: ESCAPED BUGS FOUND IN CONTEXT ===`);
-    console.log(`Sprint: "${iterationName}" (${absoluteIterationPath || iterationInfo?.path || 'N/A'})`);
-    console.log(`Total bugs resolved from sprint work items: ${bugs.length}`);
     bugs.forEach(b => {
       const tagsStr = b.fields['System.Tags'] || '';
       const bugIteration = absoluteIterationPath || iterationInfo?.path || b.fields['System.IterationPath'] || '';
-      console.log(`- Bug #${b.id}: "${b.fields['System.Title']}" | Iteration: "${bugIteration}" (DevOps: "${b.fields['System.IterationPath']}") | Tags: "${tagsStr}" | Classification: ${getBugClassification(tagsStr)}`);
     });
-    console.log(`Metrics calculation: Testing=${escapedBugsTesting}, UAT=${escapedBugsUat}, Prod=${escapedBugsProd}, Rate=${escapedRate.toFixed(2)}%, Status=${escapedStatus}`);
-    console.log(`==================================================\n`);
 
     const escapedBugsResult = {
       bugsTesting: escapedBugsTesting,
@@ -959,7 +942,6 @@ export class AzureDevOpsService {
         return of({ value: [] });
       }
       const url = urls[index];
-      console.log(`ADO Service: Hitting URL: ${url}`);
       return this.http.get<any>(url, { headers: this.getHeaders() }).pipe(
         catchError(err => {
           console.warn(`ADO Service: Failed to get ${url}. Error:`, err.message || err);
@@ -983,7 +965,6 @@ export class AzureDevOpsService {
     return this.getWithFallback(urls).pipe(
       map(res => {
         const plans = res?.value || [];
-        console.log(`ADO Service: getTestPlans fetched ${plans.length} plans.`);
         return plans;
       })
     );
@@ -1002,7 +983,6 @@ export class AzureDevOpsService {
     return this.getWithFallback(urls).pipe(
       map(res => {
         const suites = res?.value || [];
-        console.log(`ADO Service: getTestSuites for Plan ${planId} fetched ${suites.length} suites.`);
         return suites;
       })
     );
@@ -1021,7 +1001,6 @@ export class AzureDevOpsService {
     return this.getWithFallback(urls).pipe(
       map(res => {
         const points = res?.value || [];
-        console.log(`ADO Service: getTestPoints for Plan ${planId} Suite ${suiteId} fetched ${points.length} points.`);
         return points;
       })
     );
@@ -1034,12 +1013,9 @@ export class AzureDevOpsService {
     const start = metrics.startDate ? new Date(metrics.startDate).getTime() : 0;
     const end = metrics.endDate ? new Date(new Date(metrics.endDate).setHours(23, 59, 59, 999)).getTime() : Infinity;
 
-    console.log(`ADO Service: enrichMetricsWithTestExecution started.`);
-    console.log(`ADO Service: absoluteIterationPath: "${absoluteIterationPath}", start: ${metrics.startDate}, end: ${metrics.endDate}`);
 
     return this.getTestPlans().pipe(
       switchMap(plans => {
-        console.log(`ADO Service: plans retrieved total: ${plans.length}`, plans.map(p => ({ id: p.id, name: p.name, iteration: p.iteration })));
         if (plans.length === 0) {
           console.warn(`ADO Service: No test plans returned by API.`);
           metrics.testExecution = this.getEmptyTestExecution();
@@ -1056,7 +1032,6 @@ export class AzureDevOpsService {
           switchMap(planSuitesList => {
             const pointObs: Observable<any>[] = [];
             planSuitesList.forEach(({ plan, suites }) => {
-              console.log(`ADO Service: Plan "${plan.name}" has suites:`, suites.map(s => ({ id: s.id, name: s.name })));
               suites.forEach((suite: any) => {
                 pointObs.push(
                   this.getTestPoints(plan.id, suite.id).pipe(
@@ -1080,7 +1055,6 @@ export class AzureDevOpsService {
                 const sprintSegment = iterationParts.length > 0 ? iterationParts[iterationParts.length - 1] : '';
                 const teamSegment = iterationParts.length > 1 ? iterationParts[iterationParts.length - 2] : '';
 
-                console.log(`ADO Service Debug: iterationParts =`, iterationParts, `sprintSegment = "${sprintSegment}", teamSegment = "${teamSegment}"`);
 
                 allPointsList.forEach(({ plan, suite, points }) => {
                   const planIteration = plan.iteration?.path || '';
@@ -1092,11 +1066,6 @@ export class AzureDevOpsService {
                   const matchesTeamName = teamSegment ? planNameLower.includes(teamSegment) : true;
                   const isPlanForSprint = isPlanInIteration || (matchesSprintName && matchesTeamName);
 
-                  console.log(`ADO Service Debug: Evaluating plan "${plan.name}" (ID ${plan.id}):`);
-                  console.log(`  - planIteration: "${planIteration}"`);
-                  console.log(`  - matchesSprintName: ${matchesSprintName} (sprintSegment: "${sprintSegment}")`);
-                  console.log(`  - matchesTeamName: ${matchesTeamName} (teamSegment: "${teamSegment}")`);
-                  console.log(`  - isPlanForSprint: ${isPlanForSprint}`);
 
                   points.forEach((pt: any) => {
                     const lastUpdated = pt.lastUpdatedDate || pt.lastResultDetails?.dateCompleted || '';
@@ -1121,7 +1090,6 @@ export class AzureDevOpsService {
                   });
                 });
 
-                console.log(`ADO Service Debug: Total matched test points: ${allPoints.length}`);
 
                 let passed = 0;
                 let failed = 0;
@@ -1156,7 +1124,6 @@ export class AzureDevOpsService {
                   testPoints: allPoints
                 };
 
-                console.log(`ADO Service Debug: Calculated metrics:`, metrics.testExecution);
 
                 return metrics;
               })

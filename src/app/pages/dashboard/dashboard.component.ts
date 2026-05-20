@@ -2019,19 +2019,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const start = this.metrics.startDate ? new Date(this.metrics.startDate).getTime() : 0;
     const end = this.metrics.endDate ? new Date(new Date(this.metrics.endDate).setHours(23, 59, 59, 999)).getTime() : Infinity;
 
-    console.log('--- updateEscapedBugsFilteredData Debug ---');
-    console.log('Selected Area:', this.selectedArea);
-    console.log('Selected Iteration:', this.selectedIteration);
-    console.log('Selected Iteration Path:', selectedIterationPath);
-    console.log('Total bugs in raw list:', list.length);
 
     const filteredList = list.filter((b: any) => {
-      console.log(`Checking Bug #${b.bugId}: iteration="${b.iteration}", project="${b.project}"`);
       if (this.selectedArea) {
         const normSelectedArea = this.selectedArea.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/').replace('/area/', '/');
         const normBugArea = b.project.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/').replace('/area/', '/');
         if (normBugArea !== normSelectedArea && !normBugArea.startsWith(normSelectedArea + '/')) {
-          console.log(`  Filtered out by Area. normBugArea="${normBugArea}" vs normSelectedArea="${normSelectedArea}"`);
           return false;
         }
       }
@@ -2040,17 +2033,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const normBugIter = b.iteration.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/');
         const normSelectedName = (selectedIterationNode?.name || '').toLowerCase();
         const bugIterationShort = (b.iteration.split('\\').pop() || b.iteration).toLowerCase();
-        console.log(`  Iteration check: normBugIter="${normBugIter}", normSelectedIter="${normSelectedIter}"`);
-        console.log(`  Name check: bugIterationShort="${bugIterationShort}", normSelectedName="${normSelectedName}"`);
         if (normBugIter !== normSelectedIter && bugIterationShort !== normSelectedName) {
-          console.log('  Filtered out by Iteration');
           return false;
         }
       }
-      console.log('  Bug accepted!');
       return true;
     });
-    console.log('Filtered List count:', filteredList.length);
 
     let bugsTesting = 0;
     let bugsUat = 0;

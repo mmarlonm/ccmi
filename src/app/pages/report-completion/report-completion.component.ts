@@ -247,10 +247,8 @@ export class ReportCompletionComponent implements OnInit {
   }
 
   loadIterations() {
-    console.log('Report: Loading iterations...');
     this.adoService.getIterationNodes().subscribe({
       next: (iters) => {
-        console.log('Report: Iterations loaded:', iters.length);
         this.iterations = iters;
         
         if (!this.selectedIteration && iters.length > 0) {
@@ -268,7 +266,6 @@ export class ReportCompletionComponent implements OnInit {
     if (!this.selectedIteration || this.loading) return;
     this.saveSelection();
     
-    console.log('Report: Loading data for iteration:', this.selectedIteration);
     this.loading = true;
     this.aiNarrative = '';
     this.metrics = null;
@@ -287,7 +284,6 @@ export class ReportCompletionComponent implements OnInit {
     this.adoService.getMetrics(this.selectedIteration).subscribe({
       next: (m) => {
         clearTimeout(failsafe);
-        console.log('Report: Metrics received', m);
         this.metrics = m;
         this.calculateReportData();
         this.loading = false;
@@ -349,13 +345,11 @@ export class ReportCompletionComponent implements OnInit {
 
   generateAIReport() {
     if (!this.metrics) return;
-    console.log('Report: Generating AI Narrative...');
     this.loadingAI = true;
     this.aiNarrative = '';
     
     this.aiService.generateCompletionReport(this.metrics).subscribe({
       next: (text) => {
-        console.log('Report: AI Narrative received (length:', text?.length, ')');
         this.aiNarrative = text;
         localStorage.setItem('cmmi5_ai_narrative_' + this.selectedIteration, text);
         this.loadingAI = false;
