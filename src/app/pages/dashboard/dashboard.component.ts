@@ -23,7 +23,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 <div id="dashboard-content" class="space-y-8 animate-in fade-in duration-1000 p-4 md:p-8">
   <header class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
     <div>
-      <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Panel de Métricas CMMI 5</h2>
+      <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Métricas CMMI 5</h2>
       <p class="text-slate-500 dark:text-slate-400 mt-1">Formato BFYPH047 - Recopilación y Análisis de Métricas</p>
     </div>
     <div class="flex flex-wrap gap-3">
@@ -111,8 +111,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             <div class="min-w-0">
               <div class="text-[9px] text-slate-400 uppercase font-black tracking-wide">Fase Extendida (Tarde)</div>
               <div class="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {{ timelineSummary.lateCount }}
-                <span class="text-xs font-medium text-slate-400 dark:text-slate-500" *ngIf="timelineSummary.maxLateDays > 0"> (+{{ timelineSummary.maxLateDays }} día{{ timelineSummary.maxLateDays !== 1 ? 's' : '' }} max)</span>
+                {{ timelineSummary.maxLateDays }}
               </div>
             </div>
           </div>
@@ -283,6 +282,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-blue-500">
           Esta métrica mide el esfuerzo (tiempo) promedio de atención por unidad de tamaño (size) para los <strong>requerimientos</strong>.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 1.7 | Amarillo &le; 2.0 | Rojo &gt; 2.0
         </p>
 
         <!-- Summary KPIs -->
@@ -293,28 +293,44 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Est. Original (H)</div>
-            <div class="text-2xl font-bold text-violet-600">{{ getTotalOriginalEstimate() | number:'1.1-1' }}</div>
+            <div class="text-2xl font-bold">{{ getTotalOriginalEstimate() | number:'1.1-1' }}</div>
             <div class="text-[8pt] opacity-50">Horas planificadas</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Esfuerzo Real (H)</div>
-            <div class="text-2xl font-bold text-indigo-600">{{ metrics.developmentRate.totalEffort.toFixed(2) }}</div>
+            <div class="text-2xl font-bold">{{ metrics.developmentRate.totalEffort.toFixed(2) }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Size Total</div>
-            <div class="text-2xl font-bold text-blue-600">{{ metrics.developmentRate.totalSize }}</div>
+            <div class="text-2xl font-bold">{{ metrics.developmentRate.totalSize }}</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
-            <div class="text-xs text-slate-400 uppercase font-bold mb-1">KPI Tasa</div>
-            <div class="text-3xl font-black text-emerald-600">{{ metrics.developmentRate.rate.toFixed(2) }}</div>
-            <div class="text-[8pt] opacity-50">Umbrales: 1.7, 2.0</div>
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.developmentRate.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.developmentRate.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.developmentRate.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': metrics.developmentRate.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.developmentRate.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.developmentRate.status === 'red'
+            }">KPI Tasa</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': metrics.developmentRate.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.developmentRate.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.developmentRate.status === 'red'
+            }">{{ metrics.developmentRate.rate.toFixed(2) }}</div>
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.developmentRate.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.developmentRate.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.developmentRate.status === 'red'
+            }">Umbrales: 1.7, 2.0</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Std</div>
             <div class="text-2xl font-bold" [class.text-emerald-600]="metrics.developmentRate.stdDeviation <= 1.00" [class.text-rose-500]="metrics.developmentRate.stdDeviation > 1.00">
               {{ metrics.developmentRate.stdDeviation.toFixed(2) }}
             </div>
-            <div class="text-[8pt] opacity-50">Umbrales: 1.00 ({{ (1.00 - metrics.developmentRate.stdDeviation) >= 0 ? '+' : '' }}{{ ((1.00 - metrics.developmentRate.stdDeviation) * 100).toFixed(2) }}%)</div>
+            <div class="text-[8pt] opacity-50">Umbrales: 1.00</div>
           </div>
         </div>
         
@@ -364,14 +380,13 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                 <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     [class.bg-purple-50]="item.type==='Feature' && !isDark()"
                     [class.bg-slate-800]="item.type==='Feature' && isDark()">
-                  <!-- Expand toggle -->
                   <td class="px-3 py-2 text-center">
-                    <button *ngIf="item.tasks?.length" (click)="toggleExpand(item.id, 1)"
+                    <button *ngIf="item.tasks?.length || item.relatedBugs?.length" (click)="toggleExpand(item.id, 1)"
                       class="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
                       <lucide-icon [name]="ChevronDown" size="14" class="transition-transform duration-200"
                         [class.-rotate-90]="!expandedItemsM1.has(item.id)"></lucide-icon>
                     </button>
-                    <span *ngIf="!item.tasks?.length" class="text-slate-200 text-xs">—</span>
+                    <span *ngIf="!item.tasks?.length && !item.relatedBugs?.length" class="text-slate-200 text-xs">—</span>
                   </td>
                   <td class="px-3 py-2">
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold"
@@ -446,9 +461,10 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                 </tr>
 
                 <!-- Collapse: child tasks -->
-                <tr *ngIf="expandedItemsM1.has(item.id) && item.tasks?.length" class="bg-slate-50/70 dark:bg-slate-800/40">
-                  <td colspan="10" class="px-8 pb-3 pt-0">
-                    <div class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mt-1">
+                <tr *ngIf="expandedItemsM1.has(item.id) && (item.tasks?.length || item.relatedBugs?.length)" class="bg-slate-50/70 dark:bg-slate-800/40">
+                  <td colspan="10" class="px-8 pb-3 pt-2">
+                    <!-- Tasks Table -->
+                    <div *ngIf="item.tasks?.length" class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mt-1">
                       <table class="w-full text-xs">
                         <thead class="bg-slate-100 dark:bg-slate-700/60 text-slate-400 uppercase text-[10px]">
                           <tr>
@@ -463,7 +479,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                           <tr *ngFor="let task of item.tasks" class="hover:bg-white dark:hover:bg-slate-800 transition-colors">
                             <td class="px-3 py-1.5 text-blue-500 hover:text-blue-700 hover:underline cursor-pointer font-bold" (click)="openWorkItem(task.id)">#{{ task.id }}</td>
-                            <td class="px-3 py-1.5 text-slate-700 dark:text-slate-300 max-w-[300px] truncate" [title]="task.title">{{ task.title }}</td>
+                            <td class="px-3 py-1.5 text-slate-700 dark:text-slate-350 max-w-[300px] truncate" [title]="task.title">{{ task.title }}</td>
                             <td class="px-3 py-1.5 text-slate-500 max-w-[120px] truncate" [title]="task.assignedTo">{{ task.assignedTo }}</td>
                             <td class="px-3 py-1.5 text-center font-medium">{{ formatEffort(task.originalEstimate) }}</td>
                             <td class="px-3 py-1.5 text-center font-medium text-emerald-600">{{ formatEffort(task.completedWork) }}</td>
@@ -493,6 +509,47 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                     </div>
                     <div *ngIf="!item.tasks?.length" class="text-xs text-slate-400 italic py-2 text-center">
                       Sin tareas con patrón "{{ item.type === 'Feature' ? 'FT' : 'US' }} {{ item.id }}:"
+                    </div>
+
+                    <!-- Related Bugs Table -->
+                    <div *ngIf="item.relatedBugs?.length" class="mt-3">
+                      <div class="text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <lucide-icon [name]="Bug" size="12" class="text-rose-500"></lucide-icon>
+                        Bugs Relacionados ({{ item.relatedBugs?.length }})
+                      </div>
+                      <div class="rounded-lg overflow-hidden border border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10">
+                        <table class="w-full text-xs">
+                          <thead class="bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 uppercase text-[9px] font-bold">
+                            <tr>
+                              <th class="px-3 py-2 text-left">ID Bug</th>
+                              <th class="px-3 py-2 text-left">Título</th>
+                              <th class="px-3 py-2 text-left">Asignado</th>
+                              <th class="px-3 py-2 text-left">Estado</th>
+                              <th class="px-3 py-2 text-center">Estimado (H)</th>
+                              <th class="px-3 py-2 text-center">Real (H)</th>
+                            </tr>
+                          </thead>
+                          <tbody class="divide-y divide-rose-100 dark:divide-rose-900/20">
+                            <tr *ngFor="let bug of item.relatedBugs" class="hover:bg-white/80 dark:hover:bg-slate-800/80 transition-colors">
+                              <td class="px-3 py-1.5 text-rose-600 hover:text-rose-800 hover:underline cursor-pointer font-bold" (click)="openWorkItem(bug.id)">#{{ bug.id }}</td>
+                              <td class="px-3 py-1.5 text-slate-700 dark:text-slate-350 max-w-[300px] truncate" [title]="bug.title">{{ bug.title }}</td>
+                              <td class="px-3 py-1.5 text-slate-500 max-w-[120px] truncate" [title]="bug.assignedTo">{{ bug.assignedTo }}</td>
+                              <td class="px-3 py-1.5">
+                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                  [ngClass]="{
+                                    'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300': bug.status === 'Closed' || bug.status === 'Resolved',
+                                    'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300': bug.status === 'Active',
+                                    'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300': bug.status === 'Proposed' || bug.status === 'New'
+                                  }">
+                                  {{ bug.status }}
+                                </span>
+                              </td>
+                              <td class="px-3 py-1.5 text-center font-medium">{{ bug.originalEstimate | number:'1.1-1' }}</td>
+                              <td class="px-3 py-1.5 text-center font-medium text-emerald-600">{{ bug.completedWork | number:'1.1-1' }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -533,21 +590,22 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
           Esta métrica mide el porcentaje de desviación entre el esfuerzo real y el esfuerzo planeado en la construcción de <strong>requerimientos</strong>. Considera el tiempo total estimado y el tiempo total real de las tareas asociadas a los elementos de trabajo.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 15% | Amarillo &le; 30% | Rojo &gt; 30%
         </p>
 
         <!-- Summary KPIs (like image) -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Ítems</div>
             <div class="text-2xl font-bold">{{ metrics.developmentRate.totalItems }}</div>
           </div>
-          <div class="bg-violet-50/50 dark:bg-violet-950/10 p-4 rounded-xl border border-violet-100 dark:border-violet-900/30 text-center">
-            <div class="text-xs text-violet-500 dark:text-violet-400 uppercase font-bold mb-1">Total Estimado (H)</div>
-            <div class="text-2xl font-black text-violet-700 dark:text-violet-300">{{ metrics.effortVariance.planned | number:'1.2-2' }}</div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Estimado (H)</div>
+            <div class="text-2xl font-bold">{{ metrics.effortVariance.planned | number:'1.2-2' }}</div>
           </div>
-          <div class="bg-fuchsia-50/50 dark:bg-fuchsia-950/10 p-4 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/30 text-center">
-            <div class="text-xs text-fuchsia-500 dark:text-fuchsia-400 uppercase font-bold mb-1">Total Real (H)</div>
-            <div class="text-2xl font-black text-fuchsia-700 dark:text-fuchsia-300">{{ metrics.effortVariance.actual | number:'1.2-2' }}</div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Real (H)</div>
+            <div class="text-2xl font-bold">{{ metrics.effortVariance.actual | number:'1.2-2' }}</div>
           </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
             'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.effortVariance.status === 'green',
@@ -572,21 +630,21 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
               'text-rose-600/85 dark:text-rose-400/85': metrics.effortVariance.status === 'red'
             }">Umbrales: 15%, 30%</div>
           </div>
-          <div class="bg-violet-50 dark:bg-violet-950/30 p-4 rounded-xl border border-violet-200 dark:border-violet-900 text-center relative overflow-hidden ring-2 ring-violet-500/20">
-            <div class="text-xs text-violet-600 dark:text-violet-400 uppercase font-bold mb-1">Desviación Absoluta</div>
-            <div class="text-3xl font-black text-violet-700 dark:text-violet-300">{{ (metrics.effortVariance.absoluteRate * 100).toFixed(2) }}%</div>
-            <div class="text-[8pt] opacity-80 text-violet-500/80 dark:text-violet-400/80">Umbrales: 15%, 30%</div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Absoluta</div>
+            <div class="text-2xl font-bold">{{ (metrics.effortVariance.absoluteRate * 100).toFixed(2) }}%</div>
+            <div class="text-[8pt] opacity-50">Umbrales: 15%, 30%</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Promedio % Desviación Ind.</div>
-            <div class="text-2xl font-bold text-violet-600 dark:text-violet-400">{{ (metrics.effortVariance.avgIndividualRate || 0).toFixed(2) }}%</div>
+            <div class="text-2xl font-bold">{{ (metrics.effortVariance.avgIndividualRate || 0).toFixed(2) }}%</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
             <div class="text-2xl font-bold" [class.text-emerald-600]="(metrics.effortVariance.stdDeviation || 0) <= 15.00" [class.text-rose-500]="(metrics.effortVariance.stdDeviation || 0) > 15.00">
               {{ (metrics.effortVariance.stdDeviation || 0).toFixed(2) }}%
             </div>
-            <div class="text-[8pt] opacity-50">Umbrales: 15% ({{ (15.00 - (metrics.effortVariance.stdDeviation || 0)) >= 0 ? '+' : '' }}{{ ((15.00 - (metrics.effortVariance.stdDeviation || 0)) / 15.00 * 100).toFixed(2) }}%)</div>
+            <div class="text-[8pt] opacity-50">Umbrales: 15%</div>
           </div>
         </div>
         
@@ -613,18 +671,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
               </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4">
-              <div class="p-3 rounded bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div class="text-[10px] text-slate-400 uppercase font-bold">Meta Periodo</div>
-                <div class="text-sm font-bold">15%</div>
-              </div>
-              <div class="p-3 rounded bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div class="text-[10px] text-slate-400 uppercase font-bold">Resultado</div>
-                <div class="text-sm font-bold" [class.text-red-500]="metrics.effortVariance.rate > 0.3" [class.text-emerald-500]="metrics.effortVariance.rate <= 0.15">
-                  {{ (metrics.effortVariance.rate * 100).toFixed(2) }}%
-                </div>
-              </div>
-            </div>
+            <!-- AI Analysis takes full height now -->
           </div>
         </div>
       </div>
@@ -765,33 +812,50 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-rose-500">
           Esta métrica calcula la tasa de retrabajo asociada a los <strong>requerimientos en estado Resuelto y Cerrado</strong>. 
           Para ello, considera tanto el esfuerzo invertido en tareas planeadas y correctivas, como el esfuerzo destinado a la atención de los bugs vinculados mediante las relaciones Affected by y Related.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 20.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 22% | Amarillo &le; 30% | Rojo &gt; 30%
         </p>
 
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Esfuerzo Req. (H)</div>
-            <div class="text-2xl font-bold text-slate-600">{{ metrics.rework.reqEffort.toFixed(1) }}</div>
+            <div class="text-2xl font-bold">{{ metrics.rework.reqEffort.toFixed(1) }}</div>
             <div class="text-[8px] opacity-50 uppercase">Tareas Planeadas</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Retrabajo Req. (H)</div>
-            <div class="text-2xl font-bold text-amber-600">{{ metrics.rework.reqRework.toFixed(1) }}</div>
+            <div class="text-2xl font-bold">{{ metrics.rework.reqRework.toFixed(1) }}</div>
             <div class="text-[8px] opacity-50 uppercase">Tareas Correctivas</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Retrabajo Bugs (H)</div>
-            <div class="text-2xl font-bold text-rose-600">{{ metrics.rework.bugRework.toFixed(1) }}</div>
+            <div class="text-2xl font-bold">{{ metrics.rework.bugRework.toFixed(1) }}</div>
             <div class="text-[8px] opacity-50 uppercase">Tareas de Bugs</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Retrabajo Total (H)</div>
-            <div class="text-2xl font-bold text-indigo-600">{{ metrics.rework.totalRework.toFixed(1) }}</div>
+            <div class="text-2xl font-bold">{{ metrics.rework.totalRework.toFixed(1) }}</div>
             <div class="text-[8px] opacity-50 uppercase">Sumatoria Retrabajos</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden ring-2 ring-rose-500/20">
-            <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">KPI Tasa Retrabajo</div>
-            <div class="text-3xl font-black text-rose-600">{{ metrics.rework.rate.toFixed(2) }}%</div>
-            <div class="text-[8px] opacity-50 uppercase">Meta: 20% | Umbral: 22%</div>
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.rework.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.rework.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.rework.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': metrics.rework.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.rework.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.rework.status === 'red'
+            }">KPI Tasa Retrabajo</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': metrics.rework.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.rework.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.rework.status === 'red'
+            }">{{ metrics.rework.rate.toFixed(2) }}%</div>
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.rework.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.rework.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.rework.status === 'red'
+            }">Umbrales: 22%, 30%</div>
           </div>
         </div>
 
@@ -922,7 +986,41 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 0.18 | Amarillo &le; 0.23 | Rojo &gt; 0.23
         </p>
+
+        <!-- Summary KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Incidencias (Bugs)</div>
+            <div class="text-2xl font-bold">{{ metrics.defectDensity.bugs }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Tamaño Total (Size)</div>
+            <div class="text-2xl font-bold">{{ metrics.defectDensity.size }}</div>
+          </div>
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.defectDensity.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.defectDensity.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.defectDensity.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': metrics.defectDensity.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.defectDensity.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.defectDensity.status === 'red'
+            }">KPI Densidad</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': metrics.defectDensity.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.defectDensity.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.defectDensity.status === 'red'
+            }">{{ metrics.defectDensity.density.toFixed(3) }}</div>
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.defectDensity.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.defectDensity.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.defectDensity.status === 'red'
+            }">Umbrales: 0.18, 0.23</div>
+          </div>
+        </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -932,17 +1030,18 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
 
           <div class="space-y-4">
-            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
-              <li><strong>Meta establecida para el periodo:</strong> 0.18</li>
-              <li><strong>Resultado del periodo:</strong> <span class="text-emerald-600 font-bold">{{ metrics.defectDensity.density.toFixed(3) }}</span></li>
-              
-              <li *ngIf="metricAnalyses['densidad de defectos']">
-                <strong>Análisis de resultados e Acciones:</strong>
-                <div class="mt-2 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
-                  {{ metricAnalyses['densidad de defectos'] }}
-                </div>
-              </li>
-            </ul>
+            <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center">
+                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                Análisis de resultados e Acciones
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+                {{ metricAnalyses['densidad de defectos'] }}
+              </div>
+            </div>
+            <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+              Genera el análisis IA para visualizar las recomendaciones.
+            </div>
           </div>
         </div>
       </div>
@@ -964,6 +1063,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-amber-500">
           Esta métrica mide el porcentaje de bugs atendidos contra el total de bugs detectados durante el ciclo de vida de desarrollo. El resultado se expresa en porcentaje y permite evaluar cuántos bugs se detectan y se atienden satisfactoriamente antes de salir a producción. <br/><strong>Fórmula:</strong> KPI EED = (∑ Bugs Closed / # Total de bugs detectados) x 100. Se consideran atendidos en tiempo aquellos que fueron cerrados dentro de la vigencia del sprint.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 81.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 81% | Amarillo &ge; 71% | Rojo &lt; 71%
         </p>
 
         <!-- KPI summary grid -->
@@ -992,16 +1092,26 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             <div class="text-[9px] text-amber-500 uppercase font-bold mb-1">Active</div>
             <div class="text-2xl font-bold text-amber-600">{{ metrics.defectRemovalEfficiency.active }}</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
-            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">EED KPI</div>
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.defectRemovalEfficiency.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.defectRemovalEfficiency.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.defectRemovalEfficiency.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': metrics.defectRemovalEfficiency.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.defectRemovalEfficiency.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.defectRemovalEfficiency.status === 'red'
+            }">EED KPI</div>
             <div class="text-3xl font-black" [ngClass]="{
-              'text-emerald-600': metrics.defectRemovalEfficiency.status === 'green',
-              'text-amber-500': metrics.defectRemovalEfficiency.status === 'yellow',
-              'text-rose-500': metrics.defectRemovalEfficiency.status === 'red'
-            }">
-              {{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%
-            </div>
-            <div class="text-[8pt] opacity-50">Umbrales: 81%, 71%</div>
+              'text-emerald-700 dark:text-emerald-300': metrics.defectRemovalEfficiency.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.defectRemovalEfficiency.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.defectRemovalEfficiency.status === 'red'
+            }">{{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</div>
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.defectRemovalEfficiency.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.defectRemovalEfficiency.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.defectRemovalEfficiency.status === 'red'
+            }">Umbrales: 81%, 71%</div>
           </div>
         </div>
 
@@ -1116,7 +1226,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                          (click)="$event.stopPropagation(); openWorkItem(bug.id)" 
                          [title]="'Bug #' + bug.id + ': ' + bug.title + ' (' + bug.status + ')'"
                          class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
-                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
+                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : (node.deliveryStatus === 'fuera' ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white')">
                       <span>🐞</span>
                       <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
                         #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
@@ -1131,7 +1241,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                          (click)="$event.stopPropagation(); openWorkItem(bug.id)" 
                          [title]="'Bug #' + bug.id + ': ' + bug.title + ' (' + bug.status + ')'"
                          class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
-                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
+                         [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : (node.deliveryStatus === 'fuera' ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white')">
                       <span>🐞</span>
                       <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
                         #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
@@ -1375,21 +1485,18 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
 
           <div class="space-y-4">
-            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
-              <li><strong>Meta establecida para el periodo:</strong> 81%</li>
-              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
-                'text-green-600': metrics.defectRemovalEfficiency.status === 'green',
-                'text-amber-500': metrics.defectRemovalEfficiency.status === 'yellow',
-                'text-rose-500': metrics.defectRemovalEfficiency.status === 'red'
-              }">{{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</span></li>
-              
-              <li *ngIf="metricAnalyses['eed']">
-                <strong>Análisis de resultados e Acciones:</strong>
-                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
-                  {{ metricAnalyses['eed'] }}
-                </div>
-              </li>
-            </ul>
+            <div *ngIf="metricAnalyses['eed']" class="bg-amber-50/30 dark:bg-amber-950/10 p-4 rounded-lg border border-amber-100 dark:border-amber-900/30">
+              <h4 class="text-xs font-bold uppercase text-amber-600 mb-2 flex items-center">
+                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                Análisis de resultados e Acciones
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+                {{ metricAnalyses['eed'] }}
+              </div>
+            </div>
+            <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+              Genera el análisis IA para visualizar las recomendaciones.
+            </div>
           </div>
         </div>
       </div>
@@ -1402,8 +1509,8 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
           Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
-          <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100. <br/>
-          <strong>Umbrales:</strong> Verde ≤ 33% | Amarillo ≤ 40% | Rojo > 40%
+          <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 33% | Amarillo &le; 40% | Rojo &gt; 40%
         </p>
 
         <!-- KPI summary grid -->
@@ -1413,31 +1520,43 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             <div class="text-2xl font-bold">{{ filteredEscapedBugs.bugsTesting }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-[9px] text-indigo-500 uppercase font-bold mb-1">Bugs UAT</div>
-            <div class="text-2xl font-bold text-indigo-600">{{ filteredEscapedBugs.bugsUat }}</div>
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Bugs UAT</div>
+            <div class="text-2xl font-bold">{{ filteredEscapedBugs.bugsUat }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Bugs Producción</div>
-            <div class="text-2xl font-bold text-rose-600">{{ filteredEscapedBugs.bugsProd }}</div>
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Bugs Producción</div>
+            <div class="text-2xl font-bold text-rose-650">{{ filteredEscapedBugs.bugsProd }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Bugs</div>
             <div class="text-2xl font-bold">{{ filteredEscapedBugs.totalBugs }}</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
-            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">KPI Bugs Escapados</div>
-            <div class="text-2xl font-black" [ngClass]="{
-              'text-emerald-600': filteredEscapedBugs.status === 'green',
-              'text-amber-500': filteredEscapedBugs.status === 'yellow',
-              'text-rose-500': filteredEscapedBugs.status === 'red'
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': filteredEscapedBugs.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': filteredEscapedBugs.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': filteredEscapedBugs.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': filteredEscapedBugs.status === 'green',
+              'text-amber-600 dark:text-amber-400': filteredEscapedBugs.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': filteredEscapedBugs.status === 'red'
+            }">KPI Bugs Escapados</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': filteredEscapedBugs.status === 'green',
+              'text-amber-700 dark:text-amber-300': filteredEscapedBugs.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': filteredEscapedBugs.status === 'red'
             }">
               {{ filteredEscapedBugs.rate.toFixed(2) }}%
             </div>
-
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': filteredEscapedBugs.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': filteredEscapedBugs.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': filteredEscapedBugs.status === 'red'
+            }">Umbrales: 33%, 40%</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
-            <div class="text-2xl font-black text-slate-800 dark:text-white">
+            <div class="text-2xl font-bold">
               {{ filteredEscapedBugs.stdDeviation.toFixed(2) }}%
             </div>
             <div class="text-[8px] text-slate-400 mt-0.5">Umbral: 30.00%</div>
@@ -1540,21 +1659,18 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
-              <li><strong>Umbral Verde:</strong> &le; 33.00% | <strong>Umbral Rojo:</strong> &gt; 40.00%</li>
-              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
-                'text-green-600': filteredEscapedBugs.status === 'green',
-                'text-amber-500': filteredEscapedBugs.status === 'yellow',
-                'text-rose-500': filteredEscapedBugs.status === 'red'
-              }">{{ filteredEscapedBugs.rate.toFixed(2) }}%</span></li>
-              
-              <li *ngIf="metricAnalyses['escaped']">
-                <strong>Análisis de resultados e Acciones:</strong>
-                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
-                  {{ metricAnalyses['escaped'] }}
-                </div>
-              </li>
-            </ul>
+            <div *ngIf="metricAnalyses['escaped']" class="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+              <h4 class="text-xs font-bold uppercase text-indigo-600 mb-2 flex items-center">
+                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                Análisis de resultados e Acciones
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+                {{ metricAnalyses['escaped'] }}
+              </div>
+            </div>
+            <div *ngIf="!metricAnalyses['escaped']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+              Genera el análisis IA para visualizar las recomendaciones.
+            </div>
           </div>
         </div>
 
@@ -1566,44 +1682,58 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
       <div class="p-6">
         <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas</h3>
 
-        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
-          <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados / Total de Test Points) x 100. Solo se consideran los test points dentro de la vigencia del sprint. <br/>
-          <strong>Umbrales:</strong> Verde ≥ 90% | Amarillo ≥ 80% | Rojo &lt; 80%
+          <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados / Total de Test Points) x 100. Solo se consideran los test points dentro de la vigencia del sprint.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
         </p>
 
         <!-- KPI summary grid -->
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Test Points</div>
             <div class="text-2xl font-bold">{{ metrics?.testExecution?.totalTestPoints || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-[9px] text-emerald-500 uppercase font-bold mb-1">Passed</div>
-            <div class="text-2xl font-bold text-emerald-600">{{ metrics?.testExecution?.passed || 0 }}</div>
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed en Tiempo</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedEnTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Failed</div>
-            <div class="text-2xl font-bold text-rose-600">{{ metrics?.testExecution?.failed || 0 }}</div>
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed fuera de Tiempo</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-[9px] text-amber-500 uppercase font-bold mb-1">Blocked</div>
-            <div class="text-2xl font-bold text-amber-600">{{ metrics?.testExecution?.blocked || 0 }}</div>
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Failed</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.failed || 0 }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Blocked</div>
+            <div class="text-2xl font-bold">{{ metrics?.testExecution?.blocked || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Not Executed</div>
             <div class="text-2xl font-bold">{{ metrics?.testExecution?.notExecuted || 0 }}</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
-            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">KPI Run Rate</div>
-            <div class="text-2xl font-black" [ngClass]="{
-              'text-emerald-600': metrics?.testExecution?.status === 'green',
-              'text-amber-500': metrics?.testExecution?.status === 'yellow',
-              'text-rose-500': metrics?.testExecution?.status === 'red'
-            }">
-              {{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%
-            </div>
-            <div class="text-[8px] text-slate-400 mt-0.5">Umbrales: 90%, 80%</div>
+          <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics?.testExecution?.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics?.testExecution?.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics?.testExecution?.status === 'red'
+          }">
+            <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': metrics?.testExecution?.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics?.testExecution?.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics?.testExecution?.status === 'red'
+            }">KPI Run Rate</div>
+            <div class="text-3xl font-black" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': metrics?.testExecution?.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics?.testExecution?.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics?.testExecution?.status === 'red'
+            }">{{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%</div>
+            <div class="text-[8pt] opacity-85" [ngClass]="{
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics?.testExecution?.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics?.testExecution?.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics?.testExecution?.status === 'red'
+            }">Umbrales: 90%, 80%</div>
           </div>
         </div>
 
@@ -1669,7 +1799,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                     </ng-container>
                   </ng-container>
                   <tr *ngIf="!metrics?.testExecution?.testPoints?.length">
-                    <td colspan="6" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para este periodo.</td>
+                    <td colspan="7" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para este periodo.</td>
                   </tr>
                 </tbody>
               </table>
@@ -1684,30 +1814,27 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             </div>
             <!-- Mini legend totals -->
             <div class="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Passed: <strong>{{ metrics?.testExecution?.passed || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">En Tiempo: <strong>{{ metrics?.testExecution?.passedEnTiempo || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Fuera Tiempo: <strong>{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</strong></span></div>
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics?.testExecution?.failed || 0 }}</strong></span></div>
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics?.testExecution?.blocked || 0 }}</strong></span></div>
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics?.testExecution?.notExecuted || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-350 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics?.testExecution?.notApplicable || 0 }}</strong></span></div>
             </div>
           </div>
         </div>
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <ul class="list-disc ml-5 space-y-3 text-slate-700 dark:text-slate-300">
-              <li><strong>Meta establecida para el periodo:</strong> 100%</li>
-              <li><strong>Resultado del periodo:</strong> <span class="font-bold" [ngClass]="{
-                'text-green-600': metrics?.testExecution?.status === 'green',
-                'text-amber-500': metrics?.testExecution?.status === 'yellow',
-                'text-rose-500': metrics?.testExecution?.status === 'red'
-              }">{{ (metrics?.testExecution?.rate | number:'1.2-2') || '0.00' }}%</span></li>
-              <li>
-                <strong>Análisis de resultados e Acciones:</strong>
-                <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/30 p-4 rounded-lg italic border-l-2 border-slate-300">
-                  {{ getTestExecutionAnalysis() }}
-                </div>
-              </li>
-            </ul>
+            <div class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center">
+                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                Análisis de resultados e Acciones
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
+                {{ getTestExecutionAnalysis() }}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1910,7 +2037,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const { area, iteration } = JSON.parse(saved);
         this.selectedArea = area || '';
         this.selectedIteration = iteration || '';
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -1993,7 +2120,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.azureService.getMetrics(this.selectedIteration).subscribe({
       next: (data) => {
         this.rawMetrics = data;
-        
+
         // Extract unique ISWs for the dropdown
         if (data.developmentRate?.items) {
           const isws = data.developmentRate.items
@@ -2003,7 +2130,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
 
         this.applyFilter();
-        
+
         // Restore cached AI analysis if present
         const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
         if (cachedAnalysis) {
@@ -2044,7 +2171,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
 
     this.metrics = filtered;
-    
+
     // Auto-expand EED timeline items that have bugs
     if (this.metrics?.developmentRate?.items) {
       this.expandedItemsEED.clear();
@@ -2102,8 +2229,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     filteredList.forEach((b: any) => {
       if (b.classification === 'testing') bugsTesting++;
-      else if (b.classification === 'uat') bugsUat++;
-      else if (b.classification === 'produccion') bugsProd++;
+      else if (b.classification === 'uat' || b.classification === 'produccion') bugsProd++;
     });
 
     const beforeRelease = bugsTesting + bugsUat;
@@ -2119,8 +2245,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       iterationGroups[iter].total++;
       iterationGroups[iter].bugs.push(b);
       if (b.classification === 'testing') iterationGroups[iter].testing++;
-      else if (b.classification === 'uat') iterationGroups[iter].uat++;
-      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
+      else if (b.classification === 'uat' || b.classification === 'produccion') iterationGroups[iter].prod++;
     });
 
     const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
@@ -2150,7 +2275,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     this.filteredEscapedBugs = {
       bugsTesting,
-      bugsUat,
+      bugsUat: 0,
       bugsProd,
       totalBugs: filteredList.length,
       rate,
@@ -2281,7 +2406,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (taskEffort <= 0) return;
 
       const type = (task.type || '').toLowerCase();
-      
+
       if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
         effort += taskEffort;
       } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia')) {
@@ -2327,9 +2452,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   /** Toggle collapse state of an item row for a specific section */
   toggleExpand(id: string, section: number = 1): void {
-    const set = section === 1 ? this.expandedItemsM1 : 
-                section === 2 ? this.expandedItemsM2 : 
-                section === 3 ? this.expandedItemsM3 : this.expandedItemsEED;
+    const set = section === 1 ? this.expandedItemsM1 :
+      section === 2 ? this.expandedItemsM2 :
+        section === 3 ? this.expandedItemsM3 : this.expandedItemsEED;
     if (set.has(id)) {
       set.delete(id);
     } else {
@@ -2368,17 +2493,27 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private recalculateTotals(): void {
     if (!this.metrics?.developmentRate?.items) return;
     const items = this.metrics.developmentRate.items;
-    
+
     // 1. Recalculate Development Rate
     const totalEffort = items.reduce((acc, i) => acc + i.effort, 0);
     const totalSize = items.reduce((acc, i) => acc + this.getEffectiveSize(i), 0);
-    
+
     this.metrics.developmentRate.totalEffort = totalEffort;
     this.metrics.developmentRate.totalSize = totalSize;
     this.metrics.developmentRate.rate = totalSize > 0 ? totalEffort / totalSize : 0;
     this.metrics.developmentRate.status =
       this.metrics.developmentRate.rate <= 1.7 ? 'green' :
-      this.metrics.developmentRate.rate <= 2.0 ? 'yellow' : 'red';
+        this.metrics.developmentRate.rate <= 2.0 ? 'yellow' : 'red';
+
+    // 4. Recalculate Defect Density
+    if (this.metrics.defectDensity) {
+      this.metrics.defectDensity.size = totalSize;
+      const density = totalSize > 0 ? this.metrics.defectDensity.bugs / totalSize : 0;
+      this.metrics.defectDensity.density = density;
+      this.metrics.defectDensity.status =
+        density <= 0.18 ? 'green' :
+          density <= 0.23 ? 'yellow' : 'red';
+    }
 
     // Calculate Dev Rate Standard Deviation
     if (items.length > 0) {
@@ -2394,15 +2529,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const totalPlanned = this.getTotalOriginalEstimate();
     this.metrics.effortVariance.planned = totalPlanned;
     this.metrics.effortVariance.actual = totalEffort;
-    
+
     if (totalPlanned > 0) {
       const variance = (totalEffort - totalPlanned) / totalPlanned;
       this.metrics.effortVariance.rate = variance;
       this.metrics.effortVariance.absoluteRate = Math.abs(variance);
       const variancePercent = Math.abs(variance) * 100;
-      this.metrics.effortVariance.status = 
+      this.metrics.effortVariance.status =
         variancePercent <= 15 ? 'green' :
-        variancePercent <= 30 ? 'yellow' : 'red';
+          variancePercent <= 30 ? 'yellow' : 'red';
     } else {
       this.metrics.effortVariance.rate = 0;
       this.metrics.effortVariance.status = 'green';
@@ -2415,8 +2550,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return p > 0 ? ((a - p) / p) * 100 : 0;
     });
 
-    const avgIndividualVariance = itemsVariances.length > 0 
-      ? itemsVariances.reduce((a, b) => a + b, 0) / itemsVariances.length 
+    const avgIndividualVariance = itemsVariances.length > 0
+      ? itemsVariances.reduce((a, b) => a + b, 0) / itemsVariances.length
       : 0;
     this.metrics.effortVariance.avgIndividualRate = avgIndividualVariance;
 
@@ -2440,16 +2575,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const originalItem = this.rawMetrics?.developmentRate?.items?.find(i => i.id === item.id);
       const status = originalItem?.status || '';
       const itemDone = isRequirementDone(status);
-      
+
       if (itemDone) {
         closedReqEffort += item.effort;
       }
-      
+
       (item.tasks || []).forEach(task => {
         const effort = task.completedWork || 0;
         if (effort <= 0) return;
         const type = (task.type || '').toLowerCase();
-        
+
         if (parentIsBug) {
           totalBugRework += effort;
         } else {
@@ -2489,9 +2624,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /** Groups items by ISW and calculates their individual metrics */
   calculateMetricsByISW(): any[] {
     if (!this.metrics?.developmentRate?.items) return [];
-    
+
     const groups: { [key: string]: any } = {};
-    
+
     this.metrics.developmentRate.items.forEach(item => {
       const isw = item.isw || 'Sin Asignar';
       if (!groups[isw]) {
@@ -2504,7 +2639,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           items: []
         };
       }
-      
+
       const planned = item.planned || 0;
       groups[isw].totalEffort += item.effort;
       groups[isw].totalPlanned += planned;
@@ -2526,7 +2661,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             const taskEffort = task.completedWork || 0;
             if (taskEffort <= 0) return;
             const type = (task.type || '').toLowerCase();
-            
+
             if (parentIsBug) {
               rTotal += taskEffort;
             } else {
@@ -2552,22 +2687,22 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!metrics?.developmentRate?.items) {
       return { onTimeCount: 0, lateCount: 0, openCount: 0, avgLateDays: 0, items: [] };
     }
-    
+
     const items = metrics.developmentRate.items;
     const start = metrics.startDate ? this.getLocalCalendarDate(metrics.startDate, false) : 0;
     const end = metrics.endDate ? this.getLocalCalendarDate(metrics.endDate, true) : 0;
-    
+
     let onTimeCount = 0;
     let lateCount = 0;
     let openCount = 0;
     let totalLateDays = 0;
-    
+
     const processedItems = items.map(item => {
       const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
       let deliveryStatus: 'on-time' | 'late' | 'open' = 'open';
       let daysLate = 0;
       let closedTime = 0;
-      
+
       if (isClosed) {
         const closedDateStr = item.closedDate || item.changedDate;
         if (closedDateStr) {
@@ -2594,7 +2729,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       } else {
         openCount++;
       }
-      
+
       return {
         ...item,
         deliveryStatus,
@@ -2604,7 +2739,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         verticalTier: 0
       };
     });
-    
+
     // Sort processed items by horizontal timeline position (leftPct) to calculate vertical stacking (tiers)
     processedItems.forEach(item => {
       item.leftPct = this.getItemTimelinePosition(item);
@@ -2652,7 +2787,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metrics.developmentRate.items.forEach(item => {
       const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
       let deliveryStatus: 'dentro' | 'fuera' = 'fuera';
-      
+
       const closedDateStr = item.closedDate || item.changedDate;
       if (isClosed && closedDateStr) {
         const closedTime = this.getLocalCalendarDate(closedDateStr, false);
@@ -2667,7 +2802,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const bugState = bug.status || 'Active';
         const bugClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(bugState);
         let bugDeliveryStatus: 'dentro' | 'fuera' = 'fuera';
-        
+
         const bugClosedDateStr = bug.closedDate || bug.changedDate;
         if (bugClosed) {
           if (bugClosedDateStr) {
@@ -2677,7 +2812,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             }
           }
         }
-        
+
         return {
           id: bug.id,
           title: bug.title,
@@ -2705,7 +2840,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // 2. Process Standalone bugs (those in defectRemovalEfficiency.bugsList not linked to any requirement)
     const allEEDBugs = this.metrics.defectRemovalEfficiency.bugsList || [];
-    
+
     // Split into Kanban standalone bugs and Sprint standalone bugs
     const kanbanBugs = allEEDBugs.filter(b => b.isKanban);
     const sprintStandaloneBugs = allEEDBugs.filter(b => !b.isKanban && (b.parentType === 'Standalone' || !seenBugs.has(parseInt(b.bugId))));
@@ -2730,8 +2865,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           const pct = relativeTime / sprintDuration;
           leftPct = Math.min(Math.max(pct * 70, 2), 70);
         } else {
-          const diffTime = closedTime - end;
-          const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const endDate = this.metrics?.endDate;
+          const dayAfterSprintEnd = endDate
+            ? this.getLocalCalendarDate(this.addDays(endDate, 1).toISOString(), false)
+            : end + 24 * 60 * 60 * 1000;
+          const daysLate = this.calculateBusinessDays(dayAfterSprintEnd, closedTime, this.getHolidays());
           const extPercent = Math.min(daysLate / 15, 1);
           leftPct = Math.min(Math.max(70 + extPercent * 28, 70), 98);
         }
@@ -2807,31 +2945,34 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   getDeliveryInfo(item: any) {
     const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
     if (!isClosed) return { status: 'open', days: 0, date: '' };
-    
+
     const end = this.metrics?.endDate ? this.getLocalCalendarDate(this.metrics.endDate, true) : 0;
     const closedDateStr = item.closedDate || item.changedDate;
-    
+
     if (closedDateStr) {
       const closedTime = this.getLocalCalendarDate(closedDateStr, false);
       if (closedTime <= end) {
         return { status: 'on-time', days: 0, date: closedDateStr };
       } else {
-        const diffTime = closedTime - end;
-        const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const endDate = this.metrics?.endDate;
+        const dayAfterSprintEnd = endDate
+          ? this.getLocalCalendarDate(this.addDays(endDate, 1).toISOString(), false)
+          : end + 24 * 60 * 60 * 1000;
+        const days = this.calculateBusinessDays(dayAfterSprintEnd, closedTime, this.getHolidays());
         return { status: 'late', days, date: closedDateStr };
       }
     }
-    
+
     return { status: 'on-time', days: 0, date: '' };
   }
 
   getItemTimelinePosition(item: any): number {
     if (!this.metrics?.startDate || !this.metrics?.endDate) return 98;
-    
+
     const start = this.getLocalCalendarDate(this.metrics.startDate, false);
     const end = this.getLocalCalendarDate(this.metrics.endDate, true);
     const sprintDuration = end - start;
-    
+
     if (sprintDuration <= 0) return 50;
 
     const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
@@ -2839,16 +2980,19 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     const closedDateStr = item.closedDate || item.changedDate;
     if (!closedDateStr) return 35;
-    
+
     const closedTime = this.getLocalCalendarDate(closedDateStr, false);
-    
+
     if (closedTime <= end) {
       const relativeTime = closedTime - start;
       const pct = relativeTime / sprintDuration;
       return Math.min(Math.max(pct * 70, 2), 70);
     } else {
-      const diffTime = closedTime - end;
-      const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const endDate = this.metrics?.endDate;
+      const dayAfterSprintEnd = endDate
+        ? this.getLocalCalendarDate(this.addDays(endDate, 1).toISOString(), false)
+        : end + 24 * 60 * 60 * 1000;
+      const daysLate = this.calculateBusinessDays(dayAfterSprintEnd, closedTime, this.getHolidays());
       const pctLate = Math.min(daysLate / 15, 1);
       return Math.min(Math.max(70 + (pctLate * 25), 72), 95);
     }
@@ -2903,7 +3047,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const proj = this.config?.azure?.project;
     if (!org || !proj) return;
     const url = `https://dev.azure.com/${org}/${proj}/_workitems/edit/${id}`;
-    
+
     // Check if running inside Electron
     const win = window as any;
     if (win.require) {
@@ -2915,7 +3059,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         console.error('Failed to open external link using Electron shell:', e);
       }
     }
-    
+
     // Fallback to standard web browser open
     window.open(url, '_blank');
   }
@@ -3014,14 +3158,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // 1. Development Rate Chart — real items from selected sprint
     const items = this.metrics.developmentRate.items;
     const itemLabels = items.map(i => `${i.type === 'Feature' ? 'FT' : 'US'} #${i.id}`);
-    const itemRates  = items.map(i => parseFloat(this.getEffectiveRate(i).toFixed(2)));
+    const itemRates = items.map(i => parseFloat(this.getEffectiveRate(i).toFixed(2)));
     const itemColors = itemRates.map(r =>
-      r <= 1.7  ? 'rgba(34, 197, 94, 0.75)'  :   // green
-      r <= 2.0  ? 'rgba(234, 179, 8, 0.75)'  :   // yellow
-                  'rgba(239, 68, 68, 0.75)'       // red
+      r <= 1.7 ? 'rgba(34, 197, 94, 0.75)' :   // green
+        r <= 2.0 ? 'rgba(234, 179, 8, 0.75)' :   // yellow
+          'rgba(239, 68, 68, 0.75)'       // red
     );
     const itemBorders = itemRates.map(r =>
-      r <= 1.7  ? '#16a34a' : r <= 2.0 ? '#ca8a04' : '#dc2626'
+      r <= 1.7 ? '#16a34a' : r <= 2.0 ? '#ca8a04' : '#dc2626'
     );
     const globalRate = parseFloat(this.metrics.developmentRate.rate.toFixed(2));
 
@@ -3076,13 +3220,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           },
           annotation: {
             annotations: {
-              zoneGreen:  { type: 'box', yMin: 0,   yMax: 1.7, backgroundColor: 'rgba(34, 197, 94, 0.04)',  borderWidth: 0 },
-              zoneYellow: { type: 'box', yMin: 1.7, yMax: 2.0, backgroundColor: 'rgba(234, 179, 8, 0.04)',  borderWidth: 0 },
-              zoneRed:    { type: 'box', yMin: 2.0, yMax: 6.0, backgroundColor: 'rgba(239, 68, 68, 0.04)',  borderWidth: 0 },
-              lineGreen:  { type: 'line', yMin: 1.7, yMax: 1.7, borderColor: 'rgba(34, 197, 94, 0.6)',  borderWidth: 1.5, borderDash: [4, 4],
-                label: { content: '1.70 ✓', display: true, position: 'end', color: '#16a34a', font: { size: 9 } } },
-              lineRed:    { type: 'line', yMin: 2.0, yMax: 2.0, borderColor: 'rgba(239, 68, 68, 0.6)',  borderWidth: 1.5, borderDash: [4, 4],
-                label: { content: '2.00 ✗', display: true, position: 'end', color: '#dc2626', font: { size: 9 } } }
+              zoneGreen: { type: 'box', yMin: 0, yMax: 1.7, backgroundColor: 'rgba(34, 197, 94, 0.04)', borderWidth: 0 },
+              zoneYellow: { type: 'box', yMin: 1.7, yMax: 2.0, backgroundColor: 'rgba(234, 179, 8, 0.04)', borderWidth: 0 },
+              zoneRed: { type: 'box', yMin: 2.0, yMax: 6.0, backgroundColor: 'rgba(239, 68, 68, 0.04)', borderWidth: 0 },
+              lineGreen: {
+                type: 'line', yMin: 1.7, yMax: 1.7, borderColor: 'rgba(34, 197, 94, 0.6)', borderWidth: 1.5, borderDash: [4, 4],
+                label: { content: '1.70 ✓', display: true, position: 'end', color: '#16a34a', font: { size: 9 } }
+              },
+              lineRed: {
+                type: 'line', yMin: 2.0, yMax: 2.0, borderColor: 'rgba(239, 68, 68, 0.6)', borderWidth: 1.5, borderDash: [4, 4],
+                label: { content: '2.00 ✗', display: true, position: 'end', color: '#dc2626', font: { size: 9 } }
+              }
             }
           },
           tooltip: {
@@ -3104,14 +3252,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // 2. Effort Variance Chart — real items
     const itemVariances = items.map(i => {
       const planned = this.sumTasks(i.tasks, 'originalEstimate');
-      const actual  = i.effort;
+      const actual = i.effort;
       return planned > 0 ? parseFloat(((actual - planned) / planned * 100).toFixed(1)) : 0;
     });
 
     const varianceColors = itemVariances.map(v =>
       v <= 15 ? 'rgba(99, 102, 241, 0.75)' :  // blueish-indigo for variance
-      v <= 30 ? 'rgba(234, 179, 8, 0.75)' :   // yellow
-                'rgba(239, 68, 68, 0.75)'     // red
+        v <= 30 ? 'rgba(234, 179, 8, 0.75)' :   // yellow
+          'rgba(239, 68, 68, 0.75)'     // red
     );
     const globalVariance = parseFloat((this.metrics.effortVariance.rate * 100).toFixed(1));
 
@@ -3165,13 +3313,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           },
           annotation: {
             annotations: {
-              zoneGreen:  { type: 'box', yMin: -100, yMax: 15, backgroundColor: 'rgba(34, 197, 94, 0.04)',  borderWidth: 0 },
-              zoneYellow: { type: 'box', yMin: 15,   yMax: 30, backgroundColor: 'rgba(234, 179, 8, 0.04)',  borderWidth: 0 },
-              zoneRed:    { type: 'box', yMin: 30,   yMax: 200, backgroundColor: 'rgba(239, 68, 68, 0.04)',  borderWidth: 0 },
-              line15:     { type: 'line', yMin: 15, yMax: 15, borderColor: 'rgba(234, 179, 8, 0.6)',  borderWidth: 1.5, borderDash: [4, 4],
-                label: { content: '15%', display: true, position: 'end', color: '#ca8a04', font: { size: 9 } } },
-              line30:     { type: 'line', yMin: 30, yMax: 30, borderColor: 'rgba(239, 68, 68, 0.6)',  borderWidth: 1.5, borderDash: [4, 4],
-                label: { content: '30%', display: true, position: 'end', color: '#dc2626', font: { size: 9 } } }
+              zoneGreen: { type: 'box', yMin: -100, yMax: 15, backgroundColor: 'rgba(34, 197, 94, 0.04)', borderWidth: 0 },
+              zoneYellow: { type: 'box', yMin: 15, yMax: 30, backgroundColor: 'rgba(234, 179, 8, 0.04)', borderWidth: 0 },
+              zoneRed: { type: 'box', yMin: 30, yMax: 200, backgroundColor: 'rgba(239, 68, 68, 0.04)', borderWidth: 0 },
+              line15: {
+                type: 'line', yMin: 15, yMax: 15, borderColor: 'rgba(234, 179, 8, 0.6)', borderWidth: 1.5, borderDash: [4, 4],
+                label: { content: '15%', display: true, position: 'end', color: '#ca8a04', font: { size: 9 } }
+              },
+              line30: {
+                type: 'line', yMin: 30, yMax: 30, borderColor: 'rgba(239, 68, 68, 0.6)', borderWidth: 1.5, borderDash: [4, 4],
+                label: { content: '30%', display: true, position: 'end', color: '#dc2626', font: { size: 9 } }
+              }
             }
           },
           tooltip: {
@@ -3287,15 +3439,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (this.metricAnalyses['testExecution']) {
       return this.metricAnalyses['testExecution'];
     }
-    const currentRate = this.metrics?.testExecution?.rate !== undefined ? this.metrics.testExecution.rate.toFixed(2) : '100.00';
-    return `• Meta establecida para el periodo: 100%
-• Resultado del periodo: ${currentRate}%
-• Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
-• Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.
-• Análisis acumulado del periodo:
-1. Meta acumulada: 95%
-2. Resultado acumulado: 91.18%
-El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, es decir, ejecutar en tiempo y forma los planes de prueba correspondientes.`;
+    return `Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
+Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.`;
   }
 
   updateTestExecChart() {
@@ -3310,25 +3455,35 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(148,163,184,0.08)' : 'rgba(100,116,139,0.08)';
 
-    const execData = this.metrics?.testExecution || { passed: 0, failed: 0, blocked: 0, notExecuted: 0, notApplicable: 0 };
+    const execData = this.metrics?.testExecution || {
+      passed: 0,
+      passedEnTiempo: 0,
+      passedFueraDeTiempo: 0,
+      failed: 0,
+      blocked: 0,
+      notExecuted: 0,
+      notApplicable: 0
+    };
 
-    const total = (execData.passed || 0) + (execData.failed || 0) + (execData.blocked || 0) + (execData.notExecuted || 0) + (execData.notApplicable || 0);
+    const total = (execData.passedEnTiempo || 0) + (execData.passedFueraDeTiempo || 0) + (execData.failed || 0) + (execData.blocked || 0) + (execData.notExecuted || 0) + (execData.notApplicable || 0);
 
     this.testExecChart = new Chart(this.testExecChartCanvas.nativeElement, {
       type: 'doughnut',
       data: {
-        labels: ['Passed', 'Failed', 'Blocked', 'Not Executed', 'N/A'],
+        labels: ['Passed en Tiempo', 'Passed fuera de Tiempo', 'Failed', 'Blocked', 'Not Executed', 'N/A'],
         datasets: [
           {
             data: [
-              execData.passed,
-              execData.failed,
-              execData.blocked,
-              execData.notExecuted,
-              execData.notApplicable
+              execData.passedEnTiempo || 0,
+              execData.passedFueraDeTiempo || 0,
+              execData.failed || 0,
+              execData.blocked || 0,
+              execData.notExecuted || 0,
+              execData.notApplicable || 0
             ],
             backgroundColor: [
-              '#22c55e',
+              '#10b981',
+              '#f43f5e',
               '#ef4444',
               '#f59e0b',
               '#64748b',
@@ -3406,7 +3561,7 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     // Normalizar fechas a medianoche
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
@@ -3435,7 +3590,7 @@ El equipo continuará con el mismo esfuerzo para llegar a la meta establecida, e
   async export() {
     if (!this.metrics) return;
     this.isLoading = true;
-    
+
     try {
       // Capture charts as base64
       this.chartImages = {

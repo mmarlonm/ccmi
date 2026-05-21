@@ -43,6 +43,11 @@
     <div class="metric-block">
       <div class="font-bold mb-2 uppercase">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software</div>
       
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-blue-500 leading-relaxed">
+        Esta métrica mide el esfuerzo (tiempo) promedio de atención por unidad de tamaño (size) para los <strong>requerimientos</strong>.
+        <br><strong>Umbrales:</strong> Verde &le; 1.7 | Amarillo &le; 2.0 | Rojo &gt; 2.0
+      </p>
+
       <!-- Summary Boxes -->
       <div class="grid grid-cols-4 gap-2 mb-4">
         <div class="p-2 border bg-slate-50 text-center">
@@ -57,9 +62,17 @@
           <div class="text-[6pt] uppercase opacity-50">Size Total</div>
           <div class="text-[12pt] font-bold">{{ metrics.developmentRate.totalSize }}</div>
         </div>
-        <div class="p-2 border bg-blue-50 text-center border-blue-200">
-          <div class="text-[6pt] uppercase text-blue-600 font-bold">KPI Tasa</div>
-          <div class="text-[14pt] font-black text-blue-800">{{ metrics.developmentRate.rate.toFixed(2) }}</div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.developmentRate.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.developmentRate.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.developmentRate.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.developmentRate.status === 'green',
+            'text-yellow-600': metrics.developmentRate.status === 'yellow',
+            'text-red-600': metrics.developmentRate.status === 'red'
+          }">KPI Tasa</div>
+          <div class="text-[14pt] font-black">{{ metrics.developmentRate.rate.toFixed(2) }}</div>
         </div>
       </div>
 
@@ -112,14 +125,10 @@
         </div>
       </div>
 
-      <ul class="list-disc ml-5 space-y-2 text-[9pt] mb-4">
-        <li><strong>Valores de Referencia:</strong> Verde &le; 1.70 | Amarillo 1.70 - 2.0 | Rojo &gt; 2.0</li>
-        <li><strong>Resultado del periodo:</strong> {{ metrics.developmentRate.rate.toFixed(2) }}</li>
-        <li *ngIf="metricAnalyses['tasa de desarrollo']">
-          <strong>Análisis de resultados e Acciones:</strong> 
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['tasa de desarrollo'] }}</div>
-        </li>
-      </ul>
+      <div *ngIf="metricAnalyses['tasa de desarrollo']" class="p-3 bg-blue-50/50 border border-blue-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-blue-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['tasa de desarrollo'] }}</div>
+      </div>
 
       <div class="text-[7pt] text-slate-500 border-t pt-2">
         <strong>Herramientas:</strong> Azure DevOps, Power BI, SharePoint, Minitab, IntraBot.<br>
@@ -131,18 +140,51 @@
 
     <!-- Métrica 2: Effort -->
     <div class="metric-block">
-      <div class="font-bold mb-2">3.2 Métrica: Tasa de Desviación de Esfuerzo</div>
+      <div class="font-bold mb-2 uppercase">3.2 Métrica: Tasa de Desviación de Esfuerzo</div>
+
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-violet-500 leading-relaxed">
+        Esta métrica mide el porcentaje de desviación entre el esfuerzo real y el esfuerzo planeado en la construcción de <strong>requerimientos</strong>. Considera el tiempo total estimado y el tiempo total real de las tareas asociadas a los elementos de trabajo.
+        <br><strong>Umbrales:</strong> Verde &le; 15% | Amarillo &le; 30% | Rojo &gt; 30%
+      </p>
+
+      <!-- Summary Boxes -->
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Total Ítems</div>
+          <div class="text-[12pt] font-bold">{{ metrics.developmentRate.totalItems }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Total Estimado (H)</div>
+          <div class="text-[12pt] font-bold">{{ metrics.effortVariance.planned | number:'1.1-1' }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-50">Total Real (H)</div>
+          <div class="text-[12pt] font-bold">{{ metrics.effortVariance.actual | number:'1.1-1' }}</div>
+        </div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.effortVariance.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.effortVariance.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.effortVariance.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.effortVariance.status === 'green',
+            'text-yellow-600': metrics.effortVariance.status === 'yellow',
+            'text-red-600': metrics.effortVariance.status === 'red'
+          }">KPI % Desviación</div>
+          <div class="text-[12pt] font-black">
+            {{ (metrics.effortVariance.rate * 100) > 0 ? '+' : '' }}{{ (metrics.effortVariance.rate * 100).toFixed(2) }}%
+          </div>
+        </div>
+      </div>
+
       <div class="metric-chart-container mb-4">
         <img [src]="charts['effort']" *ngIf="charts['effort']" class="w-full h-48 object-contain">
       </div>
-      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
-        <li><strong>Meta establecida para el periodo:</strong> 15%</li>
-        <li><strong>Resultado del periodo:</strong> {{ (metrics.effortVariance.rate * 100).toFixed(1) }}%</li>
-        <li *ngIf="metricAnalyses['tasa de desviación']">
-          <strong>Análisis de resultados:</strong> 
-          <div class="whitespace-pre-wrap ml-4">{{ metricAnalyses['tasa de desviación'] }}</div>
-        </li>
-      </ul>
+
+      <div *ngIf="metricAnalyses['tasa de desviación']" class="p-3 bg-violet-50/50 border border-violet-100 rounded text-[8pt]">
+        <div class="font-bold text-violet-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['tasa de desviación'] }}</div>
+      </div>
     </div>
 
     <div class="page-break"></div>
@@ -150,6 +192,11 @@
     <!-- Métrica 3: Retrabajo -->
     <div class="metric-block">
       <div class="font-bold mb-2 uppercase">3.3 Métrica: Tasa de Retrabajo en Procesos de Software</div>
+
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-rose-500 leading-relaxed">
+        Esta métrica calcula la tasa de retrabajo asociada a los <strong>requerimientos en estado Resuelto y Cerrado</strong>. Para ello, considera tanto el esfuerzo invertido en tareas planeadas y correctivas, como el esfuerzo destinado a la atención de los bugs vinculados mediante las relaciones Affected by y Related.
+        <br><strong>Meta establecida:</strong> 20.00% | <strong>Umbrales:</strong> Verde &le; 22% | Amarillo &le; 30% | Rojo &gt; 30%
+      </p>
       
       <div class="grid grid-cols-5 gap-2 mb-4">
         <div class="p-2 border bg-slate-50 text-center">
@@ -168,20 +215,24 @@
           <div class="text-[6pt] uppercase opacity-50">Total</div>
           <div class="text-[12pt] font-bold">{{ metrics.rework.totalRework.toFixed(1) }}</div>
         </div>
-        <div class="p-2 border bg-rose-50 text-center border-rose-200">
-          <div class="text-[6pt] uppercase text-rose-600 font-bold">KPI Tasa</div>
-          <div class="text-[14pt] font-black text-rose-800">{{ metrics.rework.rate.toFixed(2) }}%</div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.rework.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.rework.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.rework.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.rework.status === 'green',
+            'text-yellow-600': metrics.rework.status === 'yellow',
+            'text-red-600': metrics.rework.status === 'red'
+          }">KPI Tasa</div>
+          <div class="text-[12pt] font-black text-rose-800">{{ metrics.rework.rate.toFixed(2) }}%</div>
         </div>
       </div>
 
-      <ul class="list-disc ml-5 space-y-2 text-[9pt] mb-4">
-        <li><strong>Meta establecida:</strong> 20% | Umbral Verde &le; 22%</li>
-        <li><strong>Resultado del periodo:</strong> {{ metrics.rework.rate.toFixed(2) }}%</li>
-        <li *ngIf="metricAnalyses['retrabajo']">
-          <strong>Análisis de resultados e Acciones:</strong> 
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['retrabajo'] }}</div>
-        </li>
-      </ul>
+      <div *ngIf="metricAnalyses['retrabajo']" class="p-3 bg-rose-50/50 border border-rose-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-rose-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['retrabajo'] }}</div>
+      </div>
 
       <div class="p-2 border border-indigo-100 bg-indigo-50/30 rounded text-[7pt]">
         <div class="font-bold mb-1">RECOMENDACIONES PARA EXACTITUD:</div>
@@ -203,22 +254,54 @@
     <!-- Métrica 4: Defect -->
     <div class="metric-block">
       <div class="font-bold mb-2 uppercase">3.4 Métrica: Densidad de Defectos</div>
+
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-emerald-500 leading-relaxed">
+        Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
+        <br><strong>Umbrales:</strong> Verde &le; 0.18 | Amarillo &le; 0.23 | Rojo &gt; 0.23
+      </p>
+
+      <!-- Summary KPIs -->
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-55">Total Incidencias (Bugs)</div>
+          <div class="text-[12pt] font-bold">{{ metrics.defectDensity.bugs }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-55">Tamaño Total (Size)</div>
+          <div class="text-[12pt] font-bold">{{ metrics.defectDensity.size }}</div>
+        </div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.defectDensity.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.defectDensity.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.defectDensity.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.defectDensity.status === 'green',
+            'text-yellow-600': metrics.defectDensity.status === 'yellow',
+            'text-red-600': metrics.defectDensity.status === 'red'
+          }">KPI Densidad</div>
+          <div class="text-[12pt] font-black">{{ metrics.defectDensity.density.toFixed(3) }}</div>
+        </div>
+      </div>
+
       <div class="metric-chart-container mb-4">
         <img [src]="charts['defect']" *ngIf="charts['defect']" class="w-full h-48 object-contain">
       </div>
-      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
-        <li><strong>Meta establecida para el periodo:</strong> 0.18</li>
-        <li><strong>Resultado del periodo:</strong> {{ metrics.defectDensity.density.toFixed(3) }}</li>
-        <li *ngIf="metricAnalyses['densidad de defectos']">
-          <strong>Análisis de resultados:</strong>
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['densidad de defectos'] }}</div>
-        </li>
-      </ul>
+
+      <div *ngIf="metricAnalyses['densidad de defectos']" class="p-3 bg-emerald-50/50 border border-emerald-100 rounded text-[8pt]">
+        <div class="font-bold text-emerald-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['densidad de defectos'] }}</div>
+      </div>
     </div>
 
     <!-- Métrica 5: EED -->
     <div class="metric-block">
       <div class="font-bold mb-2 uppercase">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)</div>
+
+      <p class="text-[8pt] text-slate-550 mb-4 bg-slate-50 p-2.5 border-l-2 border-amber-500 leading-relaxed">
+        Esta métrica mide el porcentaje de bugs atendidos contra el total de bugs detectados durante el ciclo de vida de desarrollo. El resultado se expresa en porcentaje y permite evaluar cuántos bugs se detectan y se atienden satisfactoriamente antes de salir a producción. <br/><strong>Fórmula:</strong> KPI EED = (∑ Bugs Closed / # Total de bugs detectados) x 100. Se consideran atendidos en tiempo aquellos que fueron cerrados dentro de la vigencia del sprint.
+        <br><strong>Meta establecida:</strong> 81.00% | <strong>Umbrales:</strong> Verde &ge; 81% | Amarillo &ge; 71% | Rojo &lt; 71%
+      </p>
       
       <div class="grid grid-cols-4 gap-2 mb-4">
         <div class="p-2 border bg-slate-50 text-center">
@@ -233,9 +316,17 @@
           <div class="text-[6pt] uppercase opacity-50">Closed fuera Tiempo</div>
           <div class="text-[12pt] font-bold text-rose-600">{{ metrics.defectRemovalEfficiency.closedLate }}</div>
         </div>
-        <div class="p-2 border bg-amber-50 text-center border-amber-200">
-          <div class="text-[6pt] uppercase text-amber-600 font-bold">KPI EED</div>
-          <div class="text-[14pt] font-black text-amber-800">{{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.defectRemovalEfficiency.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.defectRemovalEfficiency.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.defectRemovalEfficiency.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.defectRemovalEfficiency.status === 'green',
+            'text-yellow-600': metrics.defectRemovalEfficiency.status === 'yellow',
+            'text-red-600': metrics.defectRemovalEfficiency.status === 'red'
+          }">KPI EED</div>
+          <div class="text-[14pt] font-black">{{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</div>
         </div>
       </div>
 
@@ -309,7 +400,7 @@
               <div class="flex items-center gap-2 text-[6.5pt]">
                 <span class="text-slate-550 font-bold px-1 bg-slate-100 rounded">{{ bug.status }}</span>
                 <span class="px-1.5 py-0.5 rounded font-bold"
-                  [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
+                  [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-100 text-emerald-800' : (node.deliveryStatus === 'fuera' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')">
                   {{ bug.deliveryStatus === 'dentro' ? 'Dentro' : 'Fuera / Tarde' }}
                 </span>
                 <span class="text-slate-400" *ngIf="bug.closedDate">Cierre: {{ bug.closedDate | date:'dd/MM/yyyy':'UTC' }}</span>
@@ -323,14 +414,10 @@
         </div>
       </div>
 
-      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
-        <li><strong>Meta establecida para el periodo:</strong> 81%</li>
-        <li><strong>Resultado del periodo:</strong> {{ metrics.defectRemovalEfficiency.rate.toFixed(2) }}%</li>
-        <li *ngIf="metricAnalyses['eed']">
-          <strong>Análisis de resultados:</strong>
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['eed'] }}</div>
-        </li>
-      </ul>
+      <div *ngIf="metricAnalyses['eed']" class="p-3 bg-amber-50/50 border border-amber-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-amber-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['eed'] }}</div>
+      </div>
     </div>
 
     <div class="page-break"></div>
@@ -338,6 +425,11 @@
     <!-- Métrica 6: Porcentaje de Bugs Escapados -->
     <div class="metric-block" *ngIf="filteredEscapedBugs || metrics.escapedBugs">
       <div class="font-bold mb-2 uppercase text-blue-800 text-[10pt] border-b pb-1">3.6 Métrica: Porcentaje de Bugs Escapados (Métrica QPPO)</div>
+
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-indigo-500 leading-relaxed">
+        Esta métrica calcula el porcentaje de bugs escapados a producción respecto al total de bugs.
+        <br><strong>Umbrales:</strong> Verde &le; 33.00% | Amarillo &le; 40.00% | Rojo &gt; 40.00%
+      </p>
       
       <!-- Summary Boxes -->
       <div class="grid grid-cols-6 gap-2 mb-4">
@@ -357,9 +449,17 @@
           <div class="text-[6pt] uppercase opacity-55">Total Bugs</div>
           <div class="text-[12pt] font-bold text-slate-800">{{ (filteredEscapedBugs || metrics.escapedBugs).totalBugs }}</div>
         </div>
-        <div class="p-2 border bg-indigo-50 text-center border-indigo-200">
-          <div class="text-[6pt] uppercase text-indigo-700 font-bold">KPI Escapados</div>
-          <div class="text-[14pt] font-black text-indigo-800">{{ (filteredEscapedBugs || metrics.escapedBugs).rate.toFixed(2) }}%</div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': (filteredEscapedBugs || metrics.escapedBugs).status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': (filteredEscapedBugs || metrics.escapedBugs).status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': (filteredEscapedBugs || metrics.escapedBugs).status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': (filteredEscapedBugs || metrics.escapedBugs).status === 'green',
+            'text-yellow-600': (filteredEscapedBugs || metrics.escapedBugs).status === 'yellow',
+            'text-red-600': (filteredEscapedBugs || metrics.escapedBugs).status === 'red'
+          }">KPI Escapados</div>
+          <div class="text-[14pt] font-black">{{ (filteredEscapedBugs || metrics.escapedBugs).rate.toFixed(2) }}%</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Desv. Estándar</div>
@@ -409,15 +509,10 @@
         </tbody>
       </table>
 
-      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
-        <li><strong>Umbral Verde:</strong> &le; 33.00% | <strong>Umbral Rojo:</strong> &gt; 40.00%</li>
-        <li><strong>Resultado Global del Periodo:</strong> {{ (filteredEscapedBugs || metrics.escapedBugs).rate.toFixed(2) }}%</li>
-        <li><strong>Desviación Estándar Inter-Iteración:</strong> {{ (filteredEscapedBugs || metrics.escapedBugs).stdDeviation.toFixed(2) }}%</li>
-        <li *ngIf="metricAnalyses['escaped']">
-          <strong>Análisis de resultados:</strong>
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ metricAnalyses['escaped'] }}</div>
-        </li>
-      </ul>
+      <div *ngIf="metricAnalyses['escaped']" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-indigo-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ metricAnalyses['escaped'] }}</div>
+      </div>
     </div>
 
     <div class="page-break"></div>
@@ -425,16 +520,25 @@
     <!-- Métrica 7: Ejecución de Pruebas -->
     <div class="metric-block" *ngIf="metrics.testExecution">
       <div class="font-bold mb-2 uppercase text-blue-800 text-[10pt] border-b pb-1">3.7 Métrica: % Ejecución de Pruebas</div>
+
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-emerald-500 leading-relaxed">
+        Esta métrica mide el porcentaje de ejecución de pruebas (Run Rate) en el periodo.
+        <br><strong>Meta establecida:</strong> 100.00% | <strong>Umbrales:</strong> Verde = 100% | Amarillo &ge; 90% | Rojo &lt; 90%
+      </p>
       
       <!-- Summary Boxes -->
-      <div class="grid grid-cols-6 gap-2 mb-4">
+      <div class="grid grid-cols-7 gap-2 mb-4">
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Total Points</div>
           <div class="text-[12pt] font-bold text-slate-800">{{ metrics.testExecution.totalTestPoints }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
-          <div class="text-[6pt] uppercase opacity-55">Passed</div>
-          <div class="text-[12pt] font-bold text-emerald-700">{{ metrics.testExecution.passed }}</div>
+          <div class="text-[6pt] uppercase opacity-55 text-emerald-700">Passed Tiempo</div>
+          <div class="text-[12pt] font-bold text-emerald-700">{{ metrics.testExecution.passedEnTiempo }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[6pt] uppercase opacity-55 text-rose-700">Passed Fuera</div>
+          <div class="text-[12pt] font-bold text-rose-700">{{ metrics.testExecution.passedFueraDeTiempo }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Failed</div>
@@ -448,8 +552,16 @@
           <div class="text-[6pt] uppercase opacity-55">Not Executed</div>
           <div class="text-[12pt] font-bold text-slate-500">{{ metrics.testExecution.notExecuted }}</div>
         </div>
-        <div class="p-2 border bg-emerald-50 text-center border-emerald-200">
-          <div class="text-[6pt] uppercase text-emerald-700 font-bold">KPI Run Rate</div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': metrics.testExecution.status === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': metrics.testExecution.status === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': metrics.testExecution.status === 'red'
+        }">
+          <div class="text-[6pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': metrics.testExecution.status === 'green',
+            'text-yellow-600': metrics.testExecution.status === 'yellow',
+            'text-red-600': metrics.testExecution.status === 'red'
+          }">KPI Run Rate</div>
           <div class="text-[14pt] font-black text-emerald-800">{{ metrics.testExecution.rate.toFixed(2) }}%</div>
         </div>
       </div>
@@ -466,6 +578,7 @@
             <th class="p-1 border">ID Caso</th>
             <th class="p-1 border">Caso de Prueba</th>
             <th class="p-1 border">Tester</th>
+            <th class="p-1 border text-center">¿En Tiempo?</th>
             <th class="p-1 border text-center">Resultado</th>
           </tr>
         </thead>
@@ -481,6 +594,15 @@
             <td class="p-1 border text-center">
               <span class="font-bold px-1 py-0.5 rounded text-[7px] uppercase"
                 [ngClass]="{
+                  'bg-emerald-100 text-emerald-800': pt.onTime,
+                  'bg-rose-100 text-rose-800': !pt.onTime
+                }">
+                {{ pt.onTime ? 'Sí' : 'No' }}
+              </span>
+            </td>
+            <td class="p-1 border text-center">
+              <span class="font-bold px-1 py-0.5 rounded text-[7px] uppercase"
+                [ngClass]="{
                   'bg-emerald-100 text-emerald-800': pt.outcome.toLowerCase() === 'passed',
                   'bg-rose-100 text-rose-800': pt.outcome.toLowerCase() === 'failed',
                   'bg-amber-100 text-amber-800': pt.outcome.toLowerCase() === 'blocked',
@@ -492,19 +614,15 @@
             </td>
           </tr>
           <tr *ngIf="metrics.testExecution.testPoints.length === 0">
-            <td colspan="5" class="text-center py-4 text-slate-400 italic">No hay datos de pruebas.</td>
+            <td colspan="6" class="text-center py-4 text-slate-400 italic">No hay datos de pruebas.</td>
           </tr>
         </tbody>
       </table>
 
-      <ul class="list-disc ml-5 space-y-2 text-[9pt]">
-        <li><strong>Meta establecida para el periodo:</strong> 100%</li>
-        <li><strong>Resultado del periodo:</strong> {{ metrics.testExecution.rate.toFixed(2) }}%</li>
-        <li>
-          <strong>Análisis de resultados e Acciones:</strong>
-          <div class="whitespace-pre-wrap ml-4 italic text-slate-700">{{ getTestExecutionAnalysis() }}</div>
-        </li>
-      </ul>
+      <div class="p-3 bg-emerald-50/50 border border-emerald-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-emerald-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ getTestExecutionAnalysis() }}</div>
+      </div>
     </div>
   </div>
 

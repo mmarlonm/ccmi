@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud } from 'lucide-angular';
+import { UpdateService } from '../../services/update.service';
 
 @Component({
   selector: 'app-layout',
@@ -80,11 +81,21 @@ import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, Ch
       <a 
         routerLink="/update" 
         routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
-        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300 relative"
         [class.justify-center]="isMenuCollapsed"
         [title]="isMenuCollapsed ? 'Actualización' : ''">
-        <lucide-icon [name]="DownloadCloud" size="20" class="shrink-0"></lucide-icon>
-        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Actualización</span>
+        <div class="relative shrink-0 flex items-center justify-center">
+          <lucide-icon [name]="DownloadCloud" size="20"></lucide-icon>
+          <span *ngIf="hasUpdate && isMenuCollapsed" class="absolute -top-1.5 -right-2.5 flex h-3.5 px-1 items-center justify-center rounded-full bg-indigo-600 text-[7px] font-black text-white shadow-sm animate-pulse uppercase tracking-tight z-10 leading-none">
+            Update
+          </span>
+        </div>
+        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap flex items-center gap-2">
+          Actualización
+          <span *ngIf="hasUpdate" class="text-[9px] font-bold bg-indigo-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+            Update
+          </span>
+        </span>
       </a>
       <a 
         routerLink="/config" 
@@ -125,7 +136,12 @@ import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, Ch
       <span>Sprint</span>
     </a>
     <a routerLink="/update" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
-      <lucide-icon [name]="DownloadCloud" size="20"></lucide-icon>
+      <div class="relative flex items-center justify-center">
+        <lucide-icon [name]="DownloadCloud" size="20"></lucide-icon>
+        <span *ngIf="hasUpdate" class="absolute -top-1.5 -right-2.5 flex h-3.5 px-1 items-center justify-center rounded-full bg-indigo-600 text-[7px] font-black text-white shadow-sm animate-pulse uppercase tracking-tight z-10 leading-none">
+          Update
+        </span>
+      </div>
       <span>Actualización</span>
     </a>
     <a routerLink="/config" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
@@ -151,7 +167,7 @@ export class LayoutComponent {
   isDarkMode = false;
   isMenuCollapsed = false;
 
-  constructor() {
+  constructor(private updateService: UpdateService) {
     // Default to Light Mode as requested
     this.isDarkMode = false;
     document.documentElement.classList.remove('dark');
@@ -159,6 +175,10 @@ export class LayoutComponent {
     // Restore persistent menu state
     const savedState = localStorage.getItem('cmmi5_menu_collapsed');
     this.isMenuCollapsed = savedState === 'true';
+  }
+
+  get hasUpdate(): boolean {
+    return this.updateService.isUpdateAvailable;
   }
 
   toggleDarkMode() {

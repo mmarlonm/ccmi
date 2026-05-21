@@ -1,6 +1,6 @@
 {
   "name": "cmmi5-analyzer",
-  "version": "1.0.1",
+  "version": "1.0.7",
   "main": "electron/main.js",
   "scripts": {
     "ng": "ng",
@@ -53,7 +53,8 @@
     "lucide-angular": "^1.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
-    "zone.js": "~0.15.0"
+    "zone.js": "~0.15.0",
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^19.0.0",
@@ -65,7 +66,6 @@
     "electron": "^28.3.3",
     "electron-builder": "^26.8.1",
     "electron-packager": "^17.1.2",
-    "electron-updater": "^6.8.3",
     "jasmine-core": "~5.4.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",

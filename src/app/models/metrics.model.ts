@@ -168,6 +168,8 @@ export interface CMMIMetrics {
     executed: number;
     notExecuted: number;
     passed: number;
+    passedEnTiempo: number;
+    passedFueraDeTiempo: number;
     failed: number;
     blocked: number;
     notApplicable: number;

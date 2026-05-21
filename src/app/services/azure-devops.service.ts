@@ -767,7 +767,7 @@ export class AzureDevOpsService {
     const activeCount = sprintBugs.filter(eb => ['Active', 'Approved', 'Committed'].includes(eb.status)).length;
 
     // EED represents Defect Removal Efficiency: (Total Closed Bugs / Total Bugs) * 100
-    const eedRate = totalBugs > 0 ? ((closedEnTiempo + closedFueraTiempo) / totalBugs) * 100 : 100;
+    const eedRate = totalBugs > 0 ? (closedEnTiempo / totalBugs) * 100 : 100;
     const eedStatus = eedRate >= 81 ? 'green' : (eedRate >= 71 ? 'yellow' : 'red');
 
     // --- ESCAPED BUGS METRIC (3.6) CALCULATION ---
@@ -828,8 +828,7 @@ export class AzureDevOpsService {
 
     escapedBugsList.forEach((b: any) => {
       if (b.classification === 'testing') escapedBugsTesting++;
-      else if (b.classification === 'uat') escapedBugsUat++;
-      else if (b.classification === 'produccion') escapedBugsProd++;
+      else if (b.classification === 'uat' || b.classification === 'produccion') escapedBugsProd++;
     });
 
     const escapedTotalBugs = escapedBugsTesting + escapedBugsUat + escapedBugsProd;
@@ -845,7 +844,7 @@ export class AzureDevOpsService {
 
     const escapedBugsResult = {
       bugsTesting: escapedBugsTesting,
-      bugsUat: escapedBugsUat,
+      bugsUat: 0,
       bugsProd: escapedBugsProd,
       totalBugs: escapedTotalBugs,
       rate: escapedRate,
@@ -1115,6 +1114,8 @@ export class AzureDevOpsService {
                 const totalTestPoints = allPoints.length;
 
                 let passed = 0;
+                let passedEnTiempo = 0;
+                let passedFueraDeTiempo = 0;
                 let failed = 0;
                 let blocked = 0;
                 let notApplicable = 0;
@@ -1122,7 +1123,14 @@ export class AzureDevOpsService {
 
                 allPoints.forEach(pt => {
                   const outStr = pt.outcome.toLowerCase();
-                  if (outStr === 'passed') passed++;
+                  if (outStr === 'passed') {
+                    passed++;
+                    if (pt.isExecutedInSprint) {
+                      passedEnTiempo++;
+                    } else {
+                      passedFueraDeTiempo++;
+                    }
+                  }
                   else if (outStr === 'failed') failed++;
                   else if (outStr === 'blocked') blocked++;
                   else if (outStr === 'notapplicable' || outStr === 'not applicable') notApplicable++;
@@ -1130,7 +1138,7 @@ export class AzureDevOpsService {
                 });
 
                 const executed = totalTestPoints - notExecuted;
-                const rate = totalTestPoints > 0 ? (executed / totalTestPoints) * 100 : 0;
+                const rate = totalTestPoints > 0 ? (passedEnTiempo / totalTestPoints) * 100 : 0;
                 const status = rate >= 90 ? 'green' : (rate >= 80 ? 'yellow' : 'red');
 
                 metrics.testExecution = {
@@ -1138,6 +1146,8 @@ export class AzureDevOpsService {
                   executed,
                   notExecuted,
                   passed,
+                  passedEnTiempo,
+                  passedFueraDeTiempo,
                   failed,
                   blocked,
                   notApplicable,
@@ -1173,6 +1183,8 @@ export class AzureDevOpsService {
       executed: 0,
       notExecuted: 0,
       passed: 0,
+      passedEnTiempo: 0,
+      passedFueraDeTiempo: 0,
       failed: 0,
       blocked: 0,
       notApplicable: 0,
@@ -1322,8 +1334,7 @@ export class AzureDevOpsService {
 
     bugsList.forEach(b => {
       if (b.classification === 'testing') bugsTesting++;
-      else if (b.classification === 'uat') bugsUat++;
-      else if (b.classification === 'produccion') bugsProd++;
+      else if (b.classification === 'uat' || b.classification === 'produccion') bugsProd++;
     });
 
     const beforeRelease = bugsTesting + bugsUat;
@@ -1338,8 +1349,7 @@ export class AzureDevOpsService {
       }
       iterationGroups[iter].total++;
       if (b.classification === 'testing') iterationGroups[iter].testing++;
-      else if (b.classification === 'uat') iterationGroups[iter].uat++;
-      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
+      else if (b.classification === 'uat' || b.classification === 'produccion') iterationGroups[iter].prod++;
     });
 
     const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
@@ -1368,7 +1378,7 @@ export class AzureDevOpsService {
 
     return {
       bugsTesting,
-      bugsUat,
+      bugsUat: 0,
       bugsProd,
       totalBugs: bugsList.length,
       rate,
