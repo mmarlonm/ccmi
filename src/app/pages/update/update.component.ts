@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, CloudDownload, Search, RefreshCw, DownloadCloud, ArrowUpRight, ShieldCheck, ChevronDown, ChevronUp, AlertTriangle, Info, History } from 'lucide-angular';
@@ -268,6 +268,7 @@ export class UpdateComponent implements OnInit {
   readonly History = History;
 
   private updateService = inject(UpdateService);
+  private ngZone = inject(NgZone);
 
   updateRepo = 'mmarlonm/ccmi';
   latestRelease: any = null;
@@ -288,75 +289,84 @@ export class UpdateComponent implements OnInit {
 
   ngOnInit() {
     this.updateService.getUpdateSupport().subscribe(result => {
-      this.canAutoUpdate = !!(window as any).require?.('electron');
-      this.currentVersion = result.version || '1.0.5';
-      this.isElectronUpdaterSupported = result.supported && result.isPackaged;
-      
-      if (!this.canAutoUpdate) {
-        this.updateStatusMessage = 'Actualización no disponible en el navegador web.';
-      } else {
-        this.updateStatusMessage = 'Listo para buscar actualizaciones.';
-      }
-
-      // Restaurar estado de descargas o actualizaciones en curso desde el servicio compartido
-      if (this.updateService.latestReleaseData) {
-        this.latestRelease = this.updateService.latestReleaseData;
-        this.updateAvailable = this.updateService.isUpdateAvailable;
+      this.ngZone.run(() => {
+        this.canAutoUpdate = !!(window as any).require?.('electron');
+        this.currentVersion = result.version || '1.0.5';
+        this.isElectronUpdaterSupported = result.supported && result.isPackaged;
         
-        if (this.updateService.isDownloaded) {
-          this.updateDownloaded = true;
-          this.isUpdateDownloading = false;
-          this.updateProgress = 100;
-          this.updateStatusMessage = 'Descargado, listo para instalar';
-        } else if (this.updateService.isDownloading) {
-          this.isUpdateDownloading = true;
-          this.updateProgress = this.updateService.downloadPercent;
-          this.updateStatusMessage = `descargando: ${this.updateProgress}%`;
+        if (!this.canAutoUpdate) {
+          this.updateStatusMessage = 'Actualización no disponible en el navegador web.';
         } else {
-          const isNewer = this.updateService.isVersionNewer(this.currentVersion, this.latestRelease.tag_name);
-          if (isNewer) {
-            this.updateAvailable = true;
-            this.updateStatusMessage = `Nueva versión disponible: ${this.latestRelease.tag_name}`;
-          } else {
-            this.updateAvailable = false;
-            this.updateStatusMessage = `Tienes la versión más reciente instalada (${this.latestRelease.tag_name})`;
-          }
+          this.updateStatusMessage = 'Listo para buscar actualizaciones.';
         }
-      } else {
-        this.checkForUpdates();
-      }
+
+        // Restaurar estado de descargas o actualizaciones en curso desde el servicio compartido
+        if (this.updateService.latestReleaseData) {
+          this.latestRelease = this.updateService.latestReleaseData;
+          this.updateAvailable = this.updateService.isUpdateAvailable;
+          
+          if (this.updateService.isDownloaded) {
+            this.updateDownloaded = true;
+            this.isUpdateDownloading = false;
+            this.updateProgress = 100;
+            this.updateStatusMessage = 'Descargado, listo para instalar';
+          } else if (this.updateService.isDownloading) {
+            this.isUpdateDownloading = true;
+            this.updateProgress = this.updateService.downloadPercent;
+            this.updateStatusMessage = `descargando: ${this.updateProgress}%`;
+          } else {
+            const isNewer = this.updateService.isVersionNewer(this.currentVersion, this.latestRelease.tag_name);
+            if (isNewer) {
+              this.updateAvailable = true;
+              this.updateStatusMessage = `Nueva versión disponible: ${this.latestRelease.tag_name}`;
+            } else {
+              this.updateAvailable = false;
+              this.updateStatusMessage = `Tienes la versión más reciente instalada (${this.latestRelease.tag_name})`;
+            }
+          }
+        } else {
+          this.checkForUpdates();
+        }
+      });
     });
   }
 
   subscribeToUpdateEvents() {
     this.updateService.updateEvents.subscribe(event => {
-      this.updateStatusMessage = event.status.replace(/-/g, ' ');
-      if (event.status === 'download-progress' && event.progress) {
-        this.updateProgress = Math.round(event.progress.percent || 0);
-        this.isUpdateDownloading = true;
-      }
-      if (event.status === 'update-downloaded') {
-        this.updateDownloaded = true;
-        this.isUpdateDownloading = false;
-        this.updateStatusMessage = 'Descargado, listo para instalar';
-        this.updateProgress = 100;
-      }
-      if (event.status === 'update-available') {
-        this.updateAvailable = true;
-        this.latestRelease = event.release || this.updateService.latestReleaseData;
-        this.updateStatusMessage = `Último release: ${this.latestRelease?.tag_name || 'disponible'}`;
-      }
-      if (event.status === 'update-not-available') {
-        if (!this.updateService.isUpdateAvailable) {
-          this.updateAvailable = false;
-          this.updateStatusMessage = 'No hay actualizaciones disponibles';
+      this.ngZone.run(() => {
+        this.updateStatusMessage = event.status.replace(/-/g, ' ');
+        if (event.status === 'downloading') {
+          this.isUpdateDownloading = true;
+          this.updateDownloaded = false;
+          this.updateProgress = 0;
         }
-      }
-      if (event.status === 'error') {
-        this.updateStatusMessage = `Error: ${event.error || 'No se pudo descargar'}`;
-        this.isUpdateChecking = false;
-        this.isUpdateDownloading = false;
-      }
+        if (event.status === 'download-progress' && event.progress) {
+          this.updateProgress = Math.round(event.progress.percent || 0);
+          this.isUpdateDownloading = true;
+        }
+        if (event.status === 'update-downloaded') {
+          this.updateDownloaded = true;
+          this.isUpdateDownloading = false;
+          this.updateStatusMessage = 'Descargado, listo para instalar';
+          this.updateProgress = 100;
+        }
+        if (event.status === 'update-available') {
+          this.updateAvailable = true;
+          this.latestRelease = event.release || this.updateService.latestReleaseData;
+          this.updateStatusMessage = `Último release: ${this.latestRelease?.tag_name || 'disponible'}`;
+        }
+        if (event.status === 'update-not-available') {
+          if (!this.updateService.isUpdateAvailable) {
+            this.updateAvailable = false;
+            this.updateStatusMessage = 'No hay actualizaciones disponibles';
+          }
+        }
+        if (event.status === 'error') {
+          this.updateStatusMessage = `Error: ${event.error || 'No se pudo descargar'}`;
+          this.isUpdateChecking = false;
+          this.isUpdateDownloading = false;
+        }
+      });
     });
   }
 
@@ -373,24 +383,26 @@ export class UpdateComponent implements OnInit {
     }
     this.updateStatusMessage = 'Buscando release...';
     this.updateService.searchLatestRelease(this.updateRepo).subscribe(release => {
-      if (!release) {
-        this.latestRelease = null;
-        this.updateStatusMessage = 'No se encontró ningún release.';
-        return;
-      }
-      this.latestRelease = release;
-      
-      const isNewer = this.updateService.isVersionNewer(this.currentVersion, release.tag_name);
-      
-      if (isNewer) {
-        this.updateAvailable = true;
-        this.updateService.isUpdateAvailable = true;
-        this.updateStatusMessage = `Nueva versión disponible: ${release.tag_name}`;
-      } else {
-        this.updateAvailable = false;
-        this.updateService.isUpdateAvailable = false;
-        this.updateStatusMessage = `Tienes la versión más reciente instalada (${release.tag_name})`;
-      }
+      this.ngZone.run(() => {
+        if (!release) {
+          this.latestRelease = null;
+          this.updateStatusMessage = 'No se encontró ningún release.';
+          return;
+        }
+        this.latestRelease = release;
+        
+        const isNewer = this.updateService.isVersionNewer(this.currentVersion, release.tag_name);
+        
+        if (isNewer) {
+          this.updateAvailable = true;
+          this.updateService.isUpdateAvailable = true;
+          this.updateStatusMessage = `Nueva versión disponible: ${release.tag_name}`;
+        } else {
+          this.updateAvailable = false;
+          this.updateService.isUpdateAvailable = false;
+          this.updateStatusMessage = `Tienes la versión más reciente instalada (${release.tag_name})`;
+        }
+      });
     });
   }
 
@@ -399,24 +411,26 @@ export class UpdateComponent implements OnInit {
     this.updateStatusMessage = 'Buscando actualizaciones...';
     
     this.updateService.searchLatestRelease(this.updateRepo).subscribe(release => {
-      this.isUpdateChecking = false;
-      if (!release) {
-        this.updateStatusMessage = 'No se pudo obtener información de actualizaciones.';
-        return;
-      }
-      
-      this.latestRelease = release;
-      const isNewer = this.updateService.isVersionNewer(this.currentVersion, release.tag_name);
-      
-      if (isNewer) {
-        this.updateAvailable = true;
-        this.updateService.isUpdateAvailable = true;
-        this.updateStatusMessage = `Nueva versión disponible: ${release.tag_name}`;
-      } else {
-        this.updateAvailable = false;
-        this.updateService.isUpdateAvailable = false;
-        this.updateStatusMessage = `Tienes la versión más reciente instalada (${release.tag_name})`;
-      }
+      this.ngZone.run(() => {
+        this.isUpdateChecking = false;
+        if (!release) {
+          this.updateStatusMessage = 'No se pudo obtener información de actualizaciones.';
+          return;
+        }
+        
+        this.latestRelease = release;
+        const isNewer = this.updateService.isVersionNewer(this.currentVersion, release.tag_name);
+        
+        if (isNewer) {
+          this.updateAvailable = true;
+          this.updateService.isUpdateAvailable = true;
+          this.updateStatusMessage = `Nueva versión disponible: ${release.tag_name}`;
+        } else {
+          this.updateAvailable = false;
+          this.updateService.isUpdateAvailable = false;
+          this.updateStatusMessage = `Tienes la versión más reciente instalada (${release.tag_name})`;
+        }
+      });
     });
   }
 

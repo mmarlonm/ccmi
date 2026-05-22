@@ -833,7 +833,9 @@ export class AzureDevOpsService {
 
     const escapedTotalBugs = escapedBugsTesting + escapedBugsUat + escapedBugsProd;
     const escapedBeforeRelease = escapedBugsTesting + escapedBugsUat;
-    const escapedRate = escapedBeforeRelease > 0 ? (escapedBugsProd / escapedBeforeRelease) * 100 : 0;
+    const escapedRate = escapedBeforeRelease > 0 
+      ? (escapedBugsProd / escapedBeforeRelease) * 100 
+      : (escapedBugsProd > 0 ? 100 : 0);
     const escapedStatus = escapedRate <= 33 ? 'green' : (escapedRate <= 40 ? 'yellow' : 'red');
 
     // Print to console as requested
@@ -1338,7 +1340,9 @@ export class AzureDevOpsService {
     });
 
     const beforeRelease = bugsTesting + bugsUat;
-    const rate = beforeRelease > 0 ? (bugsProd / beforeRelease) * 100 : 0;
+    const rate = beforeRelease > 0 
+      ? (bugsProd / beforeRelease) * 100 
+      : (bugsProd > 0 ? 100 : 0);
     const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
 
     const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string } } = {};

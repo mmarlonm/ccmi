@@ -5,7 +5,7 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 import { AIService } from '../../services/ai.service';
 import { PdfService } from '../../services/pdf.service';
 import { CMMIMetrics } from '../../models/metrics.model';
-import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight } from 'lucide-angular';
+import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight, MessageSquare, Send, X, Bot, User } from 'lucide-angular';
 import { Chart, registerables } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 
@@ -270,7 +270,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-blue-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software</h3>
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.developmentRate.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.developmentRate.status === 'yellow',
@@ -572,7 +572,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
           <div class="flex flex-col">
-            <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo</h3>
+            <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
             <!-- Validation Warning -->
             <div *ngIf="getTotalRemainingWork() > 0" class="flex items-center gap-1.5 text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded mt-1 border border-red-100">
               <lucide-icon [name]="AlertTriangle" size="10"></lucide-icon>
@@ -799,7 +799,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-rose-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software</h3>
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.rework.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.rework.status === 'yellow',
@@ -982,7 +982,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <!-- Section 3.4: Defect -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.4 Métrica: Densidad de Defectos</h3>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
@@ -1051,7 +1051,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-amber-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)</h3>
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.defectRemovalEfficiency.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.defectRemovalEfficiency.status === 'yellow',
@@ -1505,7 +1505,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <!-- Section 3.6: Escaped Defects / Bugs Escapados -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.6 Métrica: Porcentaje de Bugs Escapados</h3>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
           Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
@@ -1680,7 +1680,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <!-- Section 3.7: Test Execution / Ejecución de Pruebas -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas</h3>
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
 
         <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
@@ -1874,6 +1874,101 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
       [filteredEscapedBugs]="filteredEscapedBugs">
     </app-pdf-template>
   </div>
+
+  <!-- Chatbot Toggle Button -->
+  <button (click)="toggleChat()" 
+          class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 active:scale-95 transition-all text-white rounded-full shadow-2xl hover:shadow-indigo-500/30 cursor-pointer">
+    <lucide-icon *ngIf="!chatOpen" [name]="MessageSquare" size="24"></lucide-icon>
+    <lucide-icon *ngIf="chatOpen" [name]="X" size="24"></lucide-icon>
+    <span *ngIf="!chatOpen && metrics" class="absolute -top-1 -right-1 flex h-4 w-4">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+      <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-[8px] font-black text-white items-center justify-center">AI</span>
+    </span>
+  </button>
+
+  <!-- Chatbot Container -->
+  <div *ngIf="chatOpen" 
+       class="fixed bottom-24 right-6 z-50 w-[420px] max-w-[calc(100vw-2rem)] h-[550px] max-h-[calc(100vh-8rem)] rounded-3xl shadow-2xl flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/50 dark:border-slate-800/50 overflow-hidden animate-in slide-in-from-bottom-5 duration-350">
+    
+    <!-- Chat Header -->
+    <header class="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0 shadow-md">
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-xl bg-white/10">
+          <lucide-icon [name]="Sparkles" size="20" class="text-indigo-200 animate-pulse"></lucide-icon>
+        </div>
+        <div>
+          <h3 class="text-xs font-black uppercase tracking-wider leading-none">Asistente CMMI 5</h3>
+          <span class="text-[9px] text-indigo-200 font-medium">Consultas sobre la vista actual</span>
+        </div>
+      </div>
+      <button (click)="toggleChat()" class="p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
+        <lucide-icon [name]="X" size="18"></lucide-icon>
+      </button>
+    </header>
+
+    <!-- Chat Messages Area -->
+    <div #chatScrollContainer 
+         class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-950/10">
+      
+      <div *ngFor="let msg of chatMessages" class="flex flex-col"
+           [ngClass]="{'items-end': msg.role === 'user', 'items-start': msg.role === 'assistant'}">
+        
+        <div class="flex gap-2 max-w-[85%]" 
+             [ngClass]="{'flex-row-reverse': msg.role === 'user'}">
+          
+          <!-- Avatar -->
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm border"
+               [ngClass]="{
+                 'bg-indigo-100 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400': msg.role === 'assistant',
+                 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-600 dark:text-slate-400': msg.role === 'user'
+               }">
+            <lucide-icon [name]="msg.role === 'assistant' ? Bot : User" size="16"></lucide-icon>
+          </div>
+
+          <!-- Bubble -->
+          <div class="p-3 rounded-2xl text-xs leading-relaxed shadow-sm whitespace-pre-wrap"
+               [ngClass]="{
+                 'bg-indigo-600 text-white rounded-tr-none': msg.role === 'user',
+                 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-155 rounded-tl-none border border-slate-100 dark:border-slate-800/40': msg.role === 'assistant'
+               }">{{ msg.content }}</div>
+        </div>
+        
+        <!-- Timestamp -->
+        <span class="text-[9px] text-slate-400/80 px-10 mt-1">
+          {{ msg.timestamp | date:'HH:mm' }}
+        </span>
+      </div>
+
+      <!-- Loading State / Typing Indicator -->
+      <div *ngIf="chatLoading" class="flex gap-2 items-center">
+        <div class="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 dark:bg-indigo-950 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <lucide-icon [name]="Bot" size="16"></lucide-icon>
+        </div>
+        <div class="p-3 rounded-2xl rounded-tl-none bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800/40 shadow-sm flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style="animation-delay: 0ms"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style="animation-delay: 150ms"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style="animation-delay: 300ms"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Input Area -->
+    <form (submit)="sendChatMessage(); $event.preventDefault()" 
+          class="border-t border-slate-100 dark:border-slate-800/60 p-3 bg-white dark:bg-slate-900 flex gap-2 shrink-0 items-center">
+      <input [(ngModel)]="chatQuestion" 
+             name="chatQuestion"
+             type="text" 
+             placeholder="Pregunta sobre las métricas, ISWs, bugs..." 
+             [disabled]="chatLoading"
+             class="flex-1 text-xs py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 bg-slate-50 dark:bg-slate-950/30 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500" />
+      
+      <button type="submit" 
+              [disabled]="!chatQuestion.trim() || chatLoading"
+              class="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-40 disabled:scale-100 disabled:pointer-events-none transition-all text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 cursor-pointer">
+        <lucide-icon [name]="Send" size="14"></lucide-icon>
+      </button>
+    </form>
+  </div>
 </div>
   `
 })
@@ -1891,6 +1986,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   readonly Search = Search;
   readonly DownloadCloud = DownloadCloud;
   readonly ArrowUpRight = ArrowUpRight;
+  readonly MessageSquare = MessageSquare;
+  readonly Send = Send;
+  readonly X = X;
+  readonly Bot = Bot;
+  readonly User = User;
 
   private azureService = inject(AzureDevOpsService);
   private aiService = inject(AIService);
@@ -1927,6 +2027,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   eedTimelineData: any[] = [];
   eedTimelineFilter: 'all' | 'sprint' = 'all';
   iterationsLoaded = false; // guarantees loadData() always uses fresh iteration metadata
+
+  get selectedSprintDisplayName(): string {
+    if (!this.selectedIteration) return '';
+    const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
+    if (!iter) return '';
+    const name = iter.name || '';
+    return /sprint/i.test(name) ? name : `Sprint ${name}`;
+  }
 
   getFilteredEEDTimelineData() {
     if (this.eedTimelineFilter === 'sprint') {
@@ -2233,7 +2341,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
 
     const beforeRelease = bugsTesting + bugsUat;
-    const rate = beforeRelease > 0 ? (bugsProd / beforeRelease) * 100 : 0;
+    const rate = beforeRelease > 0 
+      ? (bugsProd / beforeRelease) * 100 
+      : (bugsProd > 0 ? 100 : 0);
     const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
 
     const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string, bugs: any[] } } = {};
@@ -3611,5 +3721,90 @@ Acciones correctivas: Para esta métrica no se requieren realizar acciones corre
     } finally {
       this.isLoading = false;
     }
+  }
+
+  // --- Chatbot virtual methods ---
+  @ViewChild('chatScrollContainer') private chatScrollContainer!: ElementRef;
+
+  chatOpen = false;
+  chatMessages: Array<{ role: 'user' | 'assistant', content: string, timestamp: Date }> = [
+    {
+      role: 'assistant',
+      content: '¡Hola! Soy tu Asistente CMMI 5. Puedes preguntarme cualquier cosa sobre la información que está en la vista del sprint actual (métricas, desviaciones, items de trabajo, bugs, probadores, etc.). ¿En qué puedo ayudarte hoy?',
+      timestamp: new Date()
+    }
+  ];
+  chatQuestion = '';
+  chatLoading = false;
+
+  toggleChat() {
+    this.chatOpen = !this.chatOpen;
+    if (this.chatOpen) {
+      this.scrollToBottom();
+    }
+  }
+
+  sendChatMessage() {
+    if (!this.chatQuestion.trim() || this.chatLoading) return;
+
+    const userText = this.chatQuestion.trim();
+    this.chatQuestion = '';
+
+    // Add user message to history
+    this.chatMessages.push({
+      role: 'user',
+      content: userText,
+      timestamp: new Date()
+    });
+    this.scrollToBottom();
+
+    if (!this.metrics) {
+      this.chatMessages.push({
+        role: 'assistant',
+        content: 'No hay datos cargados para analizar en este momento. Por favor, asegúrate de que el sprint tenga información.',
+        timestamp: new Date()
+      });
+      this.scrollToBottom();
+      return;
+    }
+
+    this.chatLoading = true;
+
+    // Call AIService
+    this.aiService.askAboutMetrics(
+      this.metrics,
+      userText,
+      this.chatMessages.map(m => ({ role: m.role, content: m.content }))
+    ).subscribe({
+      next: (response) => {
+        this.chatMessages.push({
+          role: 'assistant',
+          content: response,
+          timestamp: new Date()
+        });
+        this.chatLoading = false;
+        this.scrollToBottom();
+      },
+      error: (err) => {
+        console.error('Chat AI Error:', err);
+        this.chatMessages.push({
+          role: 'assistant',
+          content: 'Ocurrió un error al procesar tu pregunta. Por favor, intenta de nuevo.',
+          timestamp: new Date()
+        });
+        this.chatLoading = false;
+        this.scrollToBottom();
+      }
+    });
+  }
+
+  private scrollToBottom(): void {
+    try {
+      setTimeout(() => {
+        if (this.chatScrollContainer) {
+          this.chatScrollContainer.nativeElement.scrollTop = this.chatScrollContainer.nativeElement.scrollHeight;
+        }
+      }, 100);
+    } catch(err) { }
   }
 }

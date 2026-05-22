@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { from, Observable, of, Subject } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
@@ -39,12 +39,14 @@ export class UpdateService {
   private updateRepo = 'mmarlonm/ccmi';
   private checkInterval: any;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private ngZone: NgZone) {
     const win = window as any;
     this.ipc = win.require?.('electron')?.ipcRenderer;
     if (this.ipc) {
       this.ipc.on('update-status', (_event: any, payload: UpdateEventPayload) => {
-        this.handleUpdateEvent(payload);
+        this.ngZone.run(() => {
+          this.handleUpdateEvent(payload);
+        });
       });
     }
     this.startAutoCheck();
@@ -52,7 +54,11 @@ export class UpdateService {
 
   private handleUpdateEvent(payload: UpdateEventPayload) {
     this.lastEvent = payload;
-    if (payload.status === 'download-progress' && payload.progress) {
+    if (payload.status === 'downloading') {
+      this.isDownloading = true;
+      this.isDownloaded = false;
+      this.downloadPercent = 0;
+    } else if (payload.status === 'download-progress' && payload.progress) {
       this.downloadPercent = Math.round(payload.progress.percent || 0);
       this.isDownloading = true;
     } else if (payload.status === 'update-downloaded') {
@@ -89,9 +95,15 @@ export class UpdateService {
     }, 10 * 60 * 1000);
   }
 
+  extractVersionNumbers(version: string): string {
+    if (!version) return '';
+    const match = version.toString().match(/(\d+(?:\.\d+)*)/);
+    return match ? match[1] : version.toString().trim();
+  }
+
   isVersionNewer(local: string, remote: string): boolean {
-    const cleanLocal = local.trim().replace(/^v/i, '');
-    const cleanRemote = remote.trim().replace(/^v/i, '');
+    const cleanLocal = this.extractVersionNumbers(local);
+    const cleanRemote = this.extractVersionNumbers(remote);
     
     if (cleanLocal === cleanRemote) return false;
     

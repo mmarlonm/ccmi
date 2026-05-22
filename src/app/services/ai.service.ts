@@ -174,6 +174,131 @@ ${iswSummary}
     }
   }
 
+  askAboutMetrics(metrics: CMMIMetrics, question: string, chatHistory: Array<{ role: 'user' | 'assistant', content: string }>): Observable<string> {
+    const config = this.configService.getConfig();
+    if (!config || !config.ai.apiKey) return of('Configuración de IA no encontrada. Por favor configure su API Key en la pantalla de Configuración.');
+
+    // Build the metrics summary context
+    let contextStr = `INFORMACIÓN DEL SPRINT ACTUAL:\n`;
+    contextStr += `- Iteración/Sprint: ${metrics.iterationName || 'No especificada'}\n`;
+    if (metrics.startDate && metrics.endDate) {
+      contextStr += `- Periodo: ${metrics.startDate} a ${metrics.endDate}\n`;
+    }
+
+    // 1. Tasa de desarrollo
+    contextStr += `\n1. TASA DE DESARROLLO:\n`;
+    contextStr += `- Valor: ${metrics.developmentRate.rate.toFixed(2)} (Semáforo: ${metrics.developmentRate.status})\n`;
+    contextStr += `- Esfuerzo Real Total: ${metrics.developmentRate.totalEffort?.toFixed(1) ?? 0}h\n`;
+    contextStr += `- Puntos de Historia (Size) Total: ${metrics.developmentRate.totalSize ?? 0}\n`;
+    contextStr += `- Cantidad de Items: ${metrics.developmentRate.totalItems ?? 0}\n`;
+    if (metrics.developmentRate.items && metrics.developmentRate.items.length > 0) {
+      contextStr += `Items de Trabajo:\n`;
+      metrics.developmentRate.items.forEach(i => {
+        const est = (i.tasks || []).reduce((s, t) => s + (t.originalEstimate || 0), 0);
+        contextStr += `  * [${i.type === 'Feature' ? 'FT' : 'US'} #${i.id}] ${i.title} - ISW: ${i.isw} | Estado: ${i.status} | Estimado: ${est.toFixed(1)}h | Real: ${i.effort.toFixed(1)}h | Size: ${i.size}\n`;
+      });
+    }
+
+    // 2. Desviación de Esfuerzo
+    contextStr += `\n2. DESVIACIÓN DE ESFUERZO:\n`;
+    contextStr += `- Tasa Desviación: ${(metrics.effortVariance.rate * 100).toFixed(1)}% (Semáforo: ${metrics.effortVariance.status})\n`;
+    contextStr += `- Esfuerzo Planeado: ${metrics.effortVariance.planned?.toFixed(1) ?? 0}h\n`;
+    contextStr += `- Esfuerzo Real: ${metrics.effortVariance.actual?.toFixed(1) ?? 0}h\n`;
+
+    // 3. Retrabajo
+    contextStr += `\n3. TASA DE RETRABAJO:\n`;
+    contextStr += `- Tasa Retrabajo: ${metrics.rework.rate.toFixed(1)}% (Semáforo: ${metrics.rework.status})\n`;
+    contextStr += `- Esfuerzo Requerimientos: ${metrics.rework.reqEffort?.toFixed(1) ?? 0}h\n`;
+    contextStr += `- Retrabajo Total: ${metrics.rework.totalRework?.toFixed(1) ?? 0}h\n`;
+
+    // 4. Densidad de Defectos
+    contextStr += `\n4. DENSIDAD DE DEFECTOS:\n`;
+    contextStr += `- Densidad: ${metrics.defectDensity.density.toFixed(3)} (Semáforo: ${metrics.defectDensity.status})\n`;
+    contextStr += `- Bugs Totales: ${metrics.defectDensity.bugs ?? 0}\n`;
+    contextStr += `- Size Total: ${metrics.defectDensity.size ?? 0}\n`;
+
+    // 5. EED
+    contextStr += `\n5. EFICIENCIA EN ELIMINACIÓN DE DEFECTOS (EED):\n`;
+    contextStr += `- Eficiencia: ${metrics.defectRemovalEfficiency.rate.toFixed(2)}% (Semáforo: ${metrics.defectRemovalEfficiency.status})\n`;
+    contextStr += `- Bugs Cerrados a Tiempo: ${metrics.defectRemovalEfficiency.closedOnTime ?? 0}\n`;
+    contextStr += `- Bugs Cerrados Fuera de Tiempo: ${metrics.defectRemovalEfficiency.closedLate ?? 0}\n`;
+    if (metrics.defectRemovalEfficiency.bugsList && metrics.defectRemovalEfficiency.bugsList.length > 0) {
+      contextStr += `Lista de Bugs EED:\n`;
+      metrics.defectRemovalEfficiency.bugsList.forEach(b => {
+        contextStr += `  * [Bug #${b.bugId}] ${b.title} - Asignado: ${b.isw || 'Sin asignar'} | Estado: ${b.status} | Alineación: ${b.alignment} | Clasificación: ${b.classification || 'N/A'}\n`;
+      });
+    }
+
+    // 6. Bugs Escapados
+    const escapedBugs = metrics.escapedBugs;
+    if (escapedBugs) {
+      contextStr += `\n6. BUGS ESCAPADOS:\n`;
+      contextStr += `- Tasa Escape: ${escapedBugs.rate.toFixed(2)}% (Semáforo: ${escapedBugs.status})\n`;
+      contextStr += `- Bugs Testing: ${escapedBugs.bugsTesting ?? 0}\n`;
+      contextStr += `- Bugs UAT: ${escapedBugs.bugsUat ?? 0}\n`;
+      contextStr += `- Bugs Producción: ${escapedBugs.bugsProd ?? 0}\n`;
+      if (escapedBugs.bugsList && escapedBugs.bugsList.length > 0) {
+        contextStr += `Lista de Bugs Escapados:\n`;
+        escapedBugs.bugsList.forEach(b => {
+          contextStr += `  * [Bug #${b.bugId}] ${b.title} - Asignado: ${b.isw || 'Sin asignar'} | Estado: ${b.status} | Clasificación: ${b.classification}\n`;
+        });
+      }
+    }
+
+    // 7. Ejecución de Pruebas
+    const testExecution = metrics.testExecution;
+    if (testExecution) {
+      contextStr += `\n7. EJECUCIÓN DE PRUEBAS:\n`;
+      contextStr += `- Tasa Ejecución: ${testExecution.rate.toFixed(2)}% (Semáforo: ${testExecution.status})\n`;
+      contextStr += `- Total Test Points: ${testExecution.totalTestPoints ?? 0}\n`;
+      contextStr += `- Ejecutados: ${testExecution.executed ?? 0}\n`;
+      contextStr += `- Pasados a Tiempo: ${testExecution.passedEnTiempo ?? 0}\n`;
+      contextStr += `- Pasados Fuera de Tiempo: ${testExecution.passedFueraDeTiempo ?? 0}\n`;
+      contextStr += `- Fallidos: ${testExecution.failed ?? 0}\n`;
+      contextStr += `- Bloqueados: ${testExecution.blocked ?? 0}\n`;
+      if (testExecution.testPoints && testExecution.testPoints.length > 0) {
+        contextStr += `Detalle de Puntos de Prueba:\n`;
+        testExecution.testPoints.forEach(tp => {
+          contextStr += `  * [Plan: ${tp.planName}] Suite: ${tp.suiteName} | Test Case: [#${tp.testCaseId}] ${tp.testCaseTitle} - Probador: ${tp.tester} | Resultado: ${tp.outcome} | En Tiempo: ${tp.onTime ? 'Sí' : 'No'}\n`;
+        });
+      }
+    }
+
+    // Build chat history into the prompt
+    let chatHistoryStr = '';
+    if (chatHistory && chatHistory.length > 0) {
+      chatHistoryStr = `HISTORIAL DE LA CONVERSACIÓN:\n`;
+      chatHistory.forEach(msg => {
+        chatHistoryStr += `${msg.role === 'user' ? 'Usuario' : 'Asistente'}: ${msg.content}\n`;
+      });
+    }
+
+    const askPrompt = `
+      Actúa como un Asistente Virtual Experto en Métricas CMMI Nivel 5 para el proyecto OPE20 Bepensa.
+      Tu objetivo es responder de manera clara, concisa y precisa a las preguntas del usuario sobre los datos y métricas que se muestran en el dashboard actual.
+
+      ${contextStr}
+
+      ${chatHistoryStr}
+
+      PREGUNTA DEL USUARIO:
+      ${question}
+
+      REGLAS PARA RESPONDER:
+      1. Responde en ESPAÑOL.
+      2. Sé preciso e infórmate de los datos proporcionados arriba. Si te preguntan por un ítem específico, un ISW específico, un bug o una métrica en particular, busca en los datos provistos y da detalles específicos (IDs, horas, porcentajes, nombres).
+      3. Mantén un tono profesional, analítico y constructivo, pero amigable.
+      4. Si la pregunta no tiene relación con las métricas o no se puede responder con la información proporcionada, indícalo amablemente y ofrece ayuda sobre lo que sí puedes responder basándote en los datos.
+      5. Puedes estructurar tu respuesta con viñetas o tablas markdown sencillas para mejorar la legibilidad.
+    `;
+
+    if (config.ai.provider === 'openai') {
+      return this.callOpenAI(config.ai.apiKey, config.ai.model, askPrompt);
+    } else {
+      return this.callGemini(config.ai.apiKey, config.ai.model, askPrompt);
+    }
+  }
+
   private callOpenAI(key: string, model: string, prompt: string): Observable<string> {
     return this.http.post<any>('https://api.openai.com/v1/chat/completions', {
       model: model || 'gpt-4',

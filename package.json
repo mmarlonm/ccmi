@@ -1,6 +1,6 @@
 {
   "name": "cmmi5-analyzer",
-  "version": "1.0.7",
+  "version": "1.0.11",
   "main": "electron/main.js",
   "scripts": {
     "ng": "ng",

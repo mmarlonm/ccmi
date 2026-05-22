@@ -20,7 +20,9 @@ try {
 let win;
 
 function normalizeVersion(version) {
-  return version ? version.toString().trim().replace(/^v/i, '') : '';
+  if (!version) return '';
+  const match = version.toString().match(/(\d+(?:\.\d+)*)/);
+  return match ? match[1] : version.toString().trim();
 }
 
 function sendUpdateStatus(status, data = {}) {
