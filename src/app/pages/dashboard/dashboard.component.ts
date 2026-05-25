@@ -1876,15 +1876,172 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
   </div>
 
   <!-- Chatbot Toggle Button -->
-  <button (click)="toggleChat()" 
-          class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 active:scale-95 transition-all text-white rounded-full shadow-2xl hover:shadow-indigo-500/30 cursor-pointer">
-    <lucide-icon *ngIf="!chatOpen" [name]="MessageSquare" size="24"></lucide-icon>
-    <lucide-icon *ngIf="chatOpen" [name]="X" size="24"></lucide-icon>
-    <span *ngIf="!chatOpen && metrics" class="absolute -top-1 -right-1 flex h-4 w-4">
+  <div class="ia-chat-container">
+    <button class="ia-chat-button" (click)="toggleChat()" aria-label="Abrir Chatbot">
+      <!-- SVG Rostro IA si está cerrado -->
+      <svg *ngIf="!chatOpen" viewBox="0 0 100 100" width="86%" height="86%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Resplandor del rostro en alta definición -->
+          <linearGradient id="face-glow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ff4d61" stop-opacity="0.5"/>
+            <stop offset="50%" stop-color="#ff122b" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="#ff122b" stop-opacity="0"/>
+          </linearGradient>
+          
+          <!-- Desvanecimiento de líneas laterales para estética limpia -->
+          <linearGradient id="line-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#ff122b" stop-opacity="0.15"/>
+            <stop offset="30%" stop-color="#ff122b" stop-opacity="0.85"/>
+            <stop offset="50%" stop-color="#ff4d61" stop-opacity="1"/>
+            <stop offset="70%" stop-color="#ff122b" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="#ff122b" stop-opacity="0.15"/>
+          </linearGradient>
+
+          <!-- Resplandor de fondo holográfico para profundidad 3D -->
+          <radialGradient id="aura-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ff122b" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#1a0205" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Efecto holográfico trasero -->
+        <circle cx="50" cy="50" r="45" fill="url(#aura-glow)" />
+
+        <!-- Rostro con Geometría Orgánica Ajustada -->
+        <g class="animated-face">
+          
+          <!-- Silueta estilizada (Máscara base con sienes y pómulos definidos) -->
+          <path d="M 50,20 C 38,20 34,26 34,36 C 34,39 32,45 32,50 C 32,58 35,66 39,72 C 42,76 46,78 50,78 C 54,78 58,76 61,72 C 65,66 68,58 68,50 C 68,45 66,39 66,36 C 66,26 62,20 50,20 Z" 
+                fill="url(#face-glow)" opacity="0.12"/>
+
+          <!-- Pómulos iluminados en 3D (Máscara de volumen) -->
+          <path d="M33,50 C36,51 39,54 41,58 C38,60 34,58 33,50 Z" fill="url(#face-glow)" opacity="0.15"/>
+          <path d="M67,50 C64,51 61,54 59,58 C62,60 66,58 67,50 Z" fill="url(#face-glow)" opacity="0.15"/>
+
+          <!-- RED DE TRAZOS VECTORIALES CURVOS (Estilo Red Sináptica Premium) -->
+          <g stroke="url(#line-fade)" stroke-width="0.55" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            
+            <!-- Contornos del cabello cibernético (Estilo fluido femenino) -->
+            <path class="synapse-edge" d="M31,18 C22,23 18,36 18,52 C18,68 23,80 27,86" />
+            <path class="synapse-edge" d="M26,20 C17,30 14,45 14,62 C14,75 18,85 22,90" />
+            <path class="synapse-edge" d="M69,18 C78,23 82,36 82,52 C82,68 77,80 73,86" />
+            <path class="synapse-edge" d="M74,20 C83,30 86,45 86,62 C86,75 82,85 78,90" />
+
+            <!-- Orejas Estilizadas Tech -->
+            <path class="synapse-edge" d="M34,36 C30,36 29,46 31,54" />
+            <path class="synapse-edge" d="M66,36 C70,36 71,46 69,54" />
+
+            <!-- Contorno Superior de la Cabeza y Sienes -->
+            <path class="synapse-edge" d="M34,36 C32,44 33,52 36,60" />
+            <path class="synapse-edge" d="M66,36 C68,44 67,52 64,60" />
+
+            <!-- Cejas Estilizadas Finas y Expresivas -->
+            <path class="synapse-edge" d="M31,37 C34,33 40,33 44,36" />
+            <path class="synapse-edge" d="M69,37 C66,33 60,33 56,36" />
+            
+            <!-- Conexión del Entrecejo y Frente (Detalles 3D) -->
+            <path class="synapse-edge" d="M44,36 C47,37.5 53,37.5 56,36" />
+            <path d="M50,20 L50,30" stroke-width="0.3" opacity="0.5" />
+            <path class="synapse-edge" d="M42,26 C45,28 55,28 58,26" />
+            <path d="M45,22 L55,22" stroke-width="0.3" opacity="0.4" />
+            <path class="synapse-edge" d="M36,30 C42,32 58,32 64,30" />
+
+            <!-- Perfilado de la Nariz en 3D -->
+            <path class="synapse-edge" d="M50,37 L50,56 C48,58 46,58 50,59.5 C54,58 52,58 50,56" stroke-width="0.65" />
+            <path class="synapse-edge" d="M47,57 C47,59.5 49,59.5 50,59.5" stroke-width="0.5" />
+            <path class="synapse-edge" d="M53,57 C53,59.5 51,59.5 50,59.5" stroke-width="0.5" />
+            <path d="M47.5,37 C48.5,43 48.5,50 49,55" stroke-width="0.3" opacity="0.4" />
+            <path d="M52.5,37 C51.5,43 51.5,50 51,55" stroke-width="0.3" opacity="0.4" />
+            
+            <!-- Pómulos Delicados y Definición Facial -->
+            <path class="synapse-edge" d="M34,46 C38,47.5 41,50 43,54 L39,63" />
+            <path class="synapse-edge" d="M66,46 C62,47.5 59,50 57,54 L61,63" />
+            <path class="synapse-edge" d="M34,50 C37,55 41,59 44,63" />
+            <path class="synapse-edge" d="M66,50 C63,55 59,59 56,63" />
+            
+            <!-- Labios Realistas Proporcionados (Arco de cupido + sombras) -->
+            <path class="synapse-edge" d="M43,67 C45,64.5 47,65.5 50,65.5 C53,65.5 55,64.5 57,67 Z" stroke-width="0.6"/>
+            <path class="synapse-edge" d="M44.5,67 C46.5,71.5 53.5,71.5 55.5,67 Z" stroke-width="0.6"/>
+            <path d="M42.5,67 C46,67.8 54,67.8 57.5,67" stroke-width="0.35" opacity="0.6"/>
+            <path d="M45,69.5 C48,71.5 52,71.5 55,69.5" stroke-width="0.4" opacity="0.5" />
+
+            <!-- Mandíbula Estilizada en V y Chin Outline -->
+            <path class="synapse-edge" d="M39,63 C42,70 45,74 50,76 C55,74 58,70 61,63" />
+            <path class="synapse-edge" d="M39,72 C42,75 58,75 61,72" />
+
+            <!-- Cuello y Clavícula Realistas (Salida hacia los hombros) -->
+            <path class="synapse-edge" d="M41.5,74 C41,82 38,88 34,92" />
+            <path class="synapse-edge" d="M58.5,74 C59,82 62,88 66,92" />
+            <path class="synapse-edge" d="M34,92 C42,94 45,91 50,91 C55,91 58,94 66,92" />
+          </g>
+
+          <!-- OJOS EXPRESIVOS Y REALISTAS CON CREASE Y LASHES -->
+          <g stroke="url(#line-fade)" stroke-width="0.75" fill="none">
+            <!-- Ojo Izquierdo -->
+            <g class="ia-eye-left">
+              <path class="synapse-edge" d="M33,46 C35,42.5 41,42.5 43,46 C41,48.5 35,48.5 33,46 Z"/>
+              <path d="M32,43 C35,40.5 41,40.5 44,43" stroke-width="0.4" opacity="0.7" />
+              <path d="M33,46.5 C35.5,48.5 39,48.5 41.5,46" stroke-width="0.3" opacity="0.6" />
+              <circle class="neural-node" cx="38" cy="46" r="1.3" />
+            </g>
+            <!-- Ojo Derecho -->
+            <g class="ia-eye-right">
+              <path class="synapse-edge" d="M57,46 C59,42.5 65,42.5 67,46 C65,48.5 59,48.5 57,46 Z"/>
+              <path d="M56,43 C59,40.5 65,40.5 68,43" stroke-width="0.4" opacity="0.7" />
+              <path d="M58.5,46 C61,48.5 64.5,48.5 67,46.5" stroke-width="0.3" opacity="0.6" />
+              <circle class="neural-node" cx="62" cy="46" r="1.3" />
+            </g>
+          </g>
+
+          <!-- INTERCONEXIONES Y NODOS SINÁPTICOS REDISEÑADOS -->
+          <g>
+            <!-- Puntos de Luz Centrales (Eje de Simetría) -->
+            <circle class="neural-node" cx="50" cy="20" r="1.2" />
+            <circle class="neural-node" cx="50" cy="30" r="1.0" />
+            <circle class="neural-node" cx="50" cy="37" r="1.3" />
+            <circle class="neural-node" cx="50" cy="56" r="1.2" />
+            <circle class="neural-node" cx="50" cy="65.5" r="1.1" />
+            <circle class="neural-node" cx="50" cy="76" r="1.4" />
+            <circle class="neural-node" cx="50" cy="91" r="1.2" />
+            
+            <!-- Puntos Laterales Simétricos -->
+            <circle class="neural-node" cx="44.5" cy="36" r="1" />
+            <circle class="neural-node" cx="55.5" cy="36" r="1" />
+            <circle class="neural-node" cx="43" cy="54" r="0.9" />
+            <circle class="neural-node" cx="57" cy="54" r="0.9" />
+            <circle class="neural-node" cx="39" cy="63" r="1.1" />
+            <circle class="neural-node" cx="61" cy="63" r="1.1" />
+            <circle class="neural-node" cx="42.5" cy="67" r="1" />
+            <circle class="neural-node" cx="57.5" cy="67" r="1" />
+            <circle class="neural-node" cx="39" cy="72" r="1" />
+            <circle class="neural-node" cx="61" cy="72" r="1" />
+
+            <!-- Nodos del cabello y hombros -->
+            <circle class="neural-node" cx="27" cy="86" r="1" />
+            <circle class="neural-node" cx="73" cy="86" r="1" />
+            <circle class="neural-node" cx="22" cy="90" r="0.8" opacity="0.7" />
+            <circle class="neural-node" cx="78" cy="90" r="0.8" opacity="0.7" />
+            <circle class="neural-node" cx="34" cy="92" r="1" />
+            <circle class="neural-node" cx="66" cy="92" r="1" />
+
+            <!-- Destellos periféricos flotantes sutiles -->
+            <circle class="neural-node" cx="24" cy="32" r="0.8" opacity="0.5"/>
+            <circle class="neural-node" cx="20" cy="50" r="1" opacity="0.5"/>
+            <circle class="neural-node" cx="76" cy="32" r="0.8" opacity="0.5"/>
+            <circle class="neural-node" cx="80" cy="50" r="1" opacity="0.5"/>
+          </g>
+        </g>
+      </svg>
+      <!-- X brillante de color neón rojo si está abierto -->
+      <lucide-icon *ngIf="chatOpen" [name]="X" size="24" class="text-[#ff4d61] drop-shadow-[0_0_8px_#ff122b] animate-in fade-in zoom-in duration-300"></lucide-icon>
+    </button>
+
+    <!-- Insignia de notificación AI -->
+    <span *ngIf="!chatOpen && metrics" class="absolute -top-1 -right-1 flex h-4 w-4 z-10">
       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
       <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-[8px] font-black text-white items-center justify-center">AI</span>
     </span>
-  </button>
+  </div>
 
   <!-- Chatbot Container -->
   <div *ngIf="chatOpen" 

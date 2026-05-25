@@ -62,3 +62,119 @@ body {
 .chart-container {
   @apply relative w-full h-[300px];
 }
+
+/* Floating Button Container */
+.ia-chat-container {
+  position: fixed;
+  bottom: 1.5rem; /* 24px */
+  right: 1.5rem;  /* 24px */
+  width: 60px;
+  height: 60px;
+  z-index: 50;
+}
+
+.ia-chat-button {
+  background: radial-gradient(circle, #ffffff 0%, #f3f4f6 100%);
+  border: 2px solid #ff122b;
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 18, 43, 0.15), inset 0 0 10px rgba(255, 255, 255, 0.8);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  padding: 0;
+  overflow: visible;
+  position: relative;
+}
+
+.ia-chat-button:hover {
+  transform: scale(1.06) translateY(-2px);
+  border-color: #ff4d61;
+  box-shadow: 0 8px 25px rgba(255, 18, 43, 0.35), inset 0 0 12px rgba(255, 255, 255, 0.9);
+}
+
+/* Expansive energy waves */
+.ia-chat-button::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 1px solid #ff122b;
+  opacity: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.ia-chat-button:hover::before {
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+}
+
+/* --- FACE ANIMATIONS --- */
+
+/* Organic breathing motion */
+.animated-face {
+  transform-origin: 50px 50px;
+  animation: face-breathing 4s ease-in-out infinite;
+}
+
+/* Fluid eye blink with exact origin */
+.ia-eye-left { 
+  transform-origin: 38px 46px; 
+  animation: eye-blink 4.5s infinite ease-in-out; 
+}
+.ia-eye-right { 
+  transform-origin: 62px 46px; 
+  animation: eye-blink 4.5s infinite ease-in-out; 
+}
+
+/* Sharp cyber data flow */
+.synapse-edge {
+  stroke-dasharray: 12, 24;
+  stroke-dashoffset: 36;
+  animation: data-flow 2.5s linear infinite;
+}
+
+.synapse-edge:nth-child(even) {
+  animation-direction: reverse;
+  animation-duration: 2s;
+}
+
+/* Elegant node pulsing */
+.neural-node {
+  animation: node-pulse 2s infinite ease-in-out;
+  transform-origin: center;
+}
+
+.neural-node:nth-child(3n) { animation-delay: 0.3s; }
+.neural-node:nth-child(3n+1) { animation-delay: 0.6s; }
+.neural-node:nth-child(3n+2) { animation-delay: 0.9s; }
+
+/* --- KEYFRAMES --- */
+
+@keyframes face-breathing {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-0.8px) scale(1.01); }
+}
+
+@keyframes eye-blink {
+  0%, 93%, 100% { transform: scaleY(1); opacity: 1; }
+  95% { transform: scaleY(0.05); opacity: 0.2; }
+  97% { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes data-flow {
+  to { stroke-dashoffset: -36; }
+}
+
+@keyframes node-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); fill: #ff122b; }
+  50% { opacity: 1; transform: scale(1.15); fill: #ff6677; filter: drop-shadow(0 0 3px #ff122b); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
