@@ -624,6 +624,116 @@
         <div class="whitespace-pre-wrap italic text-slate-700">{{ getTestExecutionAnalysis() }}</div>
       </div>
     </div>
+
+    <div class="page-break"></div>
+
+    <!-- Métrica 8: Pruebas Satisfactorias -->
+    <div class="metric-block" *ngIf="satisfactoryTestsStats || metrics?.satisfactoryTests">
+      <div class="font-bold mb-2 uppercase text-blue-800 text-[10pt] border-b pb-1">3.8 Métrica: % Pruebas Satisfactorias</div>
+      
+      <!-- Summary Boxes -->
+      <div class="grid grid-cols-8 gap-1.5 mb-4">
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55">Total Points</div>
+          <div class="text-[10pt] font-bold text-slate-800">{{ satisfactoryTestsStats?.total ?? metrics?.satisfactoryTests?.total }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55 text-emerald-700">Passed Tiempo</div>
+          <div class="text-[10pt] font-bold text-emerald-700">{{ satisfactoryTestsStats?.passedEnTiempo ?? metrics?.satisfactoryTests?.passedEnTiempo }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55 text-rose-700">Passed Fuera</div>
+          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.passedFueraDeTiempo ?? metrics?.satisfactoryTests?.passedFueraDeTiempo }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55">Failed</div>
+          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.failed ?? metrics?.satisfactoryTests?.failed }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55">Blocked</div>
+          <div class="text-[10pt] font-bold text-amber-700">{{ satisfactoryTestsStats?.blocked ?? metrics?.satisfactoryTests?.blocked }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55">N/A</div>
+          <div class="text-[10pt] font-bold text-purple-700">{{ satisfactoryTestsStats?.notApplicable ?? metrics?.satisfactoryTests?.notApplicable }}</div>
+        </div>
+        <div class="p-2 border bg-slate-50 text-center">
+          <div class="text-[5.5pt] uppercase opacity-55">None/Exec</div>
+          <div class="text-[10pt] font-bold text-slate-550">{{ satisfactoryTestsStats?.notExecuted ?? metrics?.satisfactoryTests?.notExecuted }}</div>
+        </div>
+        <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
+          'bg-green-50 border-green-200 text-green-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'red'
+        }">
+          <div class="text-[5.5pt] uppercase font-bold" [ngClass]="{
+            'text-green-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'green',
+            'text-yellow-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'yellow',
+            'text-red-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'red'
+          }">KPI Pass Rate</div>
+          <div class="text-[12pt] font-black text-emerald-800">{{ (satisfactoryTestsStats?.rate ?? metrics?.satisfactoryTests?.rate || 0).toFixed(2) }}%</div>
+        </div>
+      </div>
+
+      <div class="metric-chart-container mb-4">
+        <img [src]="charts['satisfactoryTests']" *ngIf="charts['satisfactoryTests']" class="w-full h-48 object-contain">
+      </div>
+
+      <!-- Detail Table -->
+      <table class="w-full text-[7pt] mb-4 !border-collapse">
+        <thead class="bg-slate-100 font-bold uppercase">
+          <tr>
+            <th class="p-1 border">ID Point</th>
+            <th class="p-1 border">ID Caso</th>
+            <th class="p-1 border">Caso de Prueba</th>
+            <th class="p-1 border">Estatus</th>
+            <th class="p-1 border text-center">Fecha Test Plan</th>
+            <th class="p-1 border text-center">Fecha de Ejecución</th>
+            <th class="p-1 border text-center">¿En Tiempo?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let pt of (satisfactoryTestsPoints ?? metrics?.testExecution?.testPoints)">
+            <td class="p-1 border font-mono">#{{ pt.testPointId }}</td>
+            <td class="p-1 border text-blue-650 font-bold">#{{ pt.testCaseId }}</td>
+            <td class="p-1 border truncate max-w-[200px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
+            <td class="p-1 border">
+              <span class="font-bold px-1 py-0.5 rounded text-[7px] uppercase"
+                [ngClass]="{
+                  'bg-emerald-100 text-emerald-800': pt.outcome.toLowerCase() === 'passed',
+                  'bg-rose-100 text-rose-800': pt.outcome.toLowerCase() === 'failed',
+                  'bg-amber-100 text-amber-800': pt.outcome.toLowerCase() === 'blocked',
+                  'bg-slate-100 text-slate-500': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                  'bg-purple-100 text-purple-800': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
+                }">
+                {{ pt.outcome }}
+              </span>
+            </td>
+            <td class="p-1 border text-center">{{ pt.planEndDate ? (pt.planEndDate | date:'dd/MM/yyyy':'UTC') : (metrics?.endDate | date:'dd/MM/yyyy':'UTC') }}</td>
+            <td class="p-1 border text-center">
+              {{ (pt.outcome.toLowerCase() !== 'none' && pt.outcome.toLowerCase() !== 'active') ? (pt.lastUpdatedDate | date:'dd/MM/yyyy':'UTC') : '' }}
+            </td>
+            <td class="p-1 border text-center">
+              <span class="font-bold px-1 py-0.5 rounded text-[7px] uppercase" *ngIf="pt.outcome.toLowerCase() !== 'none' && pt.outcome.toLowerCase() !== 'active' && pt.outcome.toLowerCase() !== 'notapplicable' && pt.outcome.toLowerCase() !== 'not applicable'"
+                [ngClass]="{
+                  'bg-emerald-100 text-emerald-800': pt.onTime,
+                  'bg-rose-100 text-rose-800': !pt.onTime
+                }">
+                {{ pt.onTime ? 'Sí' : 'No' }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="(satisfactoryTestsPoints ?? metrics?.testExecution?.testPoints || []).length === 0">
+            <td colspan="7" class="text-center py-4 text-slate-400 italic">No hay datos de pruebas.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="p-3 bg-teal-50/50 border border-teal-100 rounded text-[8pt] mb-4">
+        <div class="font-bold text-teal-600 uppercase mb-1">Análisis de resultados e Acciones</div>
+        <div class="whitespace-pre-wrap italic text-slate-700">{{ getSatisfactoryTestsAnalysis() }}</div>
+      </div>
+    </div>
   </div>
 
   <!-- Firmas -->

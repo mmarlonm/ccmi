@@ -1,6 +1,6 @@
 {
   "name": "cmmi5-analyzer",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "main": "electron/main.js",
   "scripts": {
     "ng": "ng",
@@ -27,7 +27,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "electron/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -48,13 +49,13 @@
     "@lucide/angular": "^1.14.0",
     "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",
+    "electron-updater": "^6.8.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-angular": "^1.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
-    "zone.js": "~0.15.0",
-    "electron-updater": "^6.8.3"
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^19.0.0",
@@ -67,6 +68,7 @@
     "electron-builder": "^26.8.1",
     "electron-packager": "^17.1.2",
     "jasmine-core": "~5.4.0",
+    "jimp": "^0.22.12",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",

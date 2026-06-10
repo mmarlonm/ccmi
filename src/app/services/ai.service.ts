@@ -78,6 +78,14 @@ ${iswSummary}
          (Semáforo: Verde ≤ 33% | Amarillo 33%–40% | Rojo > 40%)
          Bugs Testing: ${metrics.escapedBugs?.bugsTesting ?? 0} | Bugs UAT: ${metrics.escapedBugs?.bugsUat ?? 0} | Bugs Producción: ${metrics.escapedBugs?.bugsProd ?? 0} | Total Bugs: ${metrics.escapedBugs?.totalBugs ?? 0}
 
+      7. Porcentaje de Ejecución de Pruebas (Run Rate): ${metrics.testExecution?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≥ 90% | Amarillo 80%–89% | Rojo < 80%)
+         Total Test Points: ${metrics.testExecution?.totalTestPoints ?? 0} | Ejecutados: ${metrics.testExecution?.executed ?? 0} | Pasados a Tiempo: ${metrics.testExecution?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.testExecution?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.testExecution?.failed ?? 0} | Bloqueados: ${metrics.testExecution?.blocked ?? 0} | N/A: ${metrics.testExecution?.notApplicable ?? 0}
+
+      8. Porcentaje de Pruebas Satisfactorias (Pass Rate): ${metrics.satisfactoryTests?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≥ 90% | Amarillo 80%–89% | Rojo < 80%)
+         Total Test Points: ${metrics.satisfactoryTests?.total ?? 0} | Pasados a Tiempo (Satisfactorios): ${metrics.satisfactoryTests?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.satisfactoryTests?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.satisfactoryTests?.failed ?? 0} | Bloqueados: ${metrics.satisfactoryTests?.blocked ?? 0} | N/A: ${metrics.satisfactoryTests?.notApplicable ?? 0}
+
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
       - Meta establecida para el periodo: (valor)
@@ -262,6 +270,19 @@ ${iswSummary}
           contextStr += `  * [Plan: ${tp.planName}] Suite: ${tp.suiteName} | Test Case: [#${tp.testCaseId}] ${tp.testCaseTitle} - Probador: ${tp.tester} | Resultado: ${tp.outcome} | En Tiempo: ${tp.onTime ? 'Sí' : 'No'}\n`;
         });
       }
+    }
+
+    // 8. Pruebas Satisfactorias
+    const satisfactoryTests = metrics.satisfactoryTests;
+    if (satisfactoryTests) {
+      contextStr += `\n8. PORCENTAJE DE PRUEBAS SATISFACTORIAS (KPI Pass Rate):\n`;
+      contextStr += `- Tasa Pruebas Satisfactorias (Pass Rate): ${satisfactoryTests.rate.toFixed(2)}% (Semáforo: ${satisfactoryTests.status})\n`;
+      contextStr += `- Total Test Points: ${satisfactoryTests.total ?? 0}\n`;
+      contextStr += `- Pasados a Tiempo (Satisfactorios): ${satisfactoryTests.passedEnTiempo ?? 0}\n`;
+      contextStr += `- Pasados Fuera de Tiempo: ${satisfactoryTests.passedFueraDeTiempo ?? 0}\n`;
+      contextStr += `- Fallidos: ${satisfactoryTests.failed ?? 0}\n`;
+      contextStr += `- Bloqueados: ${satisfactoryTests.blocked ?? 0}\n`;
+      contextStr += `- N/A: ${satisfactoryTests.notApplicable ?? 0}\n`;
     }
 
     // Build chat history into the prompt

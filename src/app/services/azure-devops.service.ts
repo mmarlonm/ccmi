@@ -938,6 +938,18 @@ export class AzureDevOpsService {
         status: 'green',
         stdDeviation: 0,
         bugsList: []
+      },
+      satisfactoryTests: {
+        total: 0,
+        passedEnTiempo: 0,
+        passedFueraDeTiempo: 0,
+        failed: 0,
+        blocked: 0,
+        notApplicable: 0,
+        notExecuted: 0,
+        paused: 0,
+        rate: 100,
+        status: 'green'
       }
     };
   }
@@ -995,6 +1007,20 @@ export class AzureDevOpsService {
     );
   }
 
+  getTestPlanDetails(planId: number): Observable<any> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of({});
+    const org = encodeURIComponent(config.azure.organization);
+    const proj = encodeURIComponent(config.azure.project);
+    const urls = [
+      `https://dev.azure.com/${org}/${proj}/_apis/testplan/Plans/${planId}?api-version=7.0`,
+      `https://dev.azure.com/${org}/${proj}/_apis/test/plans/${planId}?api-version=5.0`
+    ];
+    return this.getWithFallback(urls).pipe(
+      catchError(() => of({}))
+    );
+  }
+
   getTestSuites(planId: number): Observable<any[]> {
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of([]);
@@ -1036,12 +1062,17 @@ export class AzureDevOpsService {
       switchMap(plans => {
         if (plans.length === 0) {
           metrics.testExecution = this.getEmptyTestExecution();
+          metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
           return of(metrics);
         }
 
         const planSuiteObs = plans.map(plan =>
-          this.getTestSuites(plan.id).pipe(
-            map(suites => ({ plan, suites }))
+          this.getTestPlanDetails(plan.id).pipe(
+            switchMap(detailedPlan =>
+              this.getTestSuites(plan.id).pipe(
+                map(suites => ({ plan: { ...plan, ...detailedPlan }, suites }))
+              )
+            )
           )
         );
 
@@ -1060,6 +1091,7 @@ export class AzureDevOpsService {
 
             if (pointObs.length === 0) {
               metrics.testExecution = this.getEmptyTestExecution();
+              metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
               return of(metrics);
             }
 
@@ -1083,34 +1115,65 @@ export class AzureDevOpsService {
                     const lastUpdated = execDate || configDate;
                     const lastUpdatedTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
 
-                    // onTime = execution happened within the sprint window
-                    const isExecutedInSprint = lastUpdatedTime > 0 && lastUpdatedTime >= start && lastUpdatedTime <= end;
+                    // onTime = execution happened within the test plan calendar window (or sprint fallback)
+                    const planStartStr = plan.startDate || metrics.startDate || '';
+                    const planEndStr = plan.endDate || metrics.endDate || '';
+
+                    let onTime = false;
+                    if (lastUpdatedTime > 0) {
+                      let planEndUTC = Infinity;
+                      if (planEndStr) {
+                        const planEndObj = new Date(planEndStr);
+                        const planEndYear = planEndObj.getUTCFullYear();
+                        const planEndMonth = planEndObj.getUTCMonth();
+                        const planEndDay = planEndObj.getUTCDate();
+                        planEndUTC = Date.UTC(planEndYear, planEndMonth, planEndDay, 18, 0, 0, 0);
+                      }
+
+                      let planStartUTC = 0;
+                      if (planStartStr) {
+                        const planStartObj = new Date(planStartStr);
+                        const planStartYear = planStartObj.getUTCFullYear();
+                        const planStartMonth = planStartObj.getUTCMonth();
+                        const planStartDay = planStartObj.getUTCDate();
+                        planStartUTC = Date.UTC(planStartYear, planStartMonth, planStartDay, 0, 0, 0, 0);
+                      }
+
+                      onTime = lastUpdatedTime >= planStartUTC && lastUpdatedTime <= planEndUTC;
+                    }
 
                     // Extract tester name properly
                     const testerRaw = pt.assignedTo || pt.tester;
-                    const testerName = testerRaw
+                    let testerName = testerRaw
                       ? (typeof testerRaw === 'object'
                         ? (testerRaw.displayName || testerRaw.uniqueName || '')
                         : String(testerRaw))
                       : '';
+                    if (testerName.includes('<')) {
+                      testerName = testerName.split('<')[0].trim();
+                    }
 
                     // Include ALL test points from the sprint's plan (the plan membership IS the sprint filter)
                     allPoints.push({
                       planId: plan.id,
                       planName: plan.name,
+                      planStartDate: plan.startDate || '',
+                      planEndDate: plan.endDate || '',
                       suiteId: suite.id,
                       suiteName: suite.name,
+                      projectName: plan.project?.name || config.azure.project || '',
                       testPointId: pt.id,
                       testCaseId: pt.testCase?.id ? parseInt(pt.testCase.id) : (pt.testCaseId ? parseInt(pt.testCaseId) : 0),
                       testCaseTitle: pt.testCaseTitle || pt.testCase?.name || pt.testCase?.title || `Test Case #${pt.testCase?.id || pt.testCaseId || ''}`,
                       outcome: pt.outcome || 'None',
                       tester: testerName,
                       lastUpdatedDate: lastUpdated,
-                      isExecutedInSprint,
-                      onTime: isExecutedInSprint
+                      isExecutedInSprint: onTime,
+                      onTime: onTime
                     });
                   });
                 });
+
 
                 // KPI: total = all points in the plan; executed = those with a terminal outcome
                 const totalTestPoints = allPoints.length;
@@ -1158,6 +1221,23 @@ export class AzureDevOpsService {
                   testPoints: allPoints
                 };
 
+                const m38Denominator = totalTestPoints - notApplicable;
+                const m38Rate = m38Denominator > 0 ? (passedEnTiempo / m38Denominator) * 100 : 0;
+                const m38Status = m38Rate >= 90 ? 'green' : (m38Rate >= 80 ? 'yellow' : 'red');
+
+                metrics.satisfactoryTests = {
+                  total: totalTestPoints,
+                  passedEnTiempo,
+                  passedFueraDeTiempo,
+                  failed,
+                  blocked,
+                  notApplicable,
+                  notExecuted,
+                  paused: 0,
+                  rate: m38Rate,
+                  status: m38Status as 'green' | 'yellow' | 'red'
+                };
+
                 console.log('ADO TestExecution resultado:', { totalTestPoints, executed, rate: rate.toFixed(2) + '%', status });
 
                 return metrics;
@@ -1167,6 +1247,7 @@ export class AzureDevOpsService {
           catchError(err => {
             console.error('Error fetching suites and points:', err);
             metrics.testExecution = this.getEmptyTestExecution();
+            metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
             return of(metrics);
           })
         );
@@ -1174,6 +1255,7 @@ export class AzureDevOpsService {
       catchError(err => {
         console.error('Error in enrichMetricsWithTestExecution:', err);
         metrics.testExecution = this.getEmptyTestExecution();
+        metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
         return of(metrics);
       })
     );
@@ -1193,6 +1275,21 @@ export class AzureDevOpsService {
       rate: 100,
       status: 'green' as const,
       testPoints: []
+    };
+  }
+
+  private getEmptySatisfactoryTests() {
+    return {
+      total: 0,
+      passedEnTiempo: 0,
+      passedFueraDeTiempo: 0,
+      failed: 0,
+      blocked: 0,
+      notApplicable: 0,
+      notExecuted: 0,
+      paused: 0,
+      rate: 100,
+      status: 'green' as const
     };
   }
 

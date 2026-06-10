@@ -21,10 +21,10 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
   imports: [CommonModule, LucideAngularModule, FormsModule, PdfTemplateComponent],
   template: `
 <div id="dashboard-content" class="space-y-8 animate-in fade-in duration-1000 p-4 md:p-8">
-  <header class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+  <header class="sticky top-0 z-40 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-4 -mt-4 md:-mt-8 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 shadow-sm transition-all duration-300">
     <div>
-      <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Métricas CMMI 5</h2>
-      <p class="text-slate-500 dark:text-slate-400 mt-1">Formato BFYPH047 - Recopilación y Análisis de Métricas</p>
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Métricas CMMI 5</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1 text-xs">Formato BFYPH047 - Recopilación y Análisis de Métricas</p>
     </div>
     <div class="flex flex-wrap gap-3">
       <select [(ngModel)]="selectedArea" (change)="onSelectionChange()" class="glass-input text-xs font-medium w-48">
@@ -40,7 +40,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
       <div *ngIf="metrics?.startDate && selectedIteration" class="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 h-[38px]">
         <div class="flex flex-col">
           <span class="text-[8px] font-black text-slate-400 uppercase leading-none">Vigencia del Sprint</span>
-          <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+          <span class="text-[10px] font-bold text-slate-600 dark:text-slate-350">
             {{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}
           </span>
         </div>
@@ -61,7 +61,14 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     </div>
   </header>
 
-  <div *ngIf="metrics" class="space-y-12">
+  <div *ngIf="metrics" class="space-y-12 relative transition-all duration-300" [class.opacity-45]="isReloading" [class.pointer-events-none]="isReloading">
+    <!-- Reloading premium backdrop overlay -->
+    <div *ngIf="isReloading" class="absolute inset-0 flex items-center justify-center bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-[2px] z-50 rounded-3xl min-h-[400px]">
+      <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3 animate-in zoom-in-95 duration-200 sticky top-1/2 -translate-y-1/2">
+        <lucide-icon [name]="RefreshCw" size="20" class="animate-spin text-indigo-600 dark:text-indigo-400"></lucide-icon>
+        <span class="text-sm font-black text-slate-700 dark:text-slate-200">Recargando datos...</span>
+      </div>
+    </div>
     <!-- Sprint Delivery Timeline & Compliance (Visual Widget) -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-600 overflow-visible shadow-lg animate-in fade-in duration-500">
       <div class="p-6">
@@ -1840,6 +1847,155 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
       </div>
     </section>
+
+    <!-- Section 3.8: Satisfactory Tests / % Pruebas Satisfactorias -->
+    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-teal-500 overflow-hidden mt-8">
+      <div class="p-6">
+        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+
+        <!-- KPI summary grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-8">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Test Point</div>
+            <div class="text-xl font-bold">{{ m38Stats.total }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-emerald-500 uppercase font-bold mb-1">Passed en Tiempo</div>
+            <div class="text-xl font-bold text-emerald-600 dark:text-emerald-400">{{ m38Stats.passedEnTiempo }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-rose-500 uppercase font-bold mb-1">Passed fuera de Tiempo</div>
+            <div class="text-xl font-bold text-rose-600 dark:text-rose-400">{{ m38Stats.passedFueraDeTiempo }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-red-500 uppercase font-bold mb-1">Failed</div>
+            <div class="text-xl font-bold text-red-500">{{ m38Stats.failed }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Not Executed (None)</div>
+            <div class="text-xl font-bold text-slate-500">{{ m38Stats.notExecuted }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-purple-400 uppercase font-bold mb-1">Not Applicable</div>
+            <div class="text-xl font-bold text-purple-400">{{ m38Stats.notApplicable }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-amber-500 uppercase font-bold mb-1">Blocked</div>
+            <div class="text-xl font-bold text-amber-500">{{ m38Stats.blocked }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-[9px] text-pink-500 uppercase font-bold mb-1">Paused</div>
+            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused || '(En blanco)' }}</div>
+          </div>
+          
+          <div class="p-3.5 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center col-span-2 md:col-span-1" [ngClass]="{
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': m38Stats.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': m38Stats.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': m38Stats.status === 'red'
+          }">
+            <div class="text-[10px] uppercase font-bold mb-0.5" [ngClass]="{
+              'text-emerald-600 dark:text-emerald-400': m38Stats.status === 'green',
+              'text-amber-600 dark:text-amber-400': m38Stats.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': m38Stats.status === 'red'
+            }">KPI Pass Rate</div>
+            <div class="text-2xl font-black flex items-center justify-center gap-0.5" [ngClass]="{
+              'text-emerald-700 dark:text-emerald-300': m38Stats.status === 'green',
+              'text-amber-700 dark:text-amber-300': m38Stats.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': m38Stats.status === 'red'
+            }">
+              {{ m38Stats.rate.toFixed(2) }}%
+              <span *ngIf="m38Stats.status !== 'green'" class="text-rose-500 font-bold text-sm animate-pulse">!</span>
+            </div>
+            <div class="text-[8px] opacity-75" [ngClass]="{
+              'text-emerald-600/80 dark:text-emerald-400/80': m38Stats.status === 'green',
+              'text-amber-600/80 dark:text-amber-400/80': m38Stats.status === 'yellow',
+              'text-rose-600/80 dark:text-rose-400/80': m38Stats.status === 'red'
+            }">Umbrales: 90%, 80%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Table -->
+          <div class="lg:col-span-8 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto max-h-80">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 dark:bg-slate-900 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                    <th class="p-3">Test Point ID</th>
+                    <th class="p-3">Test Case ID</th>
+                    <th class="p-3">Estatus</th>
+                    <th class="p-3 text-center">Fecha Test Plan</th>
+                    <th class="p-3 text-center">Fecha de Ejecución</th>
+                    <th class="p-3 text-center">¿En Tiempo?</th>
+                  </tr>
+                </thead>
+                <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
+                  <tr *ngFor="let pt of getFilteredM38TestPoints()" class="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
+                    <td class="p-2.5 font-mono text-[10px] text-slate-500">#{{ pt.testPointId }}</td>
+                    <td class="p-2.5 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId)">#{{ pt.testCaseId }}</td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" [ngClass]="{
+                        'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
+                        'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
+                        'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
+                        'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                        'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
+                      }">
+                        {{ pt.outcome }}
+                      </span>
+                    </td>
+                    <td class="p-2.5 text-center text-slate-500">{{ pt.planEndDate ? (pt.planEndDate | date:'dd/MM/yyyy':'UTC') : (metrics.endDate | date:'dd/MM/yyyy':'UTC') }}</td>
+                    <td class="p-2.5 text-center text-slate-500">
+                      {{ (pt.outcome.toLowerCase() !== 'none' && pt.outcome.toLowerCase() !== 'active') ? (pt.lastUpdatedDate | date:'dd/MM/yyyy':'UTC') : '' }}
+                    </td>
+                    <td class="p-2.5 text-center">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[9px] uppercase" *ngIf="pt.outcome.toLowerCase() !== 'none' && pt.outcome.toLowerCase() !== 'active' && pt.outcome.toLowerCase() !== 'notapplicable' && pt.outcome.toLowerCase() !== 'not applicable'" [ngClass]="{
+                        'bg-emerald-100 text-emerald-700': pt.onTime,
+                        'bg-red-100 text-red-700': !pt.onTime
+                      }">
+                        {{ pt.onTime ? 'Sí' : 'No' }}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="!getFilteredM38TestPoints().length">
+                    <td colspan="6" class="text-center py-6 text-slate-400 italic">No hay datos de pruebas para los filtros seleccionados.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="lg:col-span-4 bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Test Points</h4>
+            <div class="h-56 flex items-center justify-center">
+              <canvas #m38ChartCanvas></canvas>
+            </div>
+            <!-- Mini legend totals -->
+            <div class="mt-4 flex flex-col gap-1.5 text-[10px] bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+              <div class="flex items-center justify-between"><span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="text-slate-600 dark:text-slate-400">Passed en Tiempo</span></span><strong>{{ m38Stats.passedEnTiempo }}</strong></div>
+              <div class="flex items-center justify-between"><span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span class="text-slate-600 dark:text-slate-400">Passed fuera de Tiempo</span></span><strong>{{ m38Stats.passedFueraDeTiempo }}</strong></div>
+              <div class="flex items-center justify-between"><span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-800 dark:bg-slate-400"></span><span class="text-slate-600 dark:text-slate-400">Otros Estatus</span></span><strong>{{ m38Stats.failed + m38Stats.notExecuted + m38Stats.blocked + m38Stats.paused }}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
+          <div class="space-y-4">
+            <div class="bg-teal-50/30 dark:bg-teal-950/10 p-4 rounded-lg border border-teal-100 dark:border-teal-900/30">
+              <h4 class="text-xs font-bold uppercase text-teal-600 mb-2 flex items-center">
+                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                Análisis de resultados e Acciones
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
+                {{ getSatisfactoryTestsAnalysis() }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
   </div>
 
   <!-- Setup Onboarding Screen (If no config is detected) -->
@@ -1871,7 +2027,9 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
       [metricAnalyses]="metricAnalyses"
       [charts]="chartImages"
       [period]="selectedIterationName"
-      [filteredEscapedBugs]="filteredEscapedBugs">
+      [filteredEscapedBugs]="filteredEscapedBugs"
+      [satisfactoryTestsStats]="m38Stats"
+      [satisfactoryTestsPoints]="getFilteredM38TestPoints()">
     </app-pdf-template>
   </div>
 
@@ -2267,6 +2425,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('defectChart') defectChartCanvas!: ElementRef;
   @ViewChild('escapedChart') escapedChartCanvas!: ElementRef;
   @ViewChild('testExecChart') testExecChartCanvas!: ElementRef;
+  @ViewChild('m38ChartCanvas') m38ChartCanvas!: ElementRef;
 
   filteredEscapedBugs = {
     bugsTesting: 0,
@@ -2279,9 +2438,32 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     rows: [] as any[]
   };
 
+  isReloading = false;
+  m38SelectedProject = '';
+  m38SelectedTestPlan = '';
+  m38SelectedTestSuite = '';
+  m38StartDate = '';
+  m38EndDate = '';
+  m38MinDateLimit = '';
+  m38MaxDateLimit = '';
+
+  m38Stats = {
+    total: 0,
+    passedEnTiempo: 0,
+    passedFueraDeTiempo: 0,
+    failed: 0,
+    blocked: 0,
+    notApplicable: 0,
+    notExecuted: 0,
+    paused: 0,
+    rate: 0,
+    status: 'red' as 'green' | 'yellow' | 'red'
+  };
+
   private charts: Chart[] = [];
   escapedChart: Chart | null = null;
   testExecChart: Chart | null = null;
+  m38Chart: Chart | null = null;
 
   ngOnInit() {
     this.loadSavedSelection();
@@ -2347,6 +2529,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   onSelectionChange() {
+    this.isReloading = true;
     this.saveSelection();
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
     this.selectedIterationName = iter ? iter.name : 'Actual';
@@ -2361,6 +2544,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!this.iterationsLoaded) return;
     if (!this.isConfigured()) {
       this.isLoading = false;
+      this.isReloading = false;
       return;
     }
 
@@ -2378,10 +2562,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     if (!this.selectedIteration) {
       this.isLoading = false;
+      this.isReloading = false;
       return;
     }
 
     this.isLoading = true;
+    this.isReloading = true;
     this.azureService.getMetrics(this.selectedIteration).subscribe({
       next: (data) => {
         this.rawMetrics = data;
@@ -2407,16 +2593,22 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
 
         this.isLoading = false;
+        this.isReloading = false;
       },
       error: () => {
         this.isLoading = false;
+        this.isReloading = false;
         alert('Error al cargar datos de Azure DevOps. Verifica el PAT y la configuración.');
       }
     });
   }
 
   onISWChange() {
-    this.applyFilter();
+    this.isReloading = true;
+    setTimeout(() => {
+      this.applyFilter();
+      this.isReloading = false;
+    }, 450);
   }
 
   private applyFilter() {
@@ -2452,6 +2644,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.recalculateTotals();
     this.eedTimelineData = this.getEEDTimelineData();
     this.updateEscapedBugsFilteredData();
+    this.initM38Filters();
   }
 
   onEscapedFilterChange() {
@@ -2552,6 +2745,253 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     };
 
     setTimeout(() => this.updateEscapedChart(), 50);
+  }
+
+  initM38Filters() {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints || testPoints.length === 0) {
+      this.m38MinDateLimit = '';
+      this.m38MaxDateLimit = '';
+      this.m38StartDate = '';
+      this.m38EndDate = '';
+      return;
+    }
+
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+
+    testPoints.forEach(pt => {
+      if (pt.lastUpdatedDate) {
+        const t = new Date(pt.lastUpdatedDate).getTime();
+        if (t < minTime) minTime = t;
+        if (t > maxTime) maxTime = t;
+      }
+    });
+
+    if (minTime === Infinity) minTime = new Date(this.metrics!.startDate || new Date()).getTime();
+    if (maxTime === -Infinity) maxTime = new Date(this.metrics!.endDate || new Date()).getTime();
+
+    this.m38MinDateLimit = new Date(minTime).toISOString().split('T')[0];
+    this.m38MaxDateLimit = new Date(maxTime).toISOString().split('T')[0];
+    
+    this.m38StartDate = this.m38MinDateLimit;
+    this.m38EndDate = this.m38MaxDateLimit;
+
+    this.m38SelectedProject = '';
+    this.m38SelectedTestPlan = '';
+    this.m38SelectedTestSuite = '';
+
+    this.updateM38Calculations();
+  }
+
+  getM38Projects(): string[] {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints) return [];
+    const projects = testPoints.map(pt => pt.projectName).filter(Boolean);
+    return Array.from(new Set(projects)).sort() as string[];
+  }
+
+  getM38TestPlans(): string[] {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints) return [];
+    const plans = testPoints
+      .filter(pt => !this.m38SelectedProject || pt.projectName === this.m38SelectedProject)
+      .map(pt => pt.planName)
+      .filter(Boolean);
+    return Array.from(new Set(plans)).sort() as string[];
+  }
+
+  getM38TestSuites(): string[] {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints) return [];
+    const suites = testPoints
+      .filter(pt => (!this.m38SelectedProject || pt.projectName === this.m38SelectedProject) &&
+                    (!this.m38SelectedTestPlan || pt.planName === this.m38SelectedTestPlan))
+      .map(pt => pt.suiteName)
+      .filter(Boolean);
+    return Array.from(new Set(suites)).sort() as string[];
+  }
+
+  getFilteredM38TestPoints() {
+    const testPoints = this.metrics?.testExecution?.testPoints;
+    if (!testPoints) return [];
+
+    return testPoints.filter(pt => {
+      if (this.m38SelectedProject && pt.projectName !== this.m38SelectedProject) return false;
+      if (this.m38SelectedTestPlan && pt.planName !== this.m38SelectedTestPlan) return false;
+      if (this.m38SelectedTestSuite && pt.suiteName !== this.m38SelectedTestSuite) return false;
+      if (pt.lastUpdatedDate) {
+        const ptTime = new Date(pt.lastUpdatedDate).getTime();
+        if (this.m38StartDate) {
+          const parts = this.m38StartDate.split('-');
+          const startYear = parseInt(parts[0], 10);
+          const startMonth = parseInt(parts[1], 10) - 1;
+          const startDay = parseInt(parts[2], 10);
+          const startLimitUTC = Date.UTC(startYear, startMonth, startDay, 0, 0, 0, 0);
+          if (ptTime < startLimitUTC) return false;
+        }
+        if (this.m38EndDate) {
+          const parts = this.m38EndDate.split('-');
+          const endYear = parseInt(parts[0], 10);
+          const endMonth = parseInt(parts[1], 10) - 1;
+          const endDay = parseInt(parts[2], 10);
+          const endLimitUTC = Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999);
+          if (ptTime > endLimitUTC) return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  onM38ProjectChange() {
+    this.isReloading = true;
+    setTimeout(() => {
+      this.m38SelectedTestPlan = '';
+      this.m38SelectedTestSuite = '';
+      this.updateM38Calculations();
+      this.isReloading = false;
+    }, 450);
+  }
+
+  onM38TestPlanChange() {
+    this.isReloading = true;
+    setTimeout(() => {
+      this.m38SelectedTestSuite = '';
+      this.updateM38Calculations();
+      this.isReloading = false;
+    }, 450);
+  }
+
+  onM38TestSuiteChange() {
+    this.isReloading = true;
+    setTimeout(() => {
+      this.updateM38Calculations();
+      this.isReloading = false;
+    }, 450);
+  }
+
+  onM38DateChange() {
+    this.isReloading = true;
+    setTimeout(() => {
+      this.updateM38Calculations();
+      this.isReloading = false;
+    }, 450);
+  }
+
+  updateM38Calculations() {
+    const pts = this.getFilteredM38TestPoints();
+    
+    let total = pts.length;
+    let passedEnTiempo = 0;
+    let passedFueraDeTiempo = 0;
+    let failed = 0;
+    let notExecuted = 0;
+    let notApplicable = 0;
+    let blocked = 0;
+    let paused = 0;
+
+    pts.forEach(pt => {
+      const outStr = (pt.outcome || 'None').toLowerCase();
+      if (outStr === 'passed') {
+        if (pt.onTime) {
+          passedEnTiempo++;
+        } else {
+          passedFueraDeTiempo++;
+        }
+      } else if (outStr === 'failed') {
+        failed++;
+      } else if (outStr === 'blocked') {
+        blocked++;
+      } else if (outStr === 'notapplicable' || outStr === 'not applicable') {
+        notApplicable++;
+      } else if (outStr === 'paused') {
+        paused++;
+      } else {
+        notExecuted++;
+      }
+    });
+
+    const denominator = total - notApplicable;
+    const rate = denominator > 0 ? (passedEnTiempo / denominator) * 100 : 0;
+    const status = rate >= 90 ? 'green' : (rate >= 80 ? 'yellow' : 'red');
+
+    this.m38Stats = {
+      total,
+      passedEnTiempo,
+      passedFueraDeTiempo,
+      failed,
+      notExecuted,
+      notApplicable,
+      blocked,
+      paused,
+      rate,
+      status
+    };
+
+    setTimeout(() => this.updateM38Chart(), 50);
+  }
+
+  updateM38Chart() {
+    if (!this.m38ChartCanvas) return;
+
+    if (this.m38Chart) {
+      this.m38Chart.destroy();
+      this.m38Chart = null;
+    }
+
+    const isDark = this.isDark();
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const passedEnTiempo = this.m38Stats.passedEnTiempo;
+    const passedFueraDeTiempo = this.m38Stats.passedFueraDeTiempo;
+    const otrosEstatus = this.m38Stats.failed + this.m38Stats.notExecuted + this.m38Stats.blocked + this.m38Stats.paused;
+    const total = passedEnTiempo + passedFueraDeTiempo + otrosEstatus;
+
+    this.m38Chart = new Chart(this.m38ChartCanvas.nativeElement, {
+      type: 'doughnut',
+      data: {
+        labels: ['Passed en Tiempo', 'Passed fuera de Tiempo', 'Otros Estatus'],
+        datasets: [
+          {
+            data: [passedEnTiempo, passedFueraDeTiempo, otrosEstatus],
+            backgroundColor: [
+              '#10b981', // green
+              '#ef4444', // red/pink
+              '#0f172a'  // black
+            ],
+            borderColor: isDark ? '#1e293b' : '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 6
+          }
+        ]
+      },
+      options: {
+        cutout: '70%',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 8, bottom: 8, left: 8, right: 8 } },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            enabled: true,
+            backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+            titleColor: isDark ? '#f8fafc' : '#0f172a',
+            bodyColor: isDark ? '#e2e8f0' : '#334155',
+            borderColor: isDark ? '#334155' : '#cbd5e1',
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx: any) => {
+                const val = ctx.parsed;
+                const pct = total > 0 ? ((val / total) * 100).toFixed(2) : '0.00';
+                return ` ${ctx.label}: ${val} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
   }
 
   updateEscapedChart() {
@@ -3402,6 +3842,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.testExecChart = null;
     }
 
+    if (this.m38Chart) {
+      this.m38Chart.destroy();
+      this.m38Chart = null;
+    }
+
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
@@ -3650,6 +4095,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }));
 
     setTimeout(() => this.updateTestExecChart(), 50);
+    setTimeout(() => this.updateM38Chart(), 50);
   }
 
   runAI() {
@@ -3699,6 +4145,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricAnalyses['testExecution'] = val;
         this.metricAnalyses['ejecución de pruebas'] = val;
       }
+      if (lowerSeg.includes('pruebas satisfactorias') || lowerSeg.includes('pass rate') || lowerSeg.includes('satisfactorias')) {
+        const val = seg.split(']')[1]?.trim();
+        this.metricAnalyses['satisfactoryTests'] = val;
+        this.metricAnalyses['pruebas satisfactorias'] = val;
+      }
     });
   }
 
@@ -3708,6 +4159,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
     return `Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
 Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.`;
+  }
+
+  getSatisfactoryTestsAnalysis(): string {
+    if (this.metricAnalyses['satisfactoryTests']) {
+      return this.metricAnalyses['satisfactoryTests'];
+    }
+    return `Análisis de resultados: El porcentaje de pruebas satisfactorias (Pass Rate) refleja la calidad de construcción del software y la efectividad de las pruebas.
+Acciones correctivas: Se recomienda mantener un monitoreo constante del Pass Rate para asegurar que se encuentre por encima del umbral óptimo del 90%.`;
   }
 
   updateTestExecChart() {
@@ -3865,7 +4324,8 @@ Acciones correctivas: Para esta métrica no se requieren realizar acciones corre
         effort: this.charts[1]?.toBase64Image() || '',
         defect: this.charts[2]?.toBase64Image() || '',
         escaped: this.escapedChart?.toBase64Image() || '',
-        testExec: this.testExecChart?.toBase64Image() || ''
+        testExec: this.testExecChart?.toBase64Image() || '',
+        satisfactoryTests: this.m38Chart?.toBase64Image() || ''
       };
 
       // Wait for template to update with images

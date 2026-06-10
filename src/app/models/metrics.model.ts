@@ -178,8 +178,11 @@ export interface CMMIMetrics {
     testPoints: Array<{
       planId: number;
       planName: string;
+      planStartDate?: string;
+      planEndDate?: string;
       suiteId: number;
       suiteName: string;
+      projectName?: string;
       testPointId: number;
       testCaseId: number;
       testCaseTitle: string;
@@ -189,5 +192,17 @@ export interface CMMIMetrics {
       onTime?: boolean;
       isExecutedInSprint?: boolean;
     }>;
+  };
+  satisfactoryTests?: {
+    total: number;
+    passedEnTiempo: number;
+    passedFueraDeTiempo: number;
+    failed: number;
+    blocked: number;
+    notApplicable: number;
+    notExecuted: number;
+    paused: number;
+    rate: number;
+    status: 'green' | 'yellow' | 'red';
   };
 }

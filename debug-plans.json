@@ -1,0 +1,311 @@
+{
+  "plans": [
+    {
+      "id": 47138,
+      "project": {
+        "id": "2bbb71d1-a646-484e-b5b0-546ad30e14c0",
+        "name": "Bepensa - DSD Bebidas - OpeCD 2.0",
+        "state": "unchanged",
+        "visibility": "unchanged",
+        "lastUpdateTime": "0001-01-01T00:00:00"
+      },
+      "rootSuite": {
+        "id": 47139,
+        "name": "Plan de pruebas del OpeCD 2.0\\Mayansoft - Sprint 36"
+      },
+      "_links": {
+        "_self": {
+          "href": "https://dev.azure.com/bepensa-bebidas/Bepensa%20-%20DSD%20Bebidas%20-%20OpeCD%202.0/_apis/testplan/Plans/47138"
+        },
+        "clientUrl": {
+          "href": "mtms://dev.azure.com:443/bepensa-bebidas/p:Bepensa%20-%20DSD%20Bebidas%20-%20OpeCD%202.0/Testing/testplan/connect?id=47138"
+        },
+        "rootSuite": {
+          "href": "https://dev.azure.com/bepensa-bebidas/Bepensa%20-%20DSD%20Bebidas%20-%20OpeCD%202.0/_apis/testplan/Plans/47138/Suites/47139"
+        }
+      },
+      "revision": 0,
+      "name": "Plan de pruebas del OpeCD 2.0\\Mayansoft - Sprint 36",
+      "areaPath": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 12\\Sprint 36",
+      "owner": null,
+      "state": "Inactive"
+    }
+  ],
+  "start": 1775433600000,
+  "end": 1776319199999,
+  "metricsStart": "2026-04-06T00:00:00Z",
+  "metricsEnd": "2026-04-16T00:00:00Z",
+  "allPointsSample": [
+    {
+      "testPointId": 5880,
+      "testCaseId": 47144,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-20T16:37:34.9Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": false
+    },
+    {
+      "testPointId": 5881,
+      "testCaseId": 47144,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-20T16:37:34.91Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": false
+    },
+    {
+      "testPointId": 5882,
+      "testCaseId": 47145,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T18:26:58.803Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5883,
+      "testCaseId": 47146,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T16:08:12.267Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5884,
+      "testCaseId": 47147,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T16:52:09.087Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5885,
+      "testCaseId": 47148,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T16:08:12.273Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5886,
+      "testCaseId": 47149,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T18:43:28.043Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5887,
+      "testCaseId": 47150,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:15:36.03Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5888,
+      "testCaseId": 47151,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:15:36.04Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5889,
+      "testCaseId": 47153,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:15:36.04Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5890,
+      "testCaseId": 47154,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:40:43.86Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5891,
+      "testCaseId": 47155,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:40:43.87Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5892,
+      "testCaseId": 47156,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-16T19:41:30.507Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5901,
+      "testCaseId": 47168,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T16:09:47.443Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5902,
+      "testCaseId": 47169,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-20T18:13:46.237Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": false
+    },
+    {
+      "testPointId": 5903,
+      "testCaseId": 47170,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5904,
+      "testCaseId": 47171,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5905,
+      "testCaseId": 47172,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5906,
+      "testCaseId": 47173,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.96Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5907,
+      "testCaseId": 47174,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5908,
+      "testCaseId": 47175,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5909,
+      "testCaseId": 47176,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T18:07:17.97Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5893,
+      "testCaseId": 47157,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.73Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5894,
+      "testCaseId": 47159,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5895,
+      "testCaseId": 47160,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5896,
+      "testCaseId": 47161,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5897,
+      "testCaseId": 47163,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5898,
+      "testCaseId": 47164,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5899,
+      "testCaseId": 47165,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    },
+    {
+      "testPointId": 5900,
+      "testCaseId": 47166,
+      "outcome": "Passed",
+      "lastUpdatedDate": "2026-04-17T15:31:15.74Z",
+      "planStartDate": "2026-04-07T00:00:00Z",
+      "planEndDate": "2026-04-17T00:00:00Z",
+      "onTime": true
+    }
+  ]
+}
