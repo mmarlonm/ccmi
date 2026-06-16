@@ -133,7 +133,7 @@ type StepState = 'select-sprint' | 'configure';
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   `],
   template: `
-<div class="max-w-6xl mx-auto space-y-6 pb-10">
+<div class="max-w-6xl mx-auto space-y-6 pt-4 md:pt-8 pb-10">
 
   <!-- Header -->
   <header class="animate-fsi">

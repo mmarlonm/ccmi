@@ -88,6 +88,7 @@
             <th class="p-1 border">Tipo</th>
             <th class="p-1 border">ISW</th>
             <th class="p-1 border text-center">Size</th>
+            <th class="p-1 border text-center">Size Ideal</th>
             <th class="p-1 border text-center">Esfuerzo</th>
             <th class="p-1 border text-center">Tasa</th>
           </tr>
@@ -97,7 +98,8 @@
             <td class="p-1 border font-bold"><a [href]="'https://dev.azure.com/' + config?.azure?.organization + '/' + config?.azure?.project + '/_workitems/edit/' + item.id" target="_blank" class="text-blue-600 hover:underline">#{{ item.id }}</a></td>
             <td class="p-1 border">{{ item.type }}</td>
             <td class="p-1 border">{{ item.isw }} ({{ item.level }})</td>
-            <td class="p-1 border text-center">{{ item.size }}</td>
+            <td class="p-1 border text-center">{{ item.sizeEdited !== undefined ? item.sizeEdited : item.size }}</td>
+            <td class="p-1 border text-center font-bold text-indigo-600">{{ item.effort.toFixed(1) }}</td>
             <td class="p-1 border text-center">{{ item.effort.toFixed(2) }}</td>
             <td class="p-1 border text-center font-bold">{{ item.rate.toFixed(2) }}</td>
           </tr>
@@ -170,9 +172,9 @@
             'text-green-600': metrics.effortVariance.status === 'green',
             'text-yellow-600': metrics.effortVariance.status === 'yellow',
             'text-red-600': metrics.effortVariance.status === 'red'
-          }">KPI % Desviación</div>
+          }">Desviación Absoluta</div>
           <div class="text-[12pt] font-black">
-            {{ (metrics.effortVariance.rate * 100) > 0 ? '+' : '' }}{{ (metrics.effortVariance.rate * 100).toFixed(2) }}%
+            {{ (metrics.effortVariance.absoluteRate * 100).toFixed(2) }}%
           </div>
         </div>
       </div>

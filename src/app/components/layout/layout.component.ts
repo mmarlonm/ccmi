@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud } from 'lucide-angular';
 import { UpdateService } from '../../services/update.service';
+import { NotificationComponent } from '../notification/notification.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, LucideAngularModule],
+  imports: [CommonModule, RouterModule, LucideAngularModule, NotificationComponent],
   template: `
-<div class="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300 pb-16 md:pb-0">
+<div class="flex flex-col md:flex-row h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300 pb-16 md:pb-0">
   
   <!-- Mobile Header -->
   <header class="flex md:hidden items-center justify-between px-6 py-4 glass-panel border-b border-white/10 m-2 rounded-2xl shrink-0">
@@ -117,7 +118,7 @@ import { UpdateService } from '../../services/update.service';
   </aside>
 
   <!-- Main Content -->
-  <main class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+  <main class="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 md:px-8 md:pb-8 relative">
     <router-outlet></router-outlet>
   </main>
 
@@ -149,6 +150,9 @@ import { UpdateService } from '../../services/update.service';
       <span>Config</span>
     </a>
   </nav>
+
+  <!-- Notification Toaster -->
+  <app-notification></app-notification>
 
 </div>
   `

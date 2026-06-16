@@ -182,15 +182,13 @@ export class PdfTemplateComponent implements OnChanges {
     if (this.metricAnalyses['testExecution']) {
       return this.metricAnalyses['testExecution'];
     }
-    return `Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
-Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.`;
+    return 'Genera el análisis IA para visualizar las recomendaciones.';
   }
 
   getSatisfactoryTestsAnalysis(): string {
     if (this.metricAnalyses['satisfactoryTests']) {
       return this.metricAnalyses['satisfactoryTests'];
     }
-    return `Análisis de resultados: Las pruebas ejecutadas mostraron resultados conformes al Pass Rate establecido.
-Acciones correctivas: Se mantendrá el monitoreo constante de los planes de pruebas para asegurar que el porcentaje de casos de prueba satisfactorios continúe por encima del 90%.`;
+    return 'Genera el análisis IA para visualizar las recomendaciones.';
   }
 }

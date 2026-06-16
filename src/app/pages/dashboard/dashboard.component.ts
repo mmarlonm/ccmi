@@ -5,7 +5,7 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 import { AIService } from '../../services/ai.service';
 import { PdfService } from '../../services/pdf.service';
 import { CMMIMetrics } from '../../models/metrics.model';
-import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight, MessageSquare, Send, X, Bot, User } from 'lucide-angular';
+import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight, MessageSquare, Send, X, Bot, User, Copy, Check } from 'lucide-angular';
 import { Chart, registerables } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 
@@ -14,14 +14,15 @@ Chart.register(...registerables, annotationPlugin);
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
 import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, LucideAngularModule, FormsModule, PdfTemplateComponent],
   template: `
-<div id="dashboard-content" class="space-y-8 animate-in fade-in duration-1000 p-4 md:p-8">
-  <header class="sticky top-0 z-40 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-4 -mt-4 md:-mt-8 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 shadow-sm transition-all duration-300">
+<div id="dashboard-content" class="h-full overflow-y-auto overflow-x-hidden space-y-8 animate-in fade-in duration-1000">
+  <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-5 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 shadow-md transition-all duration-300">
     <div>
       <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Métricas CMMI 5</h2>
       <p class="text-slate-500 dark:text-slate-400 mt-1 text-xs">Formato BFYPH047 - Recopilación y Análisis de Métricas</p>
@@ -50,13 +51,17 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         <option value="">Todos los ISW</option>
         <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
       </select>
+      <button (click)="reloadSprintData()" [disabled]="isReloading || !selectedIteration" class="glass-button flex items-center gap-2" title="Recargar datos de DevOps para este Sprint">
+        <lucide-icon [name]="RefreshCw" size="18" [class.animate-spin]="isReloading"></lucide-icon>
+        <span>Recargar Sprint</span>
+      </button>
       <button (click)="runAI()" [disabled]="isAnalyzing || !metrics" class="glass-button flex items-center gap-2 bg-indigo-600 text-white">
         <lucide-icon [name]="Sparkles" size="18" [class.animate-spin]="isAnalyzing"></lucide-icon>
-        <span>{{ isAnalyzing ? 'Analizando...' : 'Generar Análisis IA' }}</span>
+        <span>{{ isAnalyzing ? 'Analizando...' : (aiAnalysis ? 'Volver a analizar IA' : 'Generar Análisis IA') }}</span>
       </button>
-      <button (click)="export()" [disabled]="!metrics" class="glass-button flex items-center gap-2">
-        <lucide-icon [name]="Download" size="18"></lucide-icon>
-        <span>Exportar PDF</span>
+      <button (click)="export()" [disabled]="!metrics || isExporting" class="glass-button flex items-center gap-2">
+        <lucide-icon [name]="isExporting ? RefreshCw : Download" size="18" [class.animate-spin]="isExporting"></lucide-icon>
+        <span>{{ isExporting ? 'Generando PDF...' : 'Exportar PDF' }}</span>
       </button>
     </div>
   </header>
@@ -112,11 +117,11 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
 
           <div class="bg-amber-50/40 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-100/50 dark:border-amber-900/30 flex items-center gap-3 transition-all hover:shadow-md">
-            <div class="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 text-amber-600 dark:text-amber-350 shrink-0">
+            <div class="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 text-amber-600 dark:text-amber-400 shrink-0">
               <lucide-icon [name]="AlertTriangle" size="20"></lucide-icon>
             </div>
             <div class="min-w-0">
-              <div class="text-[9px] text-slate-400 uppercase font-black tracking-wide">Fase Extendida (Tarde)</div>
+              <div class="text-[9px] text-slate-400 uppercase font-black tracking-wide">Fase Extendida (Dias)</div>
               <div class="text-2xl font-black text-amber-600 dark:text-amber-400">
                 {{ timelineSummary.maxLateDays }}
               </div>
@@ -341,26 +346,33 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-8">
-          <div class="lg:col-span-5 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
+          <div class="lg:col-span-12 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
             <div class="h-64">
               <canvas #devRateChart></canvas>
             </div>
           </div>
+        </div>
 
-          <div class="lg:col-span-7 space-y-4">
-            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30">
-              <h4 class="text-xs font-bold uppercase text-blue-600 mb-2 flex items-center">
-                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
-                Análisis de resultados e Acciones
-              </h4>
-              <div *ngIf="metricAnalyses['tasa de desarrollo']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['tasa de desarrollo'] }}
-              </div>
-              <div *ngIf="!metricAnalyses['tasa de desarrollo']" class="text-sm opacity-50 italic">
-                Genera el análisis IA para visualizar las recomendaciones.
-              </div>
-            </div>
+        <div class="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30 mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-blue-600 mb-2 flex items-center justify-between w-full">
+            <span class="flex items-center">
+              <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+              Análisis de resultados e Acciones
+            </span>
+            <button *ngIf="metricAnalyses['tasa de desarrollo']" 
+                    (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
+                    class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-500 hover:text-blue-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    [title]="copiedKeys['tasa de desarrollo'] ? 'Copiado' : 'Copiar análisis'">
+              <lucide-icon [name]="copiedKeys['tasa de desarrollo'] ? Check : Copy" size="12"></lucide-icon>
+              <span>{{ copiedKeys['tasa de desarrollo'] ? '¡Copiado!' : 'Copiar' }}</span>
+            </button>
+          </h4>
+          <div *ngIf="metricAnalyses['tasa de desarrollo']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+            {{ metricAnalyses['tasa de desarrollo'] }}
+          </div>
+          <div *ngIf="!metricAnalyses['tasa de desarrollo']" class="text-sm opacity-50 italic">
+            Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
 
@@ -376,6 +388,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                 <th class="px-3 py-3 text-left">Entrega vs Sprint</th>
                 <th class="px-3 py-3">Nivel</th>
                 <th class="px-3 py-3 text-center">Size <span class="text-indigo-400 normal-case font-normal">(editable)</span></th>
+                <th class="px-3 py-3 text-center">Size Ideal</th>
                 <th class="px-3 py-3 text-center">Est. Original (H)</th>
                 <th class="px-3 py-3 text-center">Real (H)</th>
                 <th class="px-3 py-3 text-center">Tasa</th>
@@ -452,6 +465,9 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                       {{ item.sizeSource === 'field' ? 'campo' : item.sizeSource === 'discussion' ? 'discussion' : item.sizeSource === 'manual' ? 'manual' : 'sin size' }}
                     </div>
                   </td>
+                  <td class="px-3 py-2 text-center font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                    {{ item.effort | number:'1.1-1' }}
+                  </td>
                   <td class="px-3 py-2 text-center">
                     <span class="text-slate-500 dark:text-slate-400 font-medium text-xs">{{ sumTasks(item.tasks, 'originalEstimate') | number:'1.1-1' }}</span>
                   </td>
@@ -469,7 +485,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
                 <!-- Collapse: child tasks -->
                 <tr *ngIf="expandedItemsM1.has(item.id) && (item.tasks?.length || item.relatedBugs?.length)" class="bg-slate-50/70 dark:bg-slate-800/40">
-                  <td colspan="10" class="px-8 pb-3 pt-2">
+                  <td colspan="11" class="px-8 pb-3 pt-2">
                     <!-- Tasks Table -->
                     <div *ngIf="item.tasks?.length" class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 mt-1">
                       <table class="w-full text-xs">
@@ -601,7 +617,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         </p>
 
         <!-- Summary KPIs (like image) -->
-        <div class="grid grid-cols-2 md:grid-cols-7 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Ítems</div>
             <div class="text-2xl font-bold">{{ metrics.developmentRate.totalItems }}</div>
@@ -614,6 +630,13 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Total Real (H)</div>
             <div class="text-2xl font-bold">{{ metrics.effortVariance.actual | number:'1.2-2' }}</div>
           </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">KPI % Desviación Global</div>
+            <div class="text-2xl font-bold">
+              {{ (metrics.effortVariance.rate * 100) > 0 ? '+' : '' }}{{ (metrics.effortVariance.rate * 100).toFixed(2) }}%
+            </div>
+            <div class="text-[8pt] opacity-50">Umbrales: 15%, 30%</div>
+          </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
             'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.effortVariance.status === 'green',
             'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.effortVariance.status === 'yellow',
@@ -623,13 +646,13 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
               'text-emerald-600 dark:text-emerald-400': metrics.effortVariance.status === 'green',
               'text-amber-600 dark:text-amber-400': metrics.effortVariance.status === 'yellow',
               'text-rose-600 dark:text-rose-400': metrics.effortVariance.status === 'red'
-            }">KPI % Desviación Global</div>
+            }">Desviación Absoluta</div>
             <div class="text-3xl font-black" [ngClass]="{
               'text-emerald-700 dark:text-emerald-300': metrics.effortVariance.status === 'green',
               'text-amber-700 dark:text-amber-300': metrics.effortVariance.status === 'yellow',
               'text-rose-700 dark:text-rose-300': metrics.effortVariance.status === 'red'
             }">
-              {{ (metrics.effortVariance.rate * 100) > 0 ? '+' : '' }}{{ (metrics.effortVariance.rate * 100).toFixed(2) }}%
+              {{ (metrics.effortVariance.absoluteRate * 100).toFixed(2) }}%
             </div>
             <div class="text-[8pt] mt-1 opacity-80" [ngClass]="{
               'text-emerald-600/85 dark:text-emerald-400/85': metrics.effortVariance.status === 'green',
@@ -638,47 +661,38 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
             }">Umbrales: 15%, 30%</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Absoluta</div>
-            <div class="text-2xl font-bold">{{ (metrics.effortVariance.absoluteRate * 100).toFixed(2) }}%</div>
-            <div class="text-[8pt] opacity-50">Umbrales: 15%, 30%</div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Promedio % Desviación Ind.</div>
             <div class="text-2xl font-bold">{{ (metrics.effortVariance.avgIndividualRate || 0).toFixed(2) }}%</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
-            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
-            <div class="text-2xl font-bold" [class.text-emerald-600]="(metrics.effortVariance.stdDeviation || 0) <= 15.00" [class.text-rose-500]="(metrics.effortVariance.stdDeviation || 0) > 15.00">
-              {{ (metrics.effortVariance.stdDeviation || 0).toFixed(2) }}%
-            </div>
-            <div class="text-[8pt] opacity-50">Umbrales: 15%</div>
-          </div>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <!-- Left: Chart -->
-          <div class="lg:col-span-5 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
+          <div class="lg:col-span-12 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
             <div class="h-64">
               <canvas #effortChart></canvas>
             </div>
           </div>
+        </div>
 
-          <!-- Right: AI Analysis -->
-          <div class="lg:col-span-7 space-y-4">
-            <div class="bg-violet-50/30 dark:bg-violet-950/10 p-4 rounded-lg border border-violet-100 dark:border-violet-900/30">
-              <h4 class="text-xs font-bold uppercase text-violet-600 mb-2 flex items-center">
-                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
-                Análisis de resultados e Acciones
-              </h4>
-              <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['tasa de desviación'] }}
-              </div>
-              <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50 italic">
-                Genera el análisis IA para visualizar las recomendaciones.
-              </div>
-            </div>
-            
-            <!-- AI Analysis takes full height now -->
+        <div class="bg-violet-50/30 dark:bg-violet-950/10 p-4 rounded-lg border border-violet-100 dark:border-violet-900/30 mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-violet-600 mb-2 flex items-center justify-between w-full">
+            <span class="flex items-center">
+              <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+              Análisis de resultados e Acciones
+            </span>
+            <button *ngIf="metricAnalyses['tasa de desviación']" 
+                    (click)="copyAnalysis('tasa de desviación', metricAnalyses['tasa de desviación'])" 
+                    class="p-1 hover:bg-violet-100 dark:hover:bg-violet-900/30 rounded text-violet-500 hover:text-violet-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    [title]="copiedKeys['tasa de desviación'] ? 'Copiado' : 'Copiar análisis'">
+              <lucide-icon [name]="copiedKeys['tasa de desviación'] ? Check : Copy" size="12"></lucide-icon>
+              <span>{{ copiedKeys['tasa de desviación'] ? '¡Copiado!' : 'Copiar' }}</span>
+            </button>
+          </h4>
+          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+            {{ metricAnalyses['tasa de desviación'] }}
+          </div>
+          <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50 italic">
+            Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
       </div>
@@ -918,7 +932,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 uppercase font-bold">{{ task.type || 'Planeada' }}</span>
                           </div>
                           <div class="flex items-center gap-4 text-[11px]">
-                            <span class="text-slate-400">Tipo: <span class="text-slate-600 dark:text-slate-300 font-bold">{{ task.type || 'Planeada' }}</span></span>
+                            <span class="text-slate-400">Tipo: <span class="text-slate-600 dark:text-slate-350 font-bold">{{ task.type || 'Planeada' }}</span></span>
                              <span class="font-bold text-indigo-500">{{ formatEffort(task.completedWork) }}h</span>
                           </div>
                         </div>
@@ -943,7 +957,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
                             <div class="flex items-center gap-6 text-[10px]">
                               <div class="flex flex-col items-end">
                                 <span class="text-[8px] uppercase text-slate-400 font-bold">Est. Total</span>
-                                <span class="font-bold text-slate-600 dark:text-slate-300">{{ formatEffort(bug.originalEstimate) }}h</span>
+                                <span class="font-bold text-slate-600 dark:text-slate-350">{{ formatEffort(bug.originalEstimate) }}h</span>
                               </div>
                               <div class="flex flex-col items-end">
                                 <span class="text-[8px] uppercase text-slate-400 font-bold">Real Total</span>
@@ -978,9 +992,24 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 
         <!-- Rework AI Analysis Box -->
         <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-rose-50/30 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/30 animate-in fade-in duration-300">
-          <div class="text-xs leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-300">
+          <h4 class="text-xs font-bold uppercase text-rose-600 mb-2 flex items-center justify-between w-full">
+            <span class="flex items-center">
+              <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+              Análisis de resultados e Acciones
+            </span>
+            <button (click)="copyAnalysis('retrabajo', metricAnalyses['retrabajo'])" 
+                    class="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded text-rose-500 hover:text-rose-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    [title]="copiedKeys['retrabajo'] ? 'Copiado' : 'Copiar análisis'">
+              <lucide-icon [name]="copiedKeys['retrabajo'] ? Check : Copy" size="12"></lucide-icon>
+              <span>{{ copiedKeys['retrabajo'] ? '¡Copiado!' : 'Copiar' }}</span>
+            </button>
+          </h4>
+          <div class="text-xs leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-350">
             {{ metricAnalyses['retrabajo'] }}
           </div>
+        </div>
+        <div *ngIf="!metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+          Genera el análisis IA para visualizar las recomendaciones.
         </div>
 
       </div>
@@ -1029,26 +1058,34 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
+          <div class="lg:col-span-12 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
             <div class="h-64">
               <canvas #defectChart></canvas>
             </div>
           </div>
+        </div>
 
-          <div class="space-y-4">
-            <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center">
+        <div class="space-y-4 mb-8">
+          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+            <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center justify-between w-full">
+              <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
-              </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['densidad de defectos'] }}
-              </div>
+              </span>
+              <button (click)="copyAnalysis('densidad de defectos', metricAnalyses['densidad de defectos'])" 
+                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      [title]="copiedKeys['densidad de defectos'] ? 'Copiado' : 'Copiar análisis'">
+                <lucide-icon [name]="copiedKeys['densidad de defectos'] ? Check : Copy" size="12"></lucide-icon>
+                <span>{{ copiedKeys['densidad de defectos'] ? '¡Copiado!' : 'Copiar' }}</span>
+              </button>
+            </h4>
+            <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+              {{ metricAnalyses['densidad de defectos'] }}
             </div>
-            <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-              Genera el análisis IA para visualizar las recomendaciones.
-            </div>
+          </div>
+          <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+            Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
       </div>
@@ -1345,8 +1382,8 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          <div class="lg:col-span-2">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
+          <div class="lg:col-span-12">
             <!-- Bugs Table for EED - separated in two tables -->
             <div class="space-y-8">
               
@@ -1490,20 +1527,28 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
               La tabla indica los bugs creados a partir de las pruebas de requerimientos u otros bugs que tengan una relación "Affected by" o "Related". Para efectos de medición, los bugs relacionados sólo se contabilizan una vez aunque estén relacionados a varios ítems y aparezcan en la tabla más de una vez.
             </p>
           </div>
+        </div>
 
-          <div class="space-y-4">
-            <div *ngIf="metricAnalyses['eed']" class="bg-amber-50/30 dark:bg-amber-950/10 p-4 rounded-lg border border-amber-100 dark:border-amber-900/30">
-              <h4 class="text-xs font-bold uppercase text-amber-600 mb-2 flex items-center">
+        <div class="space-y-4 mb-8">
+          <div *ngIf="metricAnalyses['eed']" class="bg-amber-50/30 dark:bg-amber-950/10 p-4 rounded-lg border border-amber-100 dark:border-amber-900/30">
+            <h4 class="text-xs font-bold uppercase text-amber-600 mb-2 flex items-center justify-between w-full">
+              <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
-              </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['eed'] }}
-              </div>
+              </span>
+              <button (click)="copyAnalysis('eed', metricAnalyses['eed'])" 
+                      class="p-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-amber-500 hover:text-amber-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      [title]="copiedKeys['eed'] ? 'Copiado' : 'Copiar análisis'">
+                <lucide-icon [name]="copiedKeys['eed'] ? Check : Copy" size="12"></lucide-icon>
+                <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
+              </button>
+            </h4>
+            <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+              {{ metricAnalyses['eed'] }}
             </div>
-            <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-              Genera el análisis IA para visualizar las recomendaciones.
-            </div>
+          </div>
+          <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+            Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
       </div>
@@ -1667,9 +1712,17 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
             <div *ngIf="metricAnalyses['escaped']" class="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
-              <h4 class="text-xs font-bold uppercase text-indigo-600 mb-2 flex items-center">
-                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
-                Análisis de resultados e Acciones
+              <h4 class="text-xs font-bold uppercase text-indigo-600 mb-2 flex items-center justify-between w-full">
+                <span class="flex items-center">
+                  <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                  Análisis de resultados e Acciones
+                </span>
+                <button (click)="copyAnalysis('escaped', metricAnalyses['escaped'])" 
+                        class="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-indigo-500 hover:text-indigo-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['escaped'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['escaped'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['escaped'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
               </h4>
               <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
                 {{ metricAnalyses['escaped'] }}
@@ -1834,9 +1887,18 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
             <div class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center">
-                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
-                Análisis de resultados e Acciones
+              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center justify-between w-full">
+                <span class="flex items-center">
+                  <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                  Análisis de resultados e Acciones
+                </span>
+                <button *ngIf="metricAnalyses['testExecution'] || metricAnalyses['ejecución de pruebas']" 
+                        (click)="copyAnalysis('testExecution', getTestExecutionAnalysis())" 
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['testExecution'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['testExecution'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
               </h4>
               <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
                 {{ getTestExecutionAnalysis() }}
@@ -1852,6 +1914,12 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-teal-500 overflow-hidden mt-8">
       <div class="p-6">
         <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-teal-500">
+          Esta métrica mide la efectividad de las pruebas ejecutadas, calculando el porcentaje de test points que finalizaron con resultado satisfactorio (Passed) respecto al total de pruebas que fueron ejecutadas.<br/>
+          <strong>Fórmula:</strong> KPI Pass Rate = (∑ Test Points Passed / Total de Test Points Ejecutados) x 100. Solo se consideran los test points dentro de la vigencia del sprint.
+          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
+        </p>
 
         <!-- KPI summary grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-8">
@@ -1885,7 +1953,7 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-pink-500 uppercase font-bold mb-1">Paused</div>
-            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused || '(En blanco)' }}</div>
+            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused ?? 0 }}</div>
           </div>
           
           <div class="p-3.5 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center col-span-2 md:col-span-1" [ngClass]="{
@@ -1983,9 +2051,18 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
             <div class="bg-teal-50/30 dark:bg-teal-950/10 p-4 rounded-lg border border-teal-100 dark:border-teal-900/30">
-              <h4 class="text-xs font-bold uppercase text-teal-600 mb-2 flex items-center">
-                <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
-                Análisis de resultados e Acciones
+              <h4 class="text-xs font-bold uppercase text-teal-600 mb-2 flex items-center justify-between w-full">
+                <span class="flex items-center">
+                  <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                  Análisis de resultados e Acciones
+                </span>
+                <button *ngIf="metricAnalyses['satisfactoryTests'] || metricAnalyses['pruebas satisfactorias']" 
+                        (click)="copyAnalysis('satisfactoryTests', getSatisfactoryTestsAnalysis())" 
+                        class="p-1 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-teal-500 hover:text-teal-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['satisfactoryTests'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['satisfactoryTests'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
               </h4>
               <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
                 {{ getSatisfactoryTestsAnalysis() }}
@@ -2289,6 +2366,8 @@ import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
   readonly TrendingUp = TrendingUp;
+  readonly Copy = Copy;
+  readonly Check = Check;
   readonly Bug = Bug;
   readonly AlertTriangle = AlertTriangle;
   readonly Sparkles = Sparkles;
@@ -2312,11 +2391,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private pdfService = inject(PdfService);
   private configService = inject(ConfigService);
   private router = inject(Router);
+  private notificationService = inject(NotificationService);
 
   metrics?: CMMIMetrics;
   config = this.configService.getConfig();
   aiAnalysis: string = '';
   isAnalyzing = false;
+  isExporting = false;
   isLoading = true;
 
   areas: any[] = [];
@@ -2326,6 +2407,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   selectedIterationName: string = 'Actual';
   chartImages: { [key: string]: string } = {};
   metricAnalyses: { [key: string]: string } = {};
+  copiedKeys: { [key: string]: boolean } = {};
   expandedItemsM1 = new Set<string>();
   expandedItemsM2 = new Set<string>();
   expandedItemsM3 = new Set<string>();
@@ -2530,7 +2612,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   onSelectionChange() {
     this.isReloading = true;
+    this.aiAnalysis = '';
+    this.metricAnalyses = {};
     this.saveSelection();
+    if (this.selectedIteration) {
+      localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
+    }
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
     this.selectedIterationName = iter ? iter.name : 'Actual';
     this.loadData();
@@ -2582,7 +2669,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
         this.applyFilter();
 
-        // Restore cached AI analysis if present
+        // Restore cached AI analysis if present (persists across tabs/reloads if sprint is the same)
         const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
         if (cachedAnalysis) {
           this.aiAnalysis = cachedAnalysis;
@@ -2598,7 +2685,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       error: () => {
         this.isLoading = false;
         this.isReloading = false;
-        alert('Error al cargar datos de Azure DevOps. Verifica el PAT y la configuración.');
+        this.notificationService.error('Error al cargar datos de Azure DevOps. Verifica el PAT y la configuración.');
       }
     });
   }
@@ -2687,13 +2774,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     filteredList.forEach((b: any) => {
       if (b.classification === 'testing') bugsTesting++;
-      else if (b.classification === 'uat' || b.classification === 'produccion') bugsProd++;
+      else if (b.classification === 'uat') bugsUat++;
+      else if (b.classification === 'produccion') bugsProd++;
     });
 
-    const beforeRelease = bugsTesting + bugsUat;
-    const rate = beforeRelease > 0 
-      ? (bugsProd / beforeRelease) * 100 
-      : (bugsProd > 0 ? 100 : 0);
+    const totalBugs = bugsTesting + bugsUat + bugsProd;
+    const rate = totalBugs > 0
+      ? ((bugsProd + bugsUat) / totalBugs) * 100
+      : 0;
     const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
 
     const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string, bugs: any[] } } = {};
@@ -2705,12 +2793,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       iterationGroups[iter].total++;
       iterationGroups[iter].bugs.push(b);
       if (b.classification === 'testing') iterationGroups[iter].testing++;
-      else if (b.classification === 'uat' || b.classification === 'produccion') iterationGroups[iter].prod++;
+      else if (b.classification === 'uat') iterationGroups[iter].uat++;
+      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
     });
 
     const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
-      const preRelease = g.testing + g.uat;
-      const rowRate = preRelease > 0 ? Math.min((g.prod / preRelease) * 100, 150) : (g.prod > 0 ? 150 : 0);
+      const rowRate = g.total > 0 ? Math.min(((g.prod + g.uat) / g.total) * 100, 150) : 0;
       return {
         project: g.project.split('\\').pop() || g.project,
         projectFull: g.project,
@@ -2735,9 +2823,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     this.filteredEscapedBugs = {
       bugsTesting,
-      bugsUat: 0,
+      bugsUat,
       bugsProd,
-      totalBugs: filteredList.length,
+      totalBugs,
       rate,
       status,
       stdDeviation,
@@ -2773,7 +2861,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     this.m38MinDateLimit = new Date(minTime).toISOString().split('T')[0];
     this.m38MaxDateLimit = new Date(maxTime).toISOString().split('T')[0];
-    
+
     this.m38StartDate = this.m38MinDateLimit;
     this.m38EndDate = this.m38MaxDateLimit;
 
@@ -2806,7 +2894,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!testPoints) return [];
     const suites = testPoints
       .filter(pt => (!this.m38SelectedProject || pt.projectName === this.m38SelectedProject) &&
-                    (!this.m38SelectedTestPlan || pt.planName === this.m38SelectedTestPlan))
+        (!this.m38SelectedTestPlan || pt.planName === this.m38SelectedTestPlan))
       .map(pt => pt.suiteName)
       .filter(Boolean);
     return Array.from(new Set(suites)).sort() as string[];
@@ -2880,7 +2968,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   updateM38Calculations() {
     const pts = this.getFilteredM38TestPoints();
-    
+
     let total = pts.length;
     let passedEnTiempo = 0;
     let passedFueraDeTiempo = 0;
@@ -3374,15 +3462,26 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             } else {
               if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
                 rEffort += taskEffort;
-              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework')) {
-                rTotal += taskEffort;
-              } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
+              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect')) {
                 rTotal += taskEffort;
               } else {
                 rEffort += taskEffort;
               }
             }
           });
+          if (!parentIsBug && item.relatedBugs?.length) {
+            item.relatedBugs.forEach((bug: any) => {
+              if (bug && bug.tasks?.length) {
+                bug.tasks.forEach((bt: any) => {
+                  if (bt) {
+                    rTotal += bt.completedWork || 0;
+                  }
+                });
+              } else if (bug) {
+                rTotal += bug.completedWork || 0;
+              }
+            });
+          }
         });
         return rEffort > 0 ? (rTotal / rEffort) * 100 : 0;
       })()
@@ -4105,14 +4204,21 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metricAnalyses = {};
     this.aiService.analyzeMetrics(this.metrics).subscribe({
       next: (res) => {
+        if (res && res.startsWith('Error al')) {
+          this.isAnalyzing = false;
+          this.notificationService.error(res);
+          return;
+        }
         this.aiAnalysis = res;
         this.parseAnalysis(res);
         localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
         this.isAnalyzing = false;
+        this.notificationService.success('Análisis de IA generado exitosamente.');
       },
-      error: () => {
+      error: (err) => {
         this.isAnalyzing = false;
-        alert('Error al conectar con la IA. Revisa tu API Key y modelo.');
+        const detail = err && (err.message || err.error?.message || err.statusText) ? `: ${err.message || err.error?.message || err.statusText}` : '';
+        this.notificationService.error('Error al generar el análisis de IA. Revisa tu API Key y modelo' + detail);
       }
     });
   }
@@ -4140,7 +4246,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricAnalyses['escaped'] = val;
         this.metricAnalyses['bugs escapados'] = val;
       }
-      if (lowerSeg.includes('ejecución de pruebas') || lowerSeg.includes('ejecucion de pruebas') || lowerSeg.includes('run rate') || lowerSeg.includes('pruebas')) {
+      if (lowerSeg.includes('ejecución de pruebas') || lowerSeg.includes('ejecucion de pruebas') || lowerSeg.includes('run rate') || (lowerSeg.includes('pruebas') && !lowerSeg.includes('satisfactorias') && !lowerSeg.includes('satisfactory'))) {
         const val = seg.split(']')[1]?.trim();
         this.metricAnalyses['testExecution'] = val;
         this.metricAnalyses['ejecución de pruebas'] = val;
@@ -4157,16 +4263,34 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (this.metricAnalyses['testExecution']) {
       return this.metricAnalyses['testExecution'];
     }
-    return `Análisis de resultados: Las pruebas se ejecutaron conforme a los planes de prueba vigentes en el sprint.
-Acciones correctivas: Para esta métrica no se requieren realizar acciones correctivas, debido a que no se presentaron retrasos, y las pruebas se ejecutaron en tiempo y forma.`;
+    return 'Genera el análisis IA para visualizar las recomendaciones.';
   }
 
   getSatisfactoryTestsAnalysis(): string {
     if (this.metricAnalyses['satisfactoryTests']) {
       return this.metricAnalyses['satisfactoryTests'];
     }
-    return `Análisis de resultados: El porcentaje de pruebas satisfactorias (Pass Rate) refleja la calidad de construcción del software y la efectividad de las pruebas.
-Acciones correctivas: Se recomienda mantener un monitoreo constante del Pass Rate para asegurar que se encuentre por encima del umbral óptimo del 90%.`;
+    return 'Genera el análisis IA para visualizar las recomendaciones.';
+  }
+
+  copyAnalysis(key: string, text: string) {
+    if (!text || text === 'Genera el análisis IA para visualizar las recomendaciones.') return;
+    navigator.clipboard.writeText(text).then(() => {
+      this.copiedKeys[key] = true;
+      setTimeout(() => {
+        this.copiedKeys[key] = false;
+      }, 2000);
+    }).catch(err => {
+      console.error('Error al copiar el texto: ', err);
+    });
+  }
+
+  reloadSprintData() {
+    if (!this.selectedIteration) return;
+    localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
+    this.aiAnalysis = '';
+    this.metricAnalyses = {};
+    this.loadData();
   }
 
   updateTestExecChart() {
@@ -4315,6 +4439,7 @@ Acciones correctivas: Se recomienda mantener un monitoreo constante del Pass Rat
 
   async export() {
     if (!this.metrics) return;
+    this.isExporting = true;
     this.isLoading = true;
 
     try {
@@ -4334,8 +4459,9 @@ Acciones correctivas: Se recomienda mantener un monitoreo constante del Pass Rat
       await this.pdfService.exportToPdf('professional-report', `BFYPH047_Metricas_CMMI5_${this.selectedIterationName}`);
     } catch (error) {
       console.error('PDF Export failed', error);
-      alert('Error al generar el PDF profesional.');
+      this.notificationService.error('Error al generar el PDF profesional.');
     } finally {
+      this.isExporting = false;
       this.isLoading = false;
     }
   }
@@ -4422,6 +4548,6 @@ Acciones correctivas: Se recomienda mantener un monitoreo constante del Pass Rat
           this.chatScrollContainer.nativeElement.scrollTop = this.chatScrollContainer.nativeElement.scrollHeight;
         }
       }, 100);
-    } catch(err) { }
+    } catch (err) { }
   }
 }

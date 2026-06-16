@@ -139,38 +139,7 @@ export class AzureDevOpsService {
 
               return this.getWorkItemDetails(ids, fields).pipe(
                 timeout(20000),
-                switchMap(details => {
-                  const fetchedIds = new Set(details.map((d: any) => d.id));
-                  const parentIds: number[] = [...new Set(
-                    details
-                      .filter((d: any) => d.fields['System.Parent'])
-                      .map((d: any) => d.fields['System.Parent'] as number)
-                      .filter((pid: number) => !fetchedIds.has(pid))
-                  )];
-
-                  const linkedIdsToFetch = new Set<number>();
-                  details.forEach((item: any) => {
-                    if (item.relations) {
-                      item.relations.forEach((rel: any) => {
-                        const idMatch = rel.url.match(/workItems\/(\d+)/i);
-                        if (idMatch) {
-                          const targetId = parseInt(idMatch[1]);
-                          if (!fetchedIds.has(targetId)) {
-                            linkedIdsToFetch.add(targetId);
-                          }
-                        }
-                      });
-                    }
-                  });
-
-                  const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
-                  if (additionalIds.length === 0) return of(details);
-                  return this.getWorkItemDetails(additionalIds, fields).pipe(
-                    map((extraItems: any[]) => {
-                      return [...details, ...extraItems];
-                    })
-                  );
-                }),
+                switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
                 switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
                 switchMap(details => {
                   const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
@@ -236,43 +205,13 @@ export class AzureDevOpsService {
           'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
           'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
           'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
-          'System.AssignedTo', 'Microsoft.VSTS.Common.Priority', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
+          'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Priority',
+          'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
         ].join(',');
 
         return this.getWorkItemDetails(ids, fields).pipe(
           timeout(20000),
-          switchMap(details => {
-            const fetchedIds = new Set(details.map((d: any) => d.id));
-            const parentIds: number[] = [...new Set(
-              details
-                .filter((d: any) => d.fields['System.Parent'])
-                .map((d: any) => d.fields['System.Parent'] as number)
-                .filter((pid: number) => !fetchedIds.has(pid))
-            )];
-
-            const linkedIdsToFetch = new Set<number>();
-            details.forEach((item: any) => {
-              if (item.relations) {
-                item.relations.forEach((rel: any) => {
-                  const idMatch = rel.url.match(/workItems\/(\d+)/i);
-                  if (idMatch) {
-                    const targetId = parseInt(idMatch[1]);
-                    if (!fetchedIds.has(targetId)) {
-                      linkedIdsToFetch.add(targetId);
-                    }
-                  }
-                });
-              }
-            });
-
-            const additionalIds = [...new Set([...parentIds, ...Array.from(linkedIdsToFetch)])];
-            if (additionalIds.length === 0) return of(details);
-            return this.getWorkItemDetails(additionalIds, fields).pipe(
-              map((extraItems: any[]) => {
-                return [...details, ...extraItems];
-              })
-            );
-          }),
+          switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
           switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
           switchMap(allDetails => {
             const metrics = this.processWorkItemsFlat(allDetails, { path: iterationPath, name: iterationPath.split('\\').pop() || '' }, iterationPath);
@@ -283,6 +222,46 @@ export class AzureDevOpsService {
       catchError(err => {
         console.error('WIQL Error or Timeout:', err);
         return of(this.getEmptyMetrics());
+      })
+    );
+  }
+
+  private expandWorkItemsRecursively(initialItems: any[], fields: string, depth: number = 3): Observable<any[]> {
+    if (depth <= 0) return of(initialItems);
+
+    const fetchedIds = new Set<number>(initialItems.map(item => parseInt(item.id.toString())));
+    const idsToFetch = new Set<number>();
+
+    initialItems.forEach(item => {
+      // 1. Parent relation (System.Parent)
+      const parentId = item.fields?.['System.Parent'];
+      if (parentId) {
+        const pId = parseInt(parentId.toString());
+        if (!fetchedIds.has(pId)) {
+          idsToFetch.add(pId);
+        }
+      }
+
+      // 2. Relations links (e.g. child tasks of bugs, affected by bugs, etc)
+      if (item.relations) {
+        item.relations.forEach((rel: any) => {
+          const idMatch = rel.url?.match(/workItems\/(\d+)/i);
+          if (idMatch) {
+            const targetId = parseInt(idMatch[1]);
+            if (!fetchedIds.has(targetId)) {
+              idsToFetch.add(targetId);
+            }
+          }
+        });
+      }
+    });
+
+    if (idsToFetch.size === 0) return of(initialItems);
+
+    return this.getWorkItemDetails(Array.from(idsToFetch), fields).pipe(
+      switchMap(newItems => {
+        const combined = [...initialItems, ...newItems];
+        return this.expandWorkItemsRecursively(combined, fields, depth - 1);
       })
     );
   }
@@ -414,6 +393,9 @@ export class AzureDevOpsService {
       return typeof val === 'object' ? val.displayName : val;
     };
 
+    const bugParentAreaMap = new Map<number, string>();
+    const bugParentIterationMap = new Map<number, string>();
+
     const devItemsRaw = parents.map(p => {
       const parentId = parseInt(p.id.toString(), 10);
       const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FT' : 'US';
@@ -433,6 +415,14 @@ export class AzureDevOpsService {
         if (linkedIds.has(bId)) return true;
         // Linked to any Task of the Requirement
         return taskIds.some(tid => relationMap.get(tid)?.has(bId));
+      });
+
+      const parentArea = p.fields['System.AreaPath'] || 'OPE20';
+      const parentIteration = p.fields['System.IterationPath'] || absoluteIterationPath || iterationInfo?.path || '';
+      linkedBugs.forEach(lb => {
+        const lbId = parseInt(lb.id.toString());
+        bugParentAreaMap.set(lbId, parentArea);
+        bugParentIterationMap.set(lbId, parentIteration);
       });
 
       const relatedBugs = linkedBugs.map(b => {
@@ -555,7 +545,7 @@ export class AzureDevOpsService {
         effort: effort,
         rate: 0,
         title: b.fields['System.Title'] || '',
-        tasks: [],
+        tasks: bTasks,
         createdDate: b.fields['System.CreatedDate'],
         closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
         changedDate: b.fields['System.ChangedDate'],
@@ -807,11 +797,13 @@ export class AzureDevOpsService {
 
       if (classification === 'ignore') return null;
 
-      const bugIteration = absoluteIterationPath || iterationInfo?.path || b.fields['System.IterationPath'] || '';
+      const bId = parseInt(b.id.toString());
+      const parentAreaPath = bugParentAreaMap.get(bId) || b.fields['System.AreaPath'] || 'OPE20';
+      const parentIterationPath = bugParentIterationMap.get(bId) || b.fields['System.IterationPath'] || absoluteIterationPath || iterationInfo?.path || '';
 
       return {
-        project: b.fields['System.AreaPath'] || 'OPE20',
-        iteration: bugIteration,
+        project: parentAreaPath,
+        iteration: parentIterationPath,
         bugId: b.id.toString(),
         title: b.fields['System.Title'] || '',
         createdDate: b.fields['System.CreatedDate'],
@@ -828,25 +820,25 @@ export class AzureDevOpsService {
 
     escapedBugsList.forEach((b: any) => {
       if (b.classification === 'testing') escapedBugsTesting++;
-      else if (b.classification === 'uat' || b.classification === 'produccion') escapedBugsProd++;
+      else if (b.classification === 'uat') escapedBugsUat++;
+      else if (b.classification === 'produccion') escapedBugsProd++;
     });
 
     const escapedTotalBugs = escapedBugsTesting + escapedBugsUat + escapedBugsProd;
-    const escapedBeforeRelease = escapedBugsTesting + escapedBugsUat;
-    const escapedRate = escapedBeforeRelease > 0 
-      ? (escapedBugsProd / escapedBeforeRelease) * 100 
-      : (escapedBugsProd > 0 ? 100 : 0);
+    const escapedRate = escapedTotalBugs > 0 
+      ? ((escapedBugsProd + escapedBugsUat) / escapedTotalBugs) * 100 
+      : 0;
     const escapedStatus = escapedRate <= 33 ? 'green' : (escapedRate <= 40 ? 'yellow' : 'red');
 
     // Print to console as requested
     bugs.forEach(b => {
       const tagsStr = b.fields['System.Tags'] || '';
-      const bugIteration = absoluteIterationPath || iterationInfo?.path || b.fields['System.IterationPath'] || '';
+      const bugIteration = b.fields['System.IterationPath'] || absoluteIterationPath || iterationInfo?.path || '';
     });
 
     const escapedBugsResult = {
       bugsTesting: escapedBugsTesting,
-      bugsUat: 0,
+      bugsUat: escapedBugsUat,
       bugsProd: escapedBugsProd,
       totalBugs: escapedTotalBugs,
       rate: escapedRate,

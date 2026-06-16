@@ -178,3 +178,9 @@ body {
   0% { transform: scale(0.95); opacity: 0.8; }
   100% { transform: scale(1.4); opacity: 0; }
 }
+
+/* Dashboard host element must fill the entire main area */
+app-dashboard {
+  display: block;
+  height: 100%;
+}

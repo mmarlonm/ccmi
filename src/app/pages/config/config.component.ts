@@ -10,7 +10,7 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu } from 'lucide-angular';
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   template: `
-<div class="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+<div class="max-w-4xl mx-auto space-y-8 pt-4 md:pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
   <header>
     <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Configuración del Sistema</h2>
     <p class="text-slate-500 dark:text-slate-400 mt-1">Administra tus credenciales de Azure DevOps e Inteligencia Artificial.</p>
