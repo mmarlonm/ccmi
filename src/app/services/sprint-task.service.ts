@@ -65,7 +65,7 @@ export class SprintTaskService {
     const sprintUsers = Array.from(usersSet).sort((a, b) => a.localeCompare(b));
 
     const items: WorkItemDraftConfig[] = workItems
-      .filter(wi => wi.type === 'User Story' || wi.type === 'Feature')
+      .filter(wi => ['User Story', 'Feature', 'Requirement', 'Product Backlog Item', 'Requisito'].includes(wi.type))
       .map(wi => this.buildWorkItemConfig(wi, iterationPath, sprintUsers));
 
     return {
@@ -86,7 +86,7 @@ export class SprintTaskService {
 
     return {
       workItemId: parseInt(wi.id),
-      workItemType: wi.type as 'User Story' | 'Feature',
+      workItemType: wi.type as any,
       title: wi.title,
       size,
       sizeSource: wi.sizeSource || 'none',

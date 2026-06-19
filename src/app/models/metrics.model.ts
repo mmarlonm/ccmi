@@ -141,6 +141,8 @@ export interface CMMIMetrics {
       status: string;
       isw: string;
       classification: 'testing' | 'uat' | 'produccion';
+      isSprintRelated?: boolean;
+      tags?: string;
     }>;
     rows?: Array<{
       project: string;

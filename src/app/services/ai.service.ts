@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ConfigService } from './config.service';
-import { Observable, of, catchError, timeout } from 'rxjs';
+import { Observable, of, catchError, timeout, retry, timer, forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { CMMIMetrics } from '../models/metrics.model';
 
@@ -50,6 +50,30 @@ export class AIService {
       - El equipo trabaja bajo metodología SCRUM con sprints.
 
       MÉTRICAS DEL SPRINT:
+      0. Cumplimiento y Línea de Tiempo del Sprint:
+${(() => {
+        const items = metrics.developmentRate?.items || [];
+        const endMs = metrics.endDate ? new Date(metrics.endDate).getTime() : 0;
+        let onTime = 0, late = 0, open = 0, maxDays = 0;
+        const lateItems: string[] = [];
+        items.forEach((item: any) => {
+          const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
+          if (!isClosed) { open++; return; }
+          const closedMs = item.closedDate ? new Date(item.closedDate).getTime() : (item.changedDate ? new Date(item.changedDate).getTime() : 0);
+          if (!closedMs || closedMs <= endMs) { onTime++; return; }
+          late++;
+          // rough business days approx
+          const diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
+          if (diffDays > maxDays) maxDays = diffDays;
+          lateItems.push(`  - ${item.type === 'Feature' ? 'FT' : 'US'} #${item.id} | ISW: ${item.isw} | Cerrado: ${item.closedDate?.substring(0, 10) ?? '?'} | ~${diffDays}d tarde`);
+        });
+        const total = onTime + late;
+        const pct = total > 0 ? ((onTime / total) * 100).toFixed(0) : '—';
+        return `         Total entregables: ${items.length} | A tiempo: ${onTime} | En Fase Extendida: ${late} | Abiertos: ${open}
+         % Cumplimiento: ${pct}% | Máx. días de retraso: ${maxDays}d
+         ${lateItems.length > 0 ? 'Ítems entregados en Fase Extendida:\n' + lateItems.join('\n') : 'Sin ítems en fase extendida.'}`;
+      })()}
+
       1. Tasa de Desarrollo: ${metrics.developmentRate.rate.toFixed(2)} 
          (Semáforo: Verde ≤ 1.70 | Amarillo 1.71–2.00 | Rojo > 2.00)
          Esfuerzo total: ${metrics.developmentRate.totalEffort?.toFixed(1) ?? '—'} h | Size total: ${metrics.developmentRate.totalSize ?? '—'}
@@ -327,11 +351,16 @@ ${iswSummary}
     }, {
       headers: { Authorization: `Bearer ${key}` }
     }).pipe(
-      timeout(45000),
+      timeout(140000),
+      retry({ count: 1, delay: 2000 }),
       map(res => res?.choices?.[0]?.message?.content || 'Respuesta vacía de OpenAI'),
       catchError(err => {
         console.error('OpenAI Error/Timeout:', err);
-        return of('Error al generar narrativa con OpenAI. Verifique su API Key o conexión.');
+        const isTimeout = err?.name === 'TimeoutError' || err?.message?.includes('timeout');
+        const isAuth = err?.status === 401 || err?.status === 403;
+        if (isTimeout) return of('El análisis tardó demasiado (>90s). Intenta de nuevo; el servidor de IA puede estar ocupado.');
+        if (isAuth) return of('API Key de OpenAI inválida o sin permisos. Verifica la clave en Configuración.');
+        return of(`Error al contactar OpenAI (${err?.status ?? 'sin conexión'}). Intenta de nuevo.`);
       })
     );
   }
@@ -341,11 +370,18 @@ ${iswSummary}
     return this.http.post<any>(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
       contents: [{ parts: [{ text: prompt }] }]
     }).pipe(
-      timeout(45000),
+      timeout(90000),
+      retry({ count: 1, delay: 2000 }),
       map(res => res?.candidates?.[0]?.content?.parts?.[0]?.text || 'Respuesta vacía de Gemini'),
       catchError(err => {
         console.error('Gemini Error/Timeout:', err);
-        return of('Error al generar narrativa con Gemini. Verifique su API Key o conexión.');
+        const isTimeout = err?.name === 'TimeoutError' || err?.message?.includes('timeout');
+        const isAuth = err?.status === 400 || err?.status === 401 || err?.status === 403;
+        const isQuota = err?.status === 429;
+        if (isTimeout) return of('El análisis tardó demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado.');
+        if (isQuota) return of('Cuota de Gemini agotada. Espera un momento e intenta de nuevo.');
+        if (isAuth) return of('API Key de Gemini inválida. Verifica la clave en Configuración.');
+        return of(`Error al contactar Gemini (${err?.status ?? 'sin conexión'}). Intenta de nuevo.`);
       })
     );
   }

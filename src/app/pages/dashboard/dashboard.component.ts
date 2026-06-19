@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
 import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
 import { NotificationService } from '../../services/notification.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -261,7 +262,7 @@ import { NotificationService } from '../../services/notification.service';
         </div>
 
         <!-- Legend / Info footer -->
-        <div class="flex flex-wrap gap-4 md:gap-6 justify-center text-[9px] md:text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-800/10 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+        <div class="flex flex-wrap gap-4 md:gap-6 justify-center text-[9px] md:text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-800/10 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4">
           <span class="flex items-center gap-1.5">
             <span class="w-3 h-3 rounded-full bg-emerald-500 border border-white dark:border-slate-900"></span>
             <span><strong>A tiempo:</strong> Entregado antes del {{ metrics!.endDate | date:'dd MMM':'UTC' }}</span>
@@ -274,6 +275,62 @@ import { NotificationService } from '../../services/notification.service';
             <span class="w-3 h-3 rounded-full bg-slate-400 border border-white dark:border-slate-900 animate-pulse"></span>
             <span><strong>Pendiente:</strong> Abierto en Azure</span>
           </span>
+        </div>
+
+        <!-- General Timeline Analysis -->
+        <div class="bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 p-5">
+          <h4 class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
+            <lucide-icon [name]="Sparkles" size="13" class="text-indigo-500"></lucide-icon>
+            Análisis General del Cumplimiento
+          </h4>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="text-center p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">% A Tiempo</div>
+              <div class="text-xl font-black" [ngClass]="{
+                'text-emerald-600': (timelineSummary.onTimeCount / (timelineSummary.onTimeCount + timelineSummary.lateCount || 1)) >= 0.8,
+                'text-amber-600': (timelineSummary.onTimeCount / (timelineSummary.onTimeCount + timelineSummary.lateCount || 1)) >= 0.5 && (timelineSummary.onTimeCount / (timelineSummary.onTimeCount + timelineSummary.lateCount || 1)) < 0.8,
+                'text-rose-600': (timelineSummary.onTimeCount / (timelineSummary.onTimeCount + timelineSummary.lateCount || 1)) < 0.5
+              }">
+                {{ timelineSummary.onTimeCount + timelineSummary.lateCount > 0 ? ((timelineSummary.onTimeCount / (timelineSummary.onTimeCount + timelineSummary.lateCount)) * 100 | number:'1.0-0') : '—' }}%
+              </div>
+            </div>
+            <div class="text-center p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Entregas en Fase Ext.</div>
+              <div class="text-xl font-black" [ngClass]="timelineSummary.lateCount > 0 ? 'text-amber-600' : 'text-emerald-600'">{{ timelineSummary.lateCount }}</div>
+            </div>
+            <div class="text-center p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Max. Días Retraso</div>
+              <div class="text-xl font-black" [ngClass]="timelineSummary.maxLateDays > 5 ? 'text-rose-600' : timelineSummary.maxLateDays > 0 ? 'text-amber-600' : 'text-emerald-600'">{{ timelineSummary.maxLateDays }}</div>
+            </div>
+            <div class="text-center p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Promedio Retraso</div>
+              <div class="text-xl font-black" [ngClass]="timelineSummary.avgLateDays > 3 ? 'text-rose-600' : timelineSummary.avgLateDays > 0 ? 'text-amber-600' : 'text-slate-500'">{{ timelineSummary.avgLateDays }}d</div>
+            </div>
+          </div>
+
+          <!-- AI Timeline Analysis Box (same format as other metrics) -->
+          <div class="space-y-4">
+            <div *ngIf="metricAnalyses['cumplimiento']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+                <span class="flex items-center">
+                  <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
+                  Análisis de resultados e Acciones
+                </span>
+                <button (click)="copyAnalysis('cumplimiento', metricAnalyses['cumplimiento'])"
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['cumplimiento'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['cumplimiento'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['cumplimiento'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </h4>
+              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+                {{ metricAnalyses['cumplimiento'] }}
+              </div>
+            </div>
+            <div *ngIf="!metricAnalyses['cumplimiento']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+              Genera el análisis IA para visualizar las recomendaciones.
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -354,26 +411,26 @@ import { NotificationService } from '../../services/notification.service';
           </div>
         </div>
 
-        <div class="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30 mb-8 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-blue-600 mb-2 flex items-center justify-between w-full">
+        <div *ngIf="metricAnalyses['tasa de desarrollo']" class="mt-6 p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
-            <button *ngIf="metricAnalyses['tasa de desarrollo']" 
-                    (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
-                    class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-500 hover:text-blue-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+            <button (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
+                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['tasa de desarrollo'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['tasa de desarrollo'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['tasa de desarrollo'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div *ngIf="metricAnalyses['tasa de desarrollo']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+          <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
             {{ metricAnalyses['tasa de desarrollo'] }}
           </div>
-          <div *ngIf="!metricAnalyses['tasa de desarrollo']" class="text-sm opacity-50 italic">
-            Genera el análisis IA para visualizar las recomendaciones.
-          </div>
+        </div>
+        
+        <div *ngIf="!metricAnalyses['tasa de desarrollo']" class="mt-6 mb-8 text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+          Genera el análisis IA para visualizar las recomendaciones.
         </div>
 
         <!-- Detail Table -->
@@ -674,24 +731,24 @@ import { NotificationService } from '../../services/notification.service';
           </div>
         </div>
 
-        <div class="bg-violet-50/30 dark:bg-violet-950/10 p-4 rounded-lg border border-violet-100 dark:border-violet-900/30 mb-8 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-violet-600 mb-2 flex items-center justify-between w-full">
+        <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30 mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
             <button *ngIf="metricAnalyses['tasa de desviación']" 
                     (click)="copyAnalysis('tasa de desviación', metricAnalyses['tasa de desviación'])" 
-                    class="p-1 hover:bg-violet-100 dark:hover:bg-violet-900/30 rounded text-violet-500 hover:text-violet-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['tasa de desviación'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['tasa de desviación'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['tasa de desviación'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
             {{ metricAnalyses['tasa de desviación'] }}
           </div>
-          <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50 italic">
+          <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50">
             Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
@@ -991,24 +1048,24 @@ import { NotificationService } from '../../services/notification.service';
         </div>
 
         <!-- Rework AI Analysis Box -->
-        <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-rose-50/30 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/30 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-rose-600 mb-2 flex items-center justify-between w-full">
+        <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
             <button (click)="copyAnalysis('retrabajo', metricAnalyses['retrabajo'])" 
-                    class="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded text-rose-500 hover:text-rose-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['retrabajo'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['retrabajo'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['retrabajo'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div class="text-xs leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-350">
+          <div class="text-sm leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-350">
             {{ metricAnalyses['retrabajo'] }}
           </div>
         </div>
-        <div *ngIf="!metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+        <div *ngIf="!metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
           Genera el análisis IA para visualizar las recomendaciones.
         </div>
 
@@ -1058,6 +1115,41 @@ import { NotificationService } from '../../services/notification.service';
           </div>
         </div>
         
+        <!-- Sprint Comparison Selector -->
+        <div class="mb-4">
+          <button (click)="showComparePanel = !showComparePanel"
+                  class="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer mb-2">
+            <lucide-icon [name]="showComparePanel ? ChevronDown : ChevronDown" size="13"></lucide-icon>
+            {{ showComparePanel ? 'Ocultar' : 'Comparar sprints anteriores' }}
+          </button>
+
+          <div *ngIf="showComparePanel" class="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-4 animate-in fade-in duration-200">
+            <p class="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wide">Selecciona sprints a comparar</p>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <label *ngFor="let iter of iterations" class="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox"
+                       [value]="iter.id"
+                       [checked]="selectedCompareIterations.includes(iter.id)"
+                       (change)="onCompareIterationToggle(iter.id, $event)"
+                       class="w-3.5 h-3.5 rounded accent-emerald-500 cursor-pointer">
+                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-300 group-hover:text-emerald-600 transition-colors">{{ iter.name }}</span>
+              </label>
+            </div>
+            <div class="flex gap-2">
+              <button (click)="loadCompareDefectDensity()"
+                      [disabled]="selectedCompareIterations.length === 0 || isLoadingCompare"
+                      class="text-[11px] font-bold px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+                <lucide-icon *ngIf="isLoadingCompare" [name]="RefreshCw" size="11" class="animate-spin"></lucide-icon>
+                {{ isLoadingCompare ? 'Cargando...' : 'Generar comparativa' }}
+              </button>
+              <button *ngIf="selectedCompareIterations.length > 0" (click)="clearCompareIterations()"
+                      class="text-[11px] font-medium px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-all cursor-pointer">
+                Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
           <div class="lg:col-span-12 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
             <div class="h-64">
@@ -1067,24 +1159,24 @@ import { NotificationService } from '../../services/notification.service';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-            <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center justify-between w-full">
+          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+            <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
               <button (click)="copyAnalysis('densidad de defectos', metricAnalyses['densidad de defectos'])" 
-                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                       [title]="copiedKeys['densidad de defectos'] ? 'Copiado' : 'Copiar análisis'">
                 <lucide-icon [name]="copiedKeys['densidad de defectos'] ? Check : Copy" size="12"></lucide-icon>
                 <span>{{ copiedKeys['densidad de defectos'] ? '¡Copiado!' : 'Copiar' }}</span>
               </button>
             </h4>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+            <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
               {{ metricAnalyses['densidad de defectos'] }}
             </div>
           </div>
-          <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+          <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
             Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
@@ -1245,7 +1337,7 @@ import { NotificationService } from '../../services/notification.service';
                   (mouseenter)="hoveredNodeId = node.id"
                   (mouseleave)="hoveredNodeId = null"
                   [style.zIndex]="hoveredNodeId === node.id ? 50 : 10"
-                  class="absolute bottom-3 flex flex-col items-center overflow-visible group/timeline-node select-none cursor-pointer">
+                  class="absolute bottom-3 flex flex-col items-center overflow-visible select-none cursor-pointer">
                   
                   <!-- Connection Line (Stem) to the track -->
                   <div *ngIf="node.verticalTier > 0" 
@@ -1272,8 +1364,8 @@ import { NotificationService } from '../../services/notification.service';
                          class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
                          [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : (node.deliveryStatus === 'fuera' ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white')">
                       <span>🐞</span>
-                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
-                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
+                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] p-2 rounded shadow-lg border border-slate-800 w-60 text-left whitespace-normal z-50 pointer-events-none transition-all duration-200">
+                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})<br><span class="text-indigo-400 font-bold">Tags:</span> {{ bug.tags || 'Ninguno' }}
                       </span>
                     </div>
                   </div>
@@ -1287,91 +1379,94 @@ import { NotificationService } from '../../services/notification.service';
                          class="group/bug relative w-4 h-4 rounded-full flex items-center justify-center text-[7px] border border-white dark:border-slate-900 shadow-sm cursor-pointer hover:scale-125 transition-transform"
                          [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-500 text-white' : (node.deliveryStatus === 'fuera' ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white')">
                       <span>🐞</span>
-                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] px-2 py-1 rounded shadow-lg border border-slate-800 whitespace-nowrap z-50 pointer-events-none transition-all duration-200">
-                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})
+                      <span class="absolute bottom-5 left-1/2 -translate-x-1/2 scale-0 group-hover/bug:scale-100 bg-slate-950/95 dark:bg-slate-900/95 text-white text-[8px] p-2 rounded shadow-lg border border-slate-800 w-60 text-left whitespace-normal z-50 pointer-events-none transition-all duration-200">
+                        #{{ bug.id }}: {{ bug.title }} ({{ bug.status }})<br><span class="text-indigo-400 font-bold">Tags:</span> {{ bug.tags || 'Ninguno' }}
                       </span>
                     </div>
                   </div>
 
-                  <!-- Central Node Dot (US/FT/ST) -->
-                  <div class="w-6 h-6 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-md transition-all duration-300 transform hover:scale-125 cursor-pointer z-25"
-                    [ngClass]="{
-                      'bg-emerald-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'dentro',
-                      'bg-rose-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'fuera',
-                      'bg-blue-500 text-white shadow-sm shadow-blue-500/30': node.type === 'Standalone'
-                    }"
-                    (click)="openWorkItem(node.id)">
-                    <span class="text-[8px] font-black leading-none">
-                      {{ node.type === 'Feature' ? 'FT' : (node.type === 'User Story' ? 'US' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
+                  <!-- Inner wrapper to isolate hover on the central node dot and label from the bug icons -->
+                  <div class="flex flex-col items-center group/timeline-node relative overflow-visible w-full">
+                    <!-- Central Node Dot (US/FT/ST) -->
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center border border-white dark:border-slate-900 shadow-md transition-all duration-300 transform hover:scale-125 cursor-pointer z-25"
+                      [ngClass]="{
+                        'bg-emerald-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'dentro',
+                        'bg-rose-500 text-white': node.type !== 'Standalone' && node.deliveryStatus === 'fuera',
+                        'bg-blue-500 text-white shadow-sm shadow-blue-500/30': node.type === 'Standalone'
+                      }"
+                      (click)="openWorkItem(node.id)">
+                      <span class="text-[8px] font-black leading-none">
+                        {{ node.type === 'Feature' ? 'FT' : (node.type === 'User Story' ? 'US' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
+                      </span>
+                    </div>
+
+                    <!-- Label showing ID (opens in browser) -->
+                    <span class="text-[8px] font-black mt-0.5 select-none cursor-pointer text-slate-650 dark:text-slate-400 hover:text-indigo-500 hover:underline bg-white dark:bg-slate-800 px-1 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700 z-20"
+                      (click)="openWorkItem(node.id)">
+                      {{ node.id === 'kanban_standalone' ? 'Bugs Kanban' : node.id === 'sprint_standalone' ? 'Bugs Sprint' : '#' + node.id }}
                     </span>
-                  </div>
 
-                  <!-- Label showing ID (opens in browser) -->
-                  <span class="text-[8px] font-black mt-0.5 select-none cursor-pointer text-slate-650 dark:text-slate-400 hover:text-indigo-500 hover:underline bg-white dark:bg-slate-800 px-1 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700 z-20"
-                    (click)="openWorkItem(node.id)">
-                    {{ node.id === 'kanban_standalone' ? 'Bugs Kanban' : node.id === 'sprint_standalone' ? 'Bugs Sprint' : '#' + node.id }}
-                  </span>
-
-                  <!-- Rich Tooltip on Hover -->
-                  <div class="absolute bottom-8 scale-0 group-hover/timeline-node:scale-100 transition-all duration-200 origin-bottom bg-slate-950/95 dark:bg-slate-900/95 text-white p-3 rounded-xl border border-slate-800 shadow-xl w-60 z-50 text-left pointer-events-none group-hover/timeline-node:pointer-events-auto">
-                    <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
-                      <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase text-white"
-                        [ngClass]="{
-                          'bg-purple-600': node.type === 'Feature',
-                          'bg-blue-600': node.type === 'User Story',
-                          'bg-emerald-600': node.type === 'SprintStandalone',
-                          'bg-blue-500': node.type === 'Standalone'
-                        }">
-                        {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'USER STORY' : node.type === 'SprintStandalone' ? 'BUGS SIN US/FT' : 'KANBAN (OTRO SPRINT)') }}
-                      </span>
-                      <span class="text-[10px] font-black text-slate-400">{{ ['kanban_standalone', 'sprint_standalone'].includes(node.id) ? '' : '#' + node.id }}</span>
-                    </div>
-                    <div class="text-[10px] font-bold mb-1 truncate">{{ node.title }}</div>
-                    
-                    <div class="text-[9px] space-y-0.5 text-slate-300">
-                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">ISW:</span> {{ node.isw || 'Sin asignar' }}</div>
-                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">Estado:</span> {{ node.status }}</div>
-                      <div *ngIf="node.bugs?.length"><span class="text-rose-400 font-bold">Defectos:</span> {{ node.bugs.length }} bugs</div>
-                      
-                      <!-- Child Stories List (for Feature) -->
-                      <div *ngIf="node.type === 'Feature' && getChildStories(node.id).length" class="mt-2 pt-2 border-t border-slate-800/40">
-                        <span class="text-blue-400 font-bold block mb-1">👤 Historias de Usuario (Hijos):</span>
-                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
-                          <div *ngFor="let story of getChildStories(node.id)" class="flex items-center justify-between text-[8px] text-slate-400">
-                            <span class="truncate max-w-[150px]">#{{ story.id }}: {{ story.title }}</span>
-                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(story.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ story.status }}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Child Tasks List (for User Story) -->
-                      <div *ngIf="node.type === 'User Story' && node.tasks?.length" class="mt-2 pt-2 border-t border-slate-800/40">
-                        <span class="text-indigo-400 font-bold block mb-1">📋 Tareas (Hijas):</span>
-                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
-                          <div *ngFor="let task of node.tasks" class="flex items-center justify-between text-[8px] text-slate-400">
-                            <span class="truncate max-w-[150px]">#{{ task.id }}: {{ task.title }}</span>
-                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(task.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ task.status }}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Child Bugs List -->
-                      <div *ngIf="node.bugs?.length" class="mt-2 pt-2 border-t border-slate-800/40">
-                        <span class="text-rose-450 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
-                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
-                          <div *ngFor="let bug of node.bugs" class="flex items-center justify-between text-[8px] text-slate-400">
-                            <span class="truncate max-w-[150px]">#{{ bug.id }}: {{ bug.title }}</span>
-                            <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="bug.status === 'Closed' || bug.status === 'Resolved' || bug.status === 'Done' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ bug.status }}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)" class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
-                        <span class="text-slate-550 font-bold">Entrega:</span>
-                        <span class="font-bold uppercase" 
-                          [ngClass]="node.deliveryStatus === 'dentro' ? 'text-emerald-400' : 'text-rose-400'">
-                          {{ node.deliveryStatus === 'dentro' ? 'Dentro del Sprint' : 'Fuera / Tarde' }}
+                    <!-- Rich Tooltip on Hover -->
+                    <div class="absolute bottom-8 scale-0 group-hover/timeline-node:scale-100 transition-all duration-200 origin-bottom bg-slate-950/95 dark:bg-slate-900/95 text-white p-3 rounded-xl border border-slate-800 shadow-xl w-60 z-50 text-left pointer-events-none group-hover/timeline-node:pointer-events-auto">
+                      <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
+                        <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase text-white"
+                          [ngClass]="{
+                            'bg-purple-600': node.type === 'Feature',
+                            'bg-blue-600': node.type === 'User Story',
+                            'bg-emerald-600': node.type === 'SprintStandalone',
+                            'bg-blue-500': node.type === 'Standalone'
+                          }">
+                          {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'USER STORY' : node.type === 'SprintStandalone' ? 'BUGS SIN US/FT' : 'KANBAN (OTRO SPRINT)') }}
                         </span>
+                        <span class="text-[10px] font-black text-slate-400">{{ ['kanban_standalone', 'sprint_standalone'].includes(node.id) ? '' : '#' + node.id }}</span>
+                      </div>
+                      <div class="text-[11px] font-bold truncate mb-1 text-slate-100">{{ node.title }}</div>
+                      
+                      <div class="text-[9px] space-y-0.5 text-slate-300">
+                        <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">ISW:</span> {{ node.isw || 'Sin asignar' }}</div>
+                        <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)"><span class="text-slate-500 font-bold">Estado:</span> {{ node.status }}</div>
+                        <div *ngIf="node.bugs?.length"><span class="text-rose-400 font-bold">Defectos:</span> {{ node.bugs.length }} bugs</div>
+                        
+                        <!-- Child Stories List (for Feature) -->
+                        <div *ngIf="node.type === 'Feature' && getChildStories(node.id).length" class="mt-2 pt-2 border-t border-slate-800/40">
+                          <span class="text-blue-400 font-bold block mb-1">👤 Historias de Usuario (Hijos):</span>
+                          <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                            <div *ngFor="let story of getChildStories(node.id)" class="flex items-center justify-between text-[8px] text-slate-400">
+                              <span class="truncate max-w-[150px]">#{{ story.id }}: {{ story.title }}</span>
+                              <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(story.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ story.status }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Child Tasks List (for User Story) -->
+                        <div *ngIf="node.type === 'User Story' && node.tasks?.length" class="mt-2 pt-2 border-t border-slate-800/40">
+                          <span class="text-indigo-400 font-bold block mb-1">📋 Tareas (Hijas):</span>
+                          <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                            <div *ngFor="let task of node.tasks" class="flex items-center justify-between text-[8px] text-slate-400">
+                              <span class="truncate max-w-[150px]">#{{ task.id }}: {{ task.title }}</span>
+                              <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="['Closed', 'Resolved', 'Done', 'Completed'].includes(task.status) ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ task.status }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Child Bugs List -->
+                        <div *ngIf="node.bugs?.length" class="mt-2 pt-2 border-t border-slate-800/40">
+                          <span class="text-rose-455 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
+                          <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                            <div *ngFor="let bug of node.bugs" class="flex items-center justify-between text-[8px] text-slate-400">
+                              <span class="truncate max-w-[150px]" [title]="bug.title + (bug.tags ? ' | Tags: ' + bug.tags : '')">#{{ bug.id }}: {{ bug.title }} <span *ngIf="bug.tags" class="text-[7px] text-indigo-400 font-semibold">({{ bug.tags }})</span></span>
+                              <span class="px-1 rounded font-bold uppercase text-[7px]" [ngClass]="bug.status === 'Closed' || bug.status === 'Resolved' || bug.status === 'Done' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'">{{ bug.status }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)" class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
+                          <span class="text-slate-550 font-bold">Entrega:</span>
+                          <span class="font-bold uppercase" 
+                            [ngClass]="node.deliveryStatus === 'dentro' ? 'text-emerald-400' : 'text-rose-400'">
+                            {{ node.deliveryStatus === 'dentro' ? 'Dentro del Sprint' : 'Fuera / Tarde' }}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1425,7 +1520,10 @@ import { NotificationService } from '../../services/notification.service';
                         <td class="px-4 py-2.5 text-center font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" (click)="item.parentId && openWorkItem(item.parentId)">{{ item.parentId || '—' }}</td>
                         <td class="px-4 py-2.5 truncate max-w-[90px]" [title]="item.isw">{{ item.isw }}</td>
                         <td class="px-4 py-2.5 text-center font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer" (click)="openWorkItem(item.bugId)">{{ item.bugId }}</td>
-                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">{{ item.title }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">
+                          <div class="font-semibold">{{ item.title }}</div>
+                          <div *ngIf="item.tags" class="text-[9px] text-indigo-500 font-semibold truncate max-w-[170px]" [title]="item.tags">Tags: {{ item.tags }}</div>
+                        </td>
                         <td class="px-4 py-2.5 text-center">{{ item.createdDate | date:'dd/MM/yyyy' }}</td>
                         <td class="px-4 py-2.5 text-center">{{ item.closedDate ? (item.closedDate | date:'dd/MM/yyyy') : '—' }}</td>
                         <td class="px-4 py-2.5 text-center">
@@ -1497,7 +1595,10 @@ import { NotificationService } from '../../services/notification.service';
                         <td class="px-4 py-2.5 text-center font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" (click)="item.parentId && openWorkItem(item.parentId)">{{ item.parentId || '—' }}</td>
                         <td class="px-4 py-2.5 truncate max-w-[90px]" [title]="item.isw">{{ item.isw }}</td>
                         <td class="px-4 py-2.5 text-center font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer" (click)="openWorkItem(item.bugId)">{{ item.bugId }}</td>
-                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">{{ item.title }}</td>
+                        <td class="px-4 py-2.5 truncate max-w-[180px]" [title]="item.title">
+                          <div class="font-semibold">{{ item.title }}</div>
+                          <div *ngIf="item.tags" class="text-[9px] text-indigo-500 font-semibold truncate max-w-[170px]" [title]="item.tags">Tags: {{ item.tags }}</div>
+                        </td>
                         <td class="px-4 py-2.5 text-center">{{ item.createdDate | date:'dd/MM/yyyy' }}</td>
                         <td class="px-4 py-2.5 text-center">{{ item.closedDate ? (item.closedDate | date:'dd/MM/yyyy') : '—' }}</td>
                         <td class="px-4 py-2.5 text-center">
@@ -1530,24 +1631,24 @@ import { NotificationService } from '../../services/notification.service';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['eed']" class="bg-amber-50/30 dark:bg-amber-950/10 p-4 rounded-lg border border-amber-100 dark:border-amber-900/30">
-            <h4 class="text-xs font-bold uppercase text-amber-600 mb-2 flex items-center justify-between w-full">
+          <div *ngIf="metricAnalyses['eed']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+            <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
               <button (click)="copyAnalysis('eed', metricAnalyses['eed'])" 
-                      class="p-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-amber-500 hover:text-amber-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                       [title]="copiedKeys['eed'] ? 'Copiado' : 'Copiar análisis'">
                 <lucide-icon [name]="copiedKeys['eed'] ? Check : Copy" size="12"></lucide-icon>
                 <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
               </button>
             </h4>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+            <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
               {{ metricAnalyses['eed'] }}
             </div>
           </div>
-          <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+          <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
             Genera el análisis IA para visualizar las recomendaciones.
           </div>
         </div>
@@ -1711,24 +1812,24 @@ import { NotificationService } from '../../services/notification.service';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div *ngIf="metricAnalyses['escaped']" class="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
-              <h4 class="text-xs font-bold uppercase text-indigo-600 mb-2 flex items-center justify-between w-full">
+            <div *ngIf="metricAnalyses['escaped']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button (click)="copyAnalysis('escaped', metricAnalyses['escaped'])" 
-                        class="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-indigo-500 hover:text-indigo-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['escaped'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['escaped'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['escaped'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-300">
+              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
                 {{ metricAnalyses['escaped'] }}
               </div>
             </div>
-            <div *ngIf="!metricAnalyses['escaped']" class="text-sm opacity-50 italic p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+            <div *ngIf="!metricAnalyses['escaped']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
               Genera el análisis IA para visualizar las recomendaciones.
             </div>
           </div>
@@ -1886,21 +1987,21 @@ import { NotificationService } from '../../services/notification.service';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-emerald-50/30 dark:bg-emerald-950/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-600 mb-2 flex items-center justify-between w-full">
+            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button *ngIf="metricAnalyses['testExecution'] || metricAnalyses['ejecución de pruebas']" 
                         (click)="copyAnalysis('testExecution', getTestExecutionAnalysis())" 
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['testExecution'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['testExecution'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
+              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-350">
                 {{ getTestExecutionAnalysis() }}
               </div>
             </div>
@@ -2050,21 +2151,21 @@ import { NotificationService } from '../../services/notification.service';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-teal-50/30 dark:bg-teal-950/10 p-4 rounded-lg border border-teal-100 dark:border-teal-900/30">
-              <h4 class="text-xs font-bold uppercase text-teal-600 mb-2 flex items-center justify-between w-full">
+            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button *ngIf="metricAnalyses['satisfactoryTests'] || metricAnalyses['pruebas satisfactorias']" 
                         (click)="copyAnalysis('satisfactoryTests', getSatisfactoryTestsAnalysis())" 
-                        class="p-1 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-teal-500 hover:text-teal-700 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['satisfactoryTests'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['satisfactoryTests'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap italic text-slate-700 dark:text-slate-350">
+              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-350">
                 {{ getSatisfactoryTestsAnalysis() }}
               </div>
             </div>
@@ -2425,6 +2526,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   eedTimelineFilter: 'all' | 'sprint' = 'all';
   iterationsLoaded = false; // guarantees loadData() always uses fresh iteration metadata
 
+  // --- Defect Density Sprint Comparison ---
+  selectedCompareIterations: string[] = []; // iteration IDs selected for comparison
+  comparedDensityData: { id: string; name: string; density: number; status: string }[] = [];
+  isLoadingCompare = false;
+  showComparePanel = false;
+
   get selectedSprintDisplayName(): string {
     if (!this.selectedIteration) return '';
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
@@ -2761,7 +2868,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const normBugIter = b.iteration.toLowerCase().replace(/^\\/, '').replace(/\\/g, '/');
         const normSelectedName = (selectedIterationNode?.name || '').toLowerCase();
         const bugIterationShort = (b.iteration.split('\\').pop() || b.iteration).toLowerCase();
-        if (normBugIter !== normSelectedIter && bugIterationShort !== normSelectedName) {
+        
+        const bugTags = (b.tags || '').toLowerCase().split(/[;,]/).map((t: string) => t.trim());
+        const hasInyectado = bugTags.some((t: string) => t.includes('inyectadosprint') || t.includes('inyectado sprint'));
+        const hasUat = bugTags.some((t: string) => t.includes('buguat') || t.includes('bug uat') || t === 'uat');
+
+        if (normBugIter !== normSelectedIter && bugIterationShort !== normSelectedName && !b.isSprintRelated && !hasInyectado && !hasUat) {
           return false;
         }
       }
@@ -3095,7 +3207,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
 
     let labels = ['S1', 'S2', 'S3', 'S4', 'Actual'];
-    const match = this.selectedIterationName.match(/Sprint\s*(\d+)/i);
+    const iterForChart1 = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
+    const sprintText1 = iterForChart1 ? iterForChart1.path : this.selectedIterationName;
+    const match = sprintText1.match(/Sprint\s*(\d+)/i);
     if (match) {
       const currentNum = parseInt(match[1]);
       labels = [
@@ -3204,7 +3318,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
       if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
         effort += taskEffort;
-      } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia')) {
+      } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
         reqRework += taskEffort;
       } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
         bugRework += taskEffort;
@@ -3365,7 +3479,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     let closedReqEffort = 0;
 
     items.forEach(item => {
-      const parentIsBug = item.type === 'Bug';
+      const parentIsBug = item.type === 'Bug' || item.type === 'Defecto';
       // Find original item in rawMetrics to get its real status
       const originalItem = this.rawMetrics?.developmentRate?.items?.find(i => i.id === item.id);
       const status = originalItem?.status || '';
@@ -3383,7 +3497,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         if (parentIsBug) {
           totalBugRework += effort;
         } else {
-          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia')) {
+          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
             totalReqRework += effort;
           } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
             totalBugRework += effort;
@@ -3451,18 +3565,19 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         let rEffort = 0;
         let rTotal = 0;
         g.items.forEach((item: any) => {
-          const parentIsBug = item.type === 'Bug';
+          const parentIsBug = item.type === 'Bug' || item.type === 'Defecto';
           (item.tasks || []).forEach((task: any) => {
             const taskEffort = task.completedWork || 0;
             if (taskEffort <= 0) return;
             const type = (task.type || '').toLowerCase();
+            const title = (task.title || '').toLowerCase();
 
             if (parentIsBug) {
               rTotal += taskEffort;
             } else {
               if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
                 rEffort += taskEffort;
-              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect')) {
+              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect') || type.includes('atencion') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
                 rTotal += taskEffort;
               } else {
                 rEffort += taskEffort;
@@ -3588,6 +3703,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const end = this.metrics.endDate ? this.getLocalCalendarDate(this.metrics.endDate, true) : 0;
     const tree: any[] = [];
     const seenBugs = new Set<number>();
+    const renderedBugIds = new Set<number>();
 
     // 1. Process all User Stories and Features
     this.metrics.developmentRate.items.forEach(item => {
@@ -3602,31 +3718,36 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
       }
 
-      // Process its related bugs
-      const itemBugs = (item.relatedBugs || []).map(bug => {
-        seenBugs.add(bug.id);
-        const bugState = bug.status || 'Active';
-        const bugClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(bugState);
-        let bugDeliveryStatus: 'dentro' | 'fuera' = 'fuera';
+      // Process its related bugs (deduplicated across the timeline)
+      const itemBugs: any[] = [];
+      (item.relatedBugs || []).forEach(bug => {
+        if (!renderedBugIds.has(bug.id)) {
+          renderedBugIds.add(bug.id);
+          seenBugs.add(bug.id);
+          const bugState = bug.status || 'Active';
+          const bugClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(bugState);
+          let bugDeliveryStatus: 'dentro' | 'fuera' = 'fuera';
 
-        const bugClosedDateStr = bug.closedDate || bug.changedDate;
-        if (bugClosed) {
-          if (bugClosedDateStr) {
-            const bugClosedTime = this.getLocalCalendarDate(bugClosedDateStr, false);
-            if (bugClosedTime <= end) {
-              bugDeliveryStatus = 'dentro';
+          const bugClosedDateStr = bug.closedDate || bug.changedDate;
+          if (bugClosed) {
+            if (bugClosedDateStr) {
+              const bugClosedTime = this.getLocalCalendarDate(bugClosedDateStr, false);
+              if (bugClosedTime <= end) {
+                bugDeliveryStatus = 'dentro';
+              }
             }
           }
-        }
 
-        return {
-          id: bug.id,
-          title: bug.title,
-          status: bugState,
-          deliveryStatus: bugDeliveryStatus,
-          closedDate: bugClosedDateStr,
-          assignedTo: bug.assignedTo
-        };
+          itemBugs.push({
+            id: bug.id,
+            title: bug.title,
+            status: bugState,
+            deliveryStatus: bugDeliveryStatus,
+            closedDate: bugClosedDateStr,
+            assignedTo: bug.assignedTo,
+            tags: bug.tags || ''
+          });
+        }
       });
 
       tree.push({
@@ -3698,7 +3819,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           status: b.status,
           deliveryStatus: b.alignment === 'on-time' ? 'dentro' : 'fuera',
           closedDate: b.closedDate,
-          assignedTo: b.isw
+          assignedTo: b.isw,
+          tags: b.tags || ''
         })),
         verticalTier: 0
       });
@@ -3721,7 +3843,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           status: b.status,
           deliveryStatus: b.alignment === 'on-time' ? 'dentro' : 'fuera',
           closedDate: b.closedDate,
-          assignedTo: b.isw
+          assignedTo: b.isw,
+          tags: b.tags || ''
         })),
         verticalTier: 0
       });
@@ -3952,7 +4075,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Generate dynamic labels based on selected iteration
     let labels = ['S1', 'S2', 'S3', 'S4', 'Actual'];
-    const match = this.selectedIterationName.match(/Sprint\s*(\d+)/i);
+    const iterForChart2 = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
+    const sprintText2 = iterForChart2 ? iterForChart2.path : this.selectedIterationName;
+    const match = sprintText2.match(/Sprint\s*(\d+)/i);
     if (match) {
       const currentNum = parseInt(match[1]);
       labels = [
@@ -4157,36 +4282,91 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       }
     }));
 
-    // 3. Defect Chart
+    // 3. Defect Chart — Mixed bar (colored) + line (trend wave)
+    const defectInitLabel = [this.shortSprintLabel(this.selectedIterationName || 'Actual')];
+    const defectInitValue = [this.metrics.defectDensity.density];
     this.charts.push(new Chart(this.defectChartCanvas.nativeElement, {
       type: 'bar',
       data: {
-        labels: labels,
-        datasets: [{
-          label: 'Densidad',
-          data: [0.12, 0.15, 0.22, 0.18, this.metrics.defectDensity.density],
-          backgroundColor: (ctx: any) => {
-            const val = ctx.raw;
-            if (val > 0.23) return '#ef4444';
-            if (val > 0.18) return '#eab308';
-            return '#22c55e';
+        labels: defectInitLabel,
+        datasets: [
+          {
+            type: 'bar' as const,
+            label: 'Densidad',
+            data: defectInitValue,
+            backgroundColor: (ctx: any) => {
+              const val = ctx.raw;
+              if (val > 0.23) return 'rgba(239,68,68,0.82)';
+              if (val > 0.18) return 'rgba(234,179,8,0.82)';
+              return 'rgba(34,197,94,0.82)';
+            },
+            borderColor: (ctx: any) => {
+              const val = ctx.raw;
+              if (val > 0.23) return '#ef4444';
+              if (val > 0.18) return '#eab308';
+              return '#22c55e';
+            },
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false,
+            order: 2,
           },
-          borderRadius: 8,
-        }]
+          {
+            type: 'line' as const,
+            label: 'Tendencia',
+            data: defectInitValue,
+            borderColor: 'rgba(99,102,241,0.9)',
+            backgroundColor: 'rgba(99,102,241,0.08)',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            pointBackgroundColor: (ctx: any) => {
+              const val = (ctx.raw as number);
+              if (val > 0.23) return '#ef4444';
+              if (val > 0.18) return '#eab308';
+              return '#22c55e';
+            },
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1.5,
+            tension: 0.4,
+            fill: false,
+            order: 1,
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         scales: {
-          y: { grid: { color: gridColor }, ticks: { color: textColor } },
-          x: { grid: { display: false }, ticks: { color: textColor } }
+          y: {
+            beginAtZero: true,
+            grid: { color: gridColor },
+            ticks: { color: textColor, callback: (v: any) => v.toFixed(2) }
+          },
+          x: { grid: { display: false }, ticks: { color: textColor, maxRotation: 45, minRotation: 30 } }
         },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: true,
+            labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx: any) => ` Densidad: ${Number(ctx.raw).toFixed(3)}`
+            }
+          },
           annotation: {
             annotations: {
-              target: { type: 'line', yMin: 0.18, yMax: 0.18, borderColor: '#eab308', borderWidth: 2, borderDash: [5, 5] },
-              limit: { type: 'line', yMin: 0.23, yMax: 0.23, borderColor: '#ef4444', borderWidth: 2, borderDash: [5, 5] }
+              target: {
+                type: 'line', yMin: 0.18, yMax: 0.18,
+                borderColor: '#eab308', borderWidth: 2, borderDash: [6, 4],
+                label: { display: true, content: '0.18', position: 'end', color: '#eab308', font: { size: 9, weight: 'bold' }, padding: 3 }
+              },
+              limit: {
+                type: 'line', yMin: 0.23, yMax: 0.23,
+                borderColor: '#ef4444', borderWidth: 2, borderDash: [6, 4],
+                label: { display: true, content: '0.23', position: 'end', color: '#ef4444', font: { size: 9, weight: 'bold' }, padding: 3 }
+              }
             }
           }
         }
@@ -4195,6 +4375,91 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     setTimeout(() => this.updateTestExecChart(), 50);
     setTimeout(() => this.updateM38Chart(), 50);
+
+    // If there are already compared sprints selected, reload their chart after init
+    if (this.comparedDensityData.length > 0) {
+      setTimeout(() => this.updateDefectChart(), 80);
+    }
+  }
+
+  // ── Sprint Comparison for Defect Density ──────────────────────────────────
+
+  onCompareIterationToggle(iterationId: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      if (!this.selectedCompareIterations.includes(iterationId)) {
+        this.selectedCompareIterations = [...this.selectedCompareIterations, iterationId];
+      }
+    } else {
+      this.selectedCompareIterations = this.selectedCompareIterations.filter(id => id !== iterationId);
+    }
+  }
+
+  clearCompareIterations() {
+    this.selectedCompareIterations = [];
+    this.comparedDensityData = [];
+    this.updateDefectChart();
+  }
+
+  loadCompareDefectDensity() {
+    if (this.selectedCompareIterations.length === 0 || !this.metrics) return;
+    this.isLoadingCompare = true;
+
+    const observables = this.selectedCompareIterations.map((id: string) =>
+      this.azureService.getMetrics(id)
+    );
+
+    forkJoin(observables).subscribe({
+      next: (results: any[]) => {
+        this.comparedDensityData = results.map((m: any, i: number) => {
+          const iterId = this.selectedCompareIterations[i];
+          const iter = this.iterations.find((it: any) => it.id === iterId);
+          const density = m?.defectDensity?.density ?? 0;
+          const status = density > 0.23 ? 'red' : density > 0.18 ? 'yellow' : 'green';
+          return { id: iterId, name: iter?.name ?? iterId, density, status };
+        });
+        this.isLoadingCompare = false;
+        this.updateDefectChart();
+        this.notificationService.success(`Comparativa de ${results.length} sprint(s) cargada.`);
+      },
+      error: () => {
+        this.isLoadingCompare = false;
+        this.notificationService.error('Error al cargar métricas de sprints para comparar.');
+      }
+    });
+  }
+
+  /** Extract short sprint label: 'Mayansoft - Sprint 27' -> 'S27', 'Sprint 3' -> 'S3', unknown -> original */
+  shortSprintLabel(name: string): string {
+    const match = name.match(/(\d+)\s*$/);
+    return match ? `S${match[1]}` : name;
+  }
+
+  updateDefectChart() {
+    const defectChartInstance = this.charts[2]; // Index 2 = defect chart
+    if (!defectChartInstance || !this.metrics) return;
+
+    const currentName = this.shortSprintLabel(this.selectedIterationName || 'Actual');
+    const currentDensity = this.metrics.defectDensity.density;
+
+    // Sort compare data chronologically (by iteration order in iterations array)
+    const sorted = [...this.comparedDensityData].sort((a, b) => {
+      const ai = this.iterations.findIndex((it: any) => it.id === a.id);
+      const bi = this.iterations.findIndex((it: any) => it.id === b.id);
+      return ai - bi;
+    });
+
+    // Remove current sprint from compare list if it sneaked in
+    const compareWithoutCurrent = sorted.filter(d => d.id !== this.selectedIteration);
+
+    const labels = [...compareWithoutCurrent.map(d => this.shortSprintLabel(d.name)), currentName];
+    const values = [...compareWithoutCurrent.map(d => d.density), currentDensity];
+
+    // Update both datasets: bars (index 0) and trend line (index 1)
+    defectChartInstance.data.labels = labels;
+    defectChartInstance.data.datasets[0].data = values; // bars
+    defectChartInstance.data.datasets[1].data = values; // trend line
+    defectChartInstance.update('active');
   }
 
   runAI() {
@@ -4204,7 +4469,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metricAnalyses = {};
     this.aiService.analyzeMetrics(this.metrics).subscribe({
       next: (res) => {
-        if (res && res.startsWith('Error al')) {
+        // Detect any error string returned from the service
+        const isErrorResponse = res && (
+          res.startsWith('Error al') ||
+          res.startsWith('El análisis tardó') ||
+          res.startsWith('Cuota de') ||
+          res.startsWith('API Key de') ||
+          res.startsWith('AI Configuration') ||
+          res.startsWith('Configuración de IA')
+        );
+        if (isErrorResponse) {
           this.isAnalyzing = false;
           this.notificationService.error(res);
           return;
@@ -4230,6 +4504,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const lowerSeg = seg.toLowerCase();
       if (lowerSeg.includes('tasa de desarrollo')) this.metricAnalyses['tasa de desarrollo'] = seg.split(']')[1]?.trim();
       if (lowerSeg.includes('tasa de desviación')) this.metricAnalyses['tasa de desviación'] = seg.split(']')[1]?.trim();
+      if (lowerSeg.includes('cumplimiento') || lowerSeg.includes('línea de tiempo') || lowerSeg.includes('linea de tiempo') || lowerSeg.includes('sprint timeline')) {
+        const val = seg.split(']')[1]?.trim();
+        if (val) this.metricAnalyses['cumplimiento'] = val;
+      }
       if (lowerSeg.includes('tasa de retrabajo') || lowerSeg.includes('retrabajo')) {
         const val = seg.split(']')[1]?.trim();
         this.metricAnalyses['retrabajo'] = val;
@@ -4407,22 +4685,34 @@ export class DashboardComponent implements OnInit, AfterViewInit {
    * @returns Número de días hábiles
    */
   calculateBusinessDays(startDate: number, endDate: number, holidays: string[] = []): number {
-    if (startDate >= endDate) return 0;
+    // If the item closed the same calendar day as dayAfterSprintEnd (same hours, different minutes),
+    // still count it as 1 day late — it closed AFTER the sprint ended.
+    if (startDate > endDate) return 0;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     // Normalizar fechas a medianoche
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
+    const startNorm = new Date(start);
+    startNorm.setHours(0, 0, 0, 0);
+    const endNorm = new Date(end);
+    endNorm.setHours(0, 0, 0, 0);
 
     // Crear set de días festivos para búsqueda rápida
     const holidaySet = new Set(holidays);
 
-    let businessDays = 0;
-    const currentDate = new Date(start);
+    // Si mismo día calendario pero el item SÍ está fuera (startDate < endDate en ms),
+    // garantizar al menos 1 día hábil de retraso
+    if (startNorm.getTime() === endNorm.getTime()) {
+      const dayOfWeek = startNorm.getDay();
+      const dateStr = startNorm.toISOString().split('T')[0];
+      return (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaySet.has(dateStr)) ? 1 : 1;
+    }
 
-    while (currentDate <= end) {
+    let businessDays = 0;
+    const currentDate = new Date(startNorm);
+
+    while (currentDate <= endNorm) {
       const dayOfWeek = currentDate.getDay();
       const dateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
@@ -4434,7 +4724,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    return businessDays;
+    return Math.max(businessDays, 1); // Siempre al menos 1 si llegó hasta aquí
   }
 
   async export() {

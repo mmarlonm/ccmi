@@ -72,7 +72,7 @@ export interface DraftTaskItem {
 /** Configuración de un Work Item (US o FT) dentro del borrador */
 export interface WorkItemDraftConfig {
   workItemId: number;
-  workItemType: 'User Story' | 'Feature';
+  workItemType: string;
   title: string;
   size: number;
   sizeSource: SizeSource;

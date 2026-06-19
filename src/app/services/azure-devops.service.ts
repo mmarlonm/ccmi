@@ -137,16 +137,21 @@ export class AzureDevOpsService {
                 'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
               ].join(',');
 
-              return this.getWorkItemDetails(ids, fields).pipe(
-                timeout(20000),
-                switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
-                switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
-                switchMap(details => {
-                  const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-                  const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath);
-                  return this.enrichMetricsWithTestExecution(metrics, absoluteIterationPath);
-                }),
-                catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
+              return this.getRelatedBugIds(ids).pipe(
+                switchMap(bugIds => {
+                  const allIds = Array.from(new Set([...ids, ...bugIds]));
+                  return this.getWorkItemDetails(allIds, fields).pipe(
+                    timeout(20000),
+                    switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
+                    switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
+                    switchMap(details => {
+                      const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
+                      const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath, new Set(allIds));
+                      return this.enrichMetricsWithTestExecution(metrics, absoluteIterationPath);
+                    }),
+                    catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
+                  );
+                })
               );
             }),
             catchError(err => {
@@ -209,19 +214,83 @@ export class AzureDevOpsService {
           'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
         ].join(',');
 
-        return this.getWorkItemDetails(ids, fields).pipe(
-          timeout(20000),
-          switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
-          switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
-          switchMap(allDetails => {
-            const metrics = this.processWorkItemsFlat(allDetails, { path: iterationPath, name: iterationPath.split('\\').pop() || '' }, iterationPath);
-            return this.enrichMetricsWithTestExecution(metrics, iterationPath);
+        return this.getRelatedBugIds(ids).pipe(
+          switchMap(bugIds => {
+            const allIds = Array.from(new Set([...ids, ...bugIds]));
+            return this.getWorkItemDetails(allIds, fields).pipe(
+              timeout(20000),
+              switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
+              switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
+              switchMap(allDetails => {
+                const metrics = this.processWorkItemsFlat(allDetails, { path: iterationPath, name: iterationPath.split('\\').pop() || '' }, iterationPath, new Set(ids));
+                return this.enrichMetricsWithTestExecution(metrics, iterationPath);
+              })
+            );
           })
         );
       }),
       catchError(err => {
         console.error('WIQL Error or Timeout:', err);
         return of(this.getEmptyMetrics());
+      })
+    );
+  }
+
+  private getRelatedBugIds(ids: number[]): Observable<number[]> {
+    if (!ids || ids.length === 0) return of([]);
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const headers = this.getHeaders();
+
+    const batchSize = 100;
+    const batches = [];
+    const originalIdsSet = new Set(ids);
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const chunk = ids.slice(i, i + batchSize);
+      
+      const query1 = `SELECT [System.Id] FROM WorkItemLinks WHERE [Source].[System.Id] IN (${chunk.join(',')}) AND [Target].[System.WorkItemType] = 'Bug'`;
+      const query2 = `SELECT [System.Id] FROM WorkItemLinks WHERE [Target].[System.Id] IN (${chunk.join(',')}) AND [Source].[System.WorkItemType] = 'Bug'`;
+
+      const request1 = this.http.post<any>(
+        `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+        { query: query1 },
+        { headers }
+      ).pipe(catchError((err) => {
+        console.error('Error in query1 of getRelatedBugIds:', err);
+        return of({ workItemRelations: [] });
+      }));
+
+      const request2 = this.http.post<any>(
+        `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+        { query: query2 },
+        { headers }
+      ).pipe(catchError((err) => {
+        console.error('Error in query2 of getRelatedBugIds:', err);
+        return of({ workItemRelations: [] });
+      }));
+
+      batches.push(
+        forkJoin({ res1: request1, res2: request2 }).pipe(
+          map(({ res1, res2 }) => {
+            const relations = [...(res1.workItemRelations || []), ...(res2.workItemRelations || [])];
+            const foundIds: number[] = [];
+            relations.forEach((r: any) => {
+              if (r.source && r.target) {
+                if (!originalIdsSet.has(r.source.id)) foundIds.push(r.source.id);
+                if (!originalIdsSet.has(r.target.id)) foundIds.push(r.target.id);
+              }
+            });
+            return foundIds;
+          })
+        )
+      );
+    }
+
+    return forkJoin(batches).pipe(
+      map(results => {
+        const finalIds = Array.from(new Set(results.flat()));
+        console.warn('[CMMI5 Debug] getRelatedBugIds final results:', finalIds);
+        return finalIds;
       })
     );
   }
@@ -275,7 +344,7 @@ export class AzureDevOpsService {
     for (let i = 0; i < ids.length; i += batchSize) {
       const batchIds = ids.slice(i, i + batchSize).join(',');
       batches.push(
-        this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/workitems?ids=${batchIds}&fields=${fields}&expand=relations&api-version=7.0`, { headers })
+        this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/_apis/wit/workitems?ids=${batchIds}&$expand=relations&api-version=7.0`, { headers })
       );
     }
     return forkJoin(batches).pipe(
@@ -336,29 +405,16 @@ export class AzureDevOpsService {
     );
   }
 
-  private processWorkItemsFlat(items: any[], iterationInfo?: any, absoluteIterationPath?: string): CMMIMetrics {
+  private processWorkItemsFlat(items: any[], iterationInfo?: any, absoluteIterationPath?: string, coreIds?: Set<number>): CMMIMetrics {
+    console.warn('[DEBUG] 47645 exists in items?', items.some(i => i.id == 47645));
+    const b47645 = items.find(i => i.id == 47645);
+    if (b47645) {
+      console.warn('[DEBUG] 47645 fields:', b47645.fields['System.WorkItemType'], b47645.relations);
+    }
+
     const iterationName = iterationInfo?.name || '';
     const startDate = iterationInfo?.attributes?.startDate || '';
     const endDate = iterationInfo?.attributes?.finishDate || '';
-
-    const parents = items.filter(i => ['User Story', 'Feature'].includes(i.fields['System.WorkItemType']));
-    const tasks = items.filter(i => i.fields['System.WorkItemType'] === 'Task');
-    const bugs = items.filter(i => i.fields['System.WorkItemType'] === 'Bug');
-    const risks = items.filter(i => i.fields['System.WorkItemType'] === 'Risk');
-
-    const itemsMap = new Map<number, any>(items.map(i => [parseInt(i.id.toString()), i]));
-    const parentEffortMap = new Map<number, { completed: number, planned: number, isw: string }>();
-
-    tasks.forEach(task => {
-      const parentId = task.fields['System.Parent'];
-      if (parentId) {
-        const current = parentEffortMap.get(parentId) || { completed: 0, planned: 0, isw: '' };
-        current.completed += task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0;
-        current.planned += task.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0;
-        current.isw = task.fields['System.AssignedTo']?.displayName || current.isw;
-        parentEffortMap.set(parentId, current);
-      }
-    });
 
     // Bi-directional map of all work item relations
     const relationMap = new Map<number, Set<number>>();
@@ -385,6 +441,119 @@ export class AzureDevOpsService {
             relationMap.get(targetId)!.add(id);
           }
         });
+      }
+    });
+
+    const validParentIds = new Set<number>();
+    if (coreIds) {
+      items.forEach(i => {
+        const id = parseInt(i.id.toString());
+        if (coreIds.has(id)) {
+          const parentId = i.fields['System.Parent'];
+          if (parentId) validParentIds.add(parseInt(parentId.toString()));
+        }
+      });
+      items.forEach(i => {
+        const id = parseInt(i.id.toString());
+        if (validParentIds.has(id)) {
+          const parentId = i.fields['System.Parent'];
+          if (parentId) validParentIds.add(parseInt(parentId.toString()));
+        }
+      });
+    }
+
+    const parents = items.filter(i => {
+      const type = i.fields['System.WorkItemType'];
+      if (!['User Story', 'Feature', 'Requirement', 'Product Backlog Item', 'Requisito'].includes(type)) return false;
+      
+      const id = parseInt(i.id.toString());
+      if (coreIds && !coreIds.has(id) && !validParentIds.has(id)) {
+        return false;
+      }
+      return true;
+    });
+    const tasks = items.filter(i => ['Task', 'Tarea'].includes(i.fields['System.WorkItemType']));
+
+    // Gather sprintRelatedBugIds (any bug IDs linked to sprint deliverables or tasks of those deliverables)
+    const sprintDeliverableIds = new Set<number>(parents.map(p => parseInt(p.id.toString())));
+    const sprintTaskIds = new Set<number>();
+    
+    parents.forEach(p => {
+      const parentId = parseInt(p.id.toString(), 10);
+      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FT' : 'US';
+      const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\s*:`, 'i');
+      
+      tasks.forEach(t => {
+        const title: string = t.fields['System.Title'] || '';
+        if (titlePattern.test(title) || t.fields['System.Parent'] === parentId) {
+          sprintTaskIds.add(parseInt(t.id.toString()));
+        }
+      });
+    });
+
+    const sprintRelatedBugIds = new Set<number>();
+    
+    // Collect bugs linked to deliverables
+    sprintDeliverableIds.forEach(id => {
+      const linked = relationMap.get(id);
+      if (linked) {
+        linked.forEach(targetId => {
+          sprintRelatedBugIds.add(targetId);
+        });
+      }
+    });
+
+    // Collect bugs linked to tasks of deliverables
+    sprintTaskIds.forEach(id => {
+      const linked = relationMap.get(id);
+      if (linked) {
+        linked.forEach(targetId => {
+          sprintRelatedBugIds.add(targetId);
+        });
+      }
+    });
+    
+    const bugs = items.filter(i => {
+      const isBug = ['Bug', 'Defecto'].includes(i.fields['System.WorkItemType']);
+      if (!isBug) return false;
+
+      const tags = (i.fields['System.Tags'] || '').toLowerCase().split(/[;,]/).map((t: string) => t.trim());
+      
+      const hasNoInyectado = tags.some((t: string) => 
+        t.includes('noinyectado') || 
+        t.includes('no inyectado') ||
+        (t.includes('no') && t.includes('inyect')) ||
+        (t.includes('sin') && t.includes('inyect'))
+      );
+      if (hasNoInyectado) return false;
+
+      const iterationPath = i.fields['System.IterationPath'] || '';
+      const isSameIteration = absoluteIterationPath && iterationPath.startsWith(absoluteIterationPath);
+      if (isSameIteration) return true;
+
+      const hasInyectado = tags.some((t: string) => t.includes('inyectadosprint') || t.includes('inyectado sprint'));
+      const hasUat = tags.some((t: string) => t.includes('buguat') || t.includes('bug uat') || t === 'uat');
+
+      const bugId = parseInt(i.id.toString());
+      // For bugs that do not belong to the sprint's iteration, they MUST have the inyectado/uat tag AND be linked to a sprint deliverable/task
+      if ((hasInyectado || hasUat) && sprintRelatedBugIds.has(bugId)) return true;
+
+      return false;
+    });
+
+    const risks = items.filter(i => ['Risk', 'Riesgo'].includes(i.fields['System.WorkItemType']));
+
+    const itemsMap = new Map<number, any>(items.map(i => [parseInt(i.id.toString()), i]));
+    const parentEffortMap = new Map<number, { completed: number, planned: number, isw: string }>();
+
+    tasks.forEach(task => {
+      const parentId = task.fields['System.Parent'];
+      if (parentId) {
+        const current = parentEffortMap.get(parentId) || { completed: 0, planned: 0, isw: '' };
+        current.completed += task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0;
+        current.planned += task.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0;
+        current.isw = task.fields['System.AssignedTo']?.displayName || current.isw;
+        parentEffortMap.set(parentId, current);
       }
     });
 
@@ -585,9 +754,10 @@ export class AzureDevOpsService {
     // Corrective tasks from all sources
     tasks.forEach(task => {
       const type = (task.fields['Custom.TaskType'] || task.fields['Microsoft.VSTS.Common.Activity'] || '').toLowerCase();
+      const title = (task.fields['System.Title'] || '').toLowerCase();
       const effort = (task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0);
 
-      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia')) {
+      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
         totalReqRework += effort;
       } else if (type.includes('bug') || type.includes('error')) {
         totalBugRework += effort;
@@ -642,12 +812,6 @@ export class AzureDevOpsService {
     // First, collect bugs linked to requirements
     devItems.forEach(item => {
       item.relatedBugs?.forEach(bug => {
-        // Skip UAT bugs for EED metric
-        const bugTags = (bug.tags || '').toLowerCase().split(';').map((t: string) => t.trim());
-        if (bugTags.some((t: string) => t === 'uat' || t.includes('uat'))) {
-          return;
-        }
-
         if (!seenBugs.has(bug.id)) {
           seenBugs.add(bug.id);
           const state = bug.status || 'Active';
@@ -684,7 +848,8 @@ export class AzureDevOpsService {
             closedDate: bug.closedDate,
             status: state,
             alignment,
-            isKanban: false
+            isKanban: false,
+            tags: bug.tags || ''
           });
         }
       });
@@ -694,13 +859,6 @@ export class AzureDevOpsService {
     bugs.forEach(b => {
       const bId = parseInt(b.id.toString());
       if (!seenBugs.has(bId)) {
-        // Skip UAT bugs for EED metric
-        const bugTagsStr = b.fields['System.Tags'] || '';
-        const bugTags = bugTagsStr.toLowerCase().split(';').map((t: string) => t.trim());
-        if (bugTags.some((t: string) => t === 'uat' || t.includes('uat'))) {
-          return;
-        }
-
         seenBugs.add(bId);
         const state = b.fields['System.State'];
         const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(state);
@@ -743,12 +901,13 @@ export class AzureDevOpsService {
           closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
           status: state,
           alignment,
-          isKanban
+          isKanban,
+          tags: b.fields['System.Tags'] || ''
         });
       }
     });
 
-    const sprintBugs = eedBugs.filter(eb => !eb.isKanban);
+    const sprintBugs = eedBugs;
     const totalBugs = sprintBugs.length;
     const closedEnTiempo = sprintBugs.filter(eb => eb.alignment === 'on-time').length;
     const closedFueraTiempo = sprintBugs.filter(eb => eb.alignment === 'late').length;
@@ -762,7 +921,7 @@ export class AzureDevOpsService {
 
     // --- ESCAPED BUGS METRIC (3.6) CALCULATION ---
     const getBugClassification = (tagsStr: string | undefined): 'testing' | 'uat' | 'produccion' | 'ignore' => {
-      const tags = (tagsStr || '').toLowerCase().split(';').map(t => t.trim());
+      const tags = (tagsStr || '').toLowerCase().split(/[;,]/).map(t => t.trim());
 
       const hasNoInyectado = tags.some(t =>
         t.includes('noinyectado') ||
@@ -776,7 +935,7 @@ export class AzureDevOpsService {
 
       const hasUat = tags.some(t => t.includes('uat'));
       if (hasUat) {
-        return 'produccion';
+        return 'uat';
       }
 
       const hasProd = tags.some(t =>
@@ -810,7 +969,9 @@ export class AzureDevOpsService {
         closedDate: b.fields['Microsoft.VSTS.Common.ClosedDate'],
         status: b.fields['System.State'] || '',
         isw: getDisplayName(b.fields['System.AssignedTo']) || 'Sin asignar',
-        classification: classification
+        classification: classification,
+        isSprintRelated: bugParentIterationMap.has(bId),
+        tags: tagsStr
       };
     }).filter(b => b !== null);
 
@@ -1365,7 +1526,7 @@ export class AzureDevOpsService {
 
   private processEscapedBugs(details: any[]): any {
     const getBugClassification = (tagsStr: string | undefined): 'testing' | 'uat' | 'produccion' | 'ignore' => {
-      const tags = (tagsStr || '').toLowerCase().split(';').map(t => t.trim());
+      const tags = (tagsStr || '').toLowerCase().split(/[;,]/).map(t => t.trim());
 
       // Omit if "no inyectado" is found (e.g. noinyectado, no inyectado, no_inyectado, sin inyectar)
       const hasNoInyectado = tags.some(t =>
@@ -1381,7 +1542,7 @@ export class AzureDevOpsService {
       // UAT with "inyectado sprint" tag (e.g. bugUAT with inyectadoSprint)
       const hasUat = tags.some(t => t.includes('uat'));
       if (hasUat) {
-        return 'produccion';
+        return 'uat';
       }
 
       // Production bugs
@@ -1425,13 +1586,14 @@ export class AzureDevOpsService {
 
     bugsList.forEach(b => {
       if (b.classification === 'testing') bugsTesting++;
-      else if (b.classification === 'uat' || b.classification === 'produccion') bugsProd++;
+      else if (b.classification === 'uat') bugsUat++;
+      else if (b.classification === 'produccion') bugsProd++;
     });
 
-    const beforeRelease = bugsTesting + bugsUat;
-    const rate = beforeRelease > 0 
-      ? (bugsProd / beforeRelease) * 100 
-      : (bugsProd > 0 ? 100 : 0);
+    const total = bugsTesting + bugsUat + bugsProd;
+    const rate = total > 0 
+      ? ((bugsProd + bugsUat) / total) * 100 
+      : 0;
     const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
 
     const iterationGroups: { [key: string]: { testing: number, uat: number, prod: number, total: number, project: string } } = {};
@@ -1442,12 +1604,12 @@ export class AzureDevOpsService {
       }
       iterationGroups[iter].total++;
       if (b.classification === 'testing') iterationGroups[iter].testing++;
-      else if (b.classification === 'uat' || b.classification === 'produccion') iterationGroups[iter].prod++;
+      else if (b.classification === 'uat') iterationGroups[iter].uat++;
+      else if (b.classification === 'produccion') iterationGroups[iter].prod++;
     });
 
     const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
-      const preRelease = g.testing + g.uat;
-      const rowRate = preRelease > 0 ? Math.min((g.prod / preRelease) * 100, 150) : (g.prod > 0 ? 150 : 0);
+      const rowRate = g.total > 0 ? Math.min(((g.prod + g.uat) / g.total) * 100, 150) : 0;
       return {
         project: g.project,
         iteration: iteration.split('\\').pop() || iteration,

@@ -1,0 +1,77 @@
+{
+  "absoluteIterationPath": "\\Bepensa - DSD Bebidas - OpeCD 2.0\\Iteration\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 12\\Sprint 36",
+  "bugs": [
+    {
+      "id": 47219,
+      "title": "El nombre del cedis se desborda en el catalogo de configuracion de cuentas",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 12\\Sprint 36",
+      "tags": "bugTesting; inyectadoSprint",
+      "createdDate": "2026-04-17T16:51:54.967Z"
+    },
+    {
+      "id": 47055,
+      "title": "Bepensa_III_UAT_Pedidos y Ventas_Reportes_Generar Nota de Venta > No se muestra el total de la nota de venta.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 11\\Sprint 35",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-03-31T21:04:10.63Z"
+    },
+    {
+      "id": 47244,
+      "title": "Bepensa_III_UAT_Pedidos y ventas> Reportes> Incidencias en Reporte Preventa.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-04-22T16:10:43.95Z"
+    },
+    {
+      "id": 47269,
+      "title": "Bepensa_III_UAT_Liquidación>Configuración de Cuentas Contables: Incidencias en Configuración de Cuentas Contables.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-04-23T19:09:51.57Z"
+    }
+  ],
+  "allBugsInItems": [
+    {
+      "id": 47219,
+      "title": "El nombre del cedis se desborda en el catalogo de configuracion de cuentas",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 12\\Sprint 36",
+      "tags": "bugTesting; inyectadoSprint",
+      "createdDate": "2026-04-17T16:51:54.967Z"
+    },
+    {
+      "id": 47245,
+      "title": "El dato de Tiempos Facturación no debe tener valores absolutos",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 12\\Sprint 36",
+      "tags": "bugTesting; noinyectado",
+      "createdDate": "2026-04-22T17:31:43.097Z"
+    },
+    {
+      "id": 47055,
+      "title": "Bepensa_III_UAT_Pedidos y Ventas_Reportes_Generar Nota de Venta > No se muestra el total de la nota de venta.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft\\Sistema Ope20 Bepensa - Fase 1\\Release 11\\Sprint 35",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-03-31T21:04:10.63Z"
+    },
+    {
+      "id": 47244,
+      "title": "Bepensa_III_UAT_Pedidos y ventas> Reportes> Incidencias en Reporte Preventa.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-04-22T16:10:43.95Z"
+    },
+    {
+      "id": 47268,
+      "title": "Bepensa_III_UAT_Catálogos>Cuentas: Incidencias en Cuentas.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0",
+      "tags": "NoInyectadoSprint",
+      "createdDate": "2026-04-23T19:05:22.517Z"
+    },
+    {
+      "id": 47269,
+      "title": "Bepensa_III_UAT_Liquidación>Configuración de Cuentas Contables: Incidencias en Configuración de Cuentas Contables.",
+      "iteration": "Bepensa - DSD Bebidas - OpeCD 2.0\\Mayansoft",
+      "tags": "bugUAT; inyectadoSprint",
+      "createdDate": "2026-04-23T19:09:51.57Z"
+    }
+  ]
+}

@@ -1,8 +1,12 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
 const url = require('url');
 const fs = require('fs');
 const https = require('https');
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.ope.cmmi5analyzer');
+}
 
 // electron-updater is optional – gracefully degrade if not installed
 let autoUpdater;
@@ -266,6 +270,27 @@ if (autoUpdater) {
       sendUpdateStatus('update-not-available', { info, message: 'Versión actual igual a la versión disponible.' });
     } else {
       sendUpdateStatus('update-available', { info });
+
+      // Native Windows/OS Notification
+      try {
+        if (Notification.isSupported()) {
+          const versionStr = info?.version || info?.tag_name || 'nueva';
+          const notification = new Notification({
+            title: 'Actualización Disponible',
+            body: `Una nueva versión (${versionStr}) de CMMI5 Analyzer está lista para descargar.`,
+            icon: path.join(__dirname, 'icon.ico')
+          });
+          notification.on('click', () => {
+            if (win) {
+              if (win.isMinimized()) win.restore();
+              win.focus();
+            }
+          });
+          notification.show();
+        }
+      } catch (err) {
+        console.error('Error mostrando notificación de actualización:', err);
+      }
     }
   });
   autoUpdater.on('update-not-available', info => sendUpdateStatus('update-not-available', { info }));
