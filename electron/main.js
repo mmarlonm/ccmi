@@ -253,6 +253,30 @@ ipcMain.handle('update:support', async () => {
   };
 });
 
+ipcMain.handle('update:notify-available', async (_event, version) => {
+  try {
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Actualización Disponible',
+        body: `Una nueva versión (${version}) de CMMI5 Analyzer está lista para descargar.`,
+        icon: path.join(__dirname, 'icon.ico')
+      });
+      notification.on('click', () => {
+        if (win) {
+          if (win.isMinimized()) win.restore();
+          win.focus();
+        }
+      });
+      notification.show();
+      return { success: true };
+    }
+  } catch (err) {
+    console.error('Error mostrando notificación nativa:', err);
+    return { error: String(err) };
+  }
+  return { success: false, message: 'Notificaciones no soportadas.' };
+});
+
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {

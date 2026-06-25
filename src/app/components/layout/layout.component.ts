@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud, FileSpreadsheet } from 'lucide-angular';
 import { UpdateService } from '../../services/update.service';
 import { NotificationComponent } from '../notification/notification.component';
 
@@ -27,7 +27,7 @@ import { NotificationComponent } from '../notification/notification.component';
 
   <!-- Sidebar (Desktop only) -->
   <aside 
-    class="hidden md:flex glass-panel border-r border-white/20 dark:border-slate-800 m-4 rounded-3xl flex-col shrink-0 transition-all duration-300 ease-in-out relative"
+    class="hidden md:flex glass-panel border border-white/20 dark:border-slate-800 my-2.5 ml-2.5 mr-1 rounded-2xl flex-col shrink-0 transition-all duration-300 ease-in-out relative"
     [ngClass]="isMenuCollapsed ? 'w-20' : 'w-64'">
     
     <!-- Collapse / Expand Toggle Handle -->
@@ -69,6 +69,15 @@ import { NotificationComponent } from '../notification/notification.component';
         [title]="isMenuCollapsed ? 'Reporte Finalización' : ''">
         <lucide-icon [name]="FileText" size="20" class="shrink-0"></lucide-icon>
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Reporte Finalización</span>
+      </a>
+      <a 
+        routerLink="/kpi-report" 
+        routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
+        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
+        [class.justify-center]="isMenuCollapsed"
+        [title]="isMenuCollapsed ? 'Reporte de KPIs' : ''">
+        <lucide-icon [name]="FileSpreadsheet" size="20" class="shrink-0"></lucide-icon>
+        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Reporte de KPIs</span>
       </a>
       <a 
         routerLink="/sprint-config" 
@@ -117,8 +126,8 @@ import { NotificationComponent } from '../notification/notification.component';
     </div>
   </aside>
 
-  <!-- Main Content -->
-  <main class="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 md:px-8 md:pb-8 relative">
+  <!-- Main Content: Optimized paddings for more horizontal space -->
+  <main class="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2 md:px-2.5 md:pb-2.5 relative">
     <router-outlet></router-outlet>
   </main>
 
@@ -131,6 +140,10 @@ import { NotificationComponent } from '../notification/notification.component';
     <a routerLink="/report-completion" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <lucide-icon [name]="FileText" size="20"></lucide-icon>
       <span>Reporte</span>
+    </a>
+    <a routerLink="/kpi-report" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+      <lucide-icon [name]="FileSpreadsheet" size="20"></lucide-icon>
+      <span>KPIs</span>
     </a>
     <a routerLink="/sprint-config" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <lucide-icon [name]="ClipboardList" size="20"></lucide-icon>
@@ -167,6 +180,7 @@ export class LayoutComponent {
   readonly ChevronRight = ChevronRight;
   readonly ClipboardList = ClipboardList;
   readonly DownloadCloud = DownloadCloud;
+  readonly FileSpreadsheet = FileSpreadsheet;
 
   isDarkMode = false;
   isMenuCollapsed = false;

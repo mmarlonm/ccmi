@@ -38,6 +38,7 @@ export class UpdateService {
 
   private updateRepo = 'mmarlonm/ccmi';
   private checkInterval: any;
+  private notifiedVersion: string | null = null;
 
   constructor(private http: HttpClient, private ngZone: NgZone) {
     const win = window as any;
@@ -132,6 +133,14 @@ export class UpdateService {
           if (this.isVersionNewer(currentVersion, remoteVersion)) {
             this.isUpdateAvailable = true;
             this.updateEvents.next({ status: 'update-available', release });
+            
+            // Notify native OS
+            if (this.ipc && this.notifiedVersion !== remoteVersion) {
+              this.notifiedVersion = remoteVersion;
+              this.ipc.invoke('update:notify-available', remoteVersion).catch((err: any) => {
+                console.error('Error invoking update:notify-available:', err);
+              });
+            }
           } else {
             this.isUpdateAvailable = false;
             this.updateEvents.next({ status: 'update-not-available', release });

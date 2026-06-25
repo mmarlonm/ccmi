@@ -207,4 +207,16 @@ export interface CMMIMetrics {
     rate: number;
     status: 'green' | 'yellow' | 'red';
   };
+  allSprintItems?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    assignedTo: string;
+    project: string;
+    size: number;
+    status: string;
+    closedDate?: string;
+    changedDate?: string;
+    parentId?: string;
+  }>;
 }

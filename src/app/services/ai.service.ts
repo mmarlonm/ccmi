@@ -51,27 +51,49 @@ export class AIService {
 
       MÉTRICAS DEL SPRINT:
       0. Cumplimiento y Línea de Tiempo del Sprint:
-${(() => {
+      ${(() => {
         const items = metrics.developmentRate?.items || [];
         const endMs = metrics.endDate ? new Date(metrics.endDate).getTime() : 0;
         let onTime = 0, late = 0, open = 0, maxDays = 0;
         const lateItems: string[] = [];
+        const detailedItemsList: string[] = [];
         items.forEach((item: any) => {
           const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
-          if (!isClosed) { open++; return; }
           const closedMs = item.closedDate ? new Date(item.closedDate).getTime() : (item.changedDate ? new Date(item.changedDate).getTime() : 0);
-          if (!closedMs || closedMs <= endMs) { onTime++; return; }
-          late++;
-          // rough business days approx
-          const diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
-          if (diffDays > maxDays) maxDays = diffDays;
-          lateItems.push(`  - ${item.type === 'Feature' ? 'FT' : 'US'} #${item.id} | ISW: ${item.isw} | Cerrado: ${item.closedDate?.substring(0, 10) ?? '?'} | ~${diffDays}d tarde`);
+          let deliveryStatus = 'Abierto';
+          let diffDays = 0;
+          if (isClosed) {
+            if (!closedMs || closedMs <= endMs) {
+              onTime++;
+              deliveryStatus = 'A tiempo';
+            } else {
+              late++;
+              diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
+              if (diffDays > maxDays) maxDays = diffDays;
+              deliveryStatus = 'Fase Extendida (' + diffDays + 'd retraso)';
+              lateItems.push('  - ' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + ' | ISW: ' + item.isw + ' | Cerrado: ' + (item.closedDate ? item.closedDate.substring(0, 10) : '?') + ' | ~' + diffDays + 'd tarde');
+            }
+          } else {
+            open++;
+          }
+          
+          const tasksInfo = (item.tasks || []).map((t: any) => 'Tarea #' + t.id + ': "' + t.title + '" (Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + ')').join('; ');
+          detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
         });
+
+        const eedBugs = metrics.defectRemovalEfficiency?.bugsList || [];
+        const escapedBugs = metrics.escapedBugs?.bugsList || [];
+        const uniqueBugsMap = new Map<number, any>();
+        [...eedBugs, ...escapedBugs].forEach((b: any) => {
+          uniqueBugsMap.set(b.bugId || b.id, b);
+        });
+        const bugsDetail = Array.from(uniqueBugsMap.values()).map((b: any) => {
+          return '  * [Bug #' + (b.bugId || b.id) + '] "' + b.title + '" - ISW: ' + (b.isw || 'Sin asignar') + ' | Estado: ' + b.status + ' | Clasificación: ' + (b.classification || 'N/A') + '';
+        }).join('\n');
+
         const total = onTime + late;
         const pct = total > 0 ? ((onTime / total) * 100).toFixed(0) : '—';
-        return `         Total entregables: ${items.length} | A tiempo: ${onTime} | En Fase Extendida: ${late} | Abiertos: ${open}
-         % Cumplimiento: ${pct}% | Máx. días de retraso: ${maxDays}d
-         ${lateItems.length > 0 ? 'Ítems entregados en Fase Extendida:\n' + lateItems.join('\n') : 'Sin ítems en fase extendida.'}`;
+        return '         Total entregables: ' + items.length + ' | A tiempo: ' + onTime + ' | En Fase Extendida: ' + late + ' | Abiertos: ' + open + '\n         % Cumplimiento: ' + pct + '% | Máx. días de retraso: ' + maxDays + 'd\n         Detalle de Deliverables (Historias de Usuario / Features) y sus Tareas:\n' + detailedItemsList.join('\n') + '\n         Detalle de Todos los Bugs de la Iteración:\n' + (bugsDetail || 'Sin bugs detectados en este periodo.');
       })()}
 
       1. Tasa de Desarrollo: ${metrics.developmentRate.rate.toFixed(2)} 
@@ -84,7 +106,7 @@ ${itemSummary}
          Resumen por ISW:
 ${iswSummary}
 
-      2. Tasa de Desviación de Esfuerzo: ${(metrics.effortVariance.rate * 100).toFixed(1)}%
+      2. Tasa de Desviación de Esfuerzo: ${Math.abs(metrics.effortVariance.rate * 100).toFixed(1)}%
          (Semáforo: Verde ≤ 15% | Amarillo 15–30% | Rojo > 30%)
 
       3. Tasa de Retrabajo: ${metrics.rework.rate.toFixed(1)}%
@@ -112,6 +134,7 @@ ${iswSummary}
 
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
+      (NOTA IMPORTANTE PARA LA PRIMERA MÉTRICA "Cumplimiento y Línea de Tiempo del Sprint" o "Cumplimiento": Para esta primera métrica, NO generes viñetas de metas, resultados, acciones correctivas ni análisis acumulado. En su lugar, genera únicamente un análisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Para el resto de las métricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
       - Meta establecida para el periodo: (valor)
       - Resultado del periodo: (valor real con semáforo: Verde/Amarillo/Rojo)
       - Análisis de resultados: (Explica el resultado con un tono CRÍTICO y CONSTRUCTIVO. 
@@ -131,6 +154,7 @@ ${iswSummary}
       REGLAS IMPORTANTES:
       - SÉ EXIGENTE: Como auditor CMMI5, tu objetivo es la perfección estadística. Si un ítem se desvía, señálalo aunque el promedio global sea bueno.
       - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
+      - Para la métrica "2. Tasa de Desviación de Esfuerzo", el "Resultado del periodo" debe presentarse en valor absoluto (sin signo negativo, p. ej., 11.23% en lugar de -11.23%).
       - Usa nombres reales de los ISW del equipo cuando estén disponibles en la lista de items.
       - Tono profesional, analítico y enfocado en identificar brechas de proceso.
       - Devuelve solo el texto estructurado, sin introducciones ni conclusiones generales.

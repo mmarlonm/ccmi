@@ -935,7 +935,7 @@ export class AzureDevOpsService {
 
       const hasUat = tags.some(t => t.includes('uat'));
       if (hasUat) {
-        return 'uat';
+        return 'produccion';
       }
 
       const hasProd = tags.some(t =>
@@ -1009,6 +1009,28 @@ export class AzureDevOpsService {
       rows: []
     };
 
+    const kpiSprintItems = items.filter(i => {
+      const type = i.fields['System.WorkItemType'];
+      return ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto'].includes(type);
+    }).map(i => {
+      const assignedTo = i.fields['System.AssignedTo'];
+      const isw = assignedTo ? (typeof assignedTo === 'object' ? assignedTo.displayName : assignedTo) : 'Sin asignar';
+      const size = i.fields['Microsoft.VSTS.Scheduling.Size'] || i.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0;
+      
+      return {
+        id: i.id.toString(),
+        type: i.fields['System.WorkItemType'],
+        title: i.fields['System.Title'] || '',
+        assignedTo: isw,
+        project: i.fields['System.AreaPath'] || 'OPE20',
+        size: size,
+        status: i.fields['System.State'],
+        closedDate: i.fields['Microsoft.VSTS.Common.ClosedDate'] || i.fields['System.ChangedDate'],
+        changedDate: i.fields['System.ChangedDate'],
+        parentId: i.fields['System.Parent']?.toString() || ''
+      };
+    });
+
     return {
       iterationName,
       startDate,
@@ -1058,8 +1080,107 @@ export class AzureDevOpsService {
         status: eedStatus,
         bugsList: eedBugs
       },
-      escapedBugs: escapedBugsResult
+      escapedBugs: escapedBugsResult,
+      allSprintItems: kpiSprintItems
     };
+  }
+
+  getKpisForMonth(areaPath: string, year: number, monthStart: number, monthEnd: number): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config) return of([]);
+    const headers = this.getHeaders();
+
+    const startM = Math.min(monthStart, monthEnd);
+    const endM = Math.max(monthStart, monthEnd);
+
+    // Format start and end date of the month range (strictly YYYY-MM-DD for date precision)
+    const startDateStr = `${year}-${String(startM).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, endM, 0).getDate();
+    const endDateStr = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    // Normalize area path: remove leading backslash and strip \Area\ segment if present
+    let path = areaPath.replace(/^\\/, '');
+    const areaSegmentMatch = path.match(/^([^\\]+)\\Area\\(.+)$/i);
+    if (areaSegmentMatch) {
+      path = `${areaSegmentMatch[1]}\\${areaSegmentMatch[2]}`;
+    }
+    const escapedArea = path.replace(/'/g, "''");
+    
+    // WIQL query to fetch all stories, requirements, pbis, bugs, features resolved or closed under the area path
+    const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] IN ('User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Feature') AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+      { query: wiqlQuery },
+      { headers }
+    ).pipe(
+      timeout(20000),
+      switchMap(res => {
+        const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
+        if (ids.length === 0) return of([]);
+        
+        const fields = [
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
+          'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
+          'System.AssignedTo', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State'
+        ].join(',');
+
+        return this.getWorkItemDetails(ids, fields);
+      }),
+      catchError(err => {
+        console.error('getKpisForMonth failed:', err);
+        return of([]);
+      })
+    );
+  }
+
+  getKpiTasksForMonth(areaPath: string, year: number, monthStart: number, monthEnd: number): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config) return of([]);
+    const headers = this.getHeaders();
+
+    const startM = Math.min(monthStart, monthEnd);
+    const endM = Math.max(monthStart, monthEnd);
+
+    const startDateStr = `${year}-${String(startM).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, endM, 0).getDate();
+    const endDateStr = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    // Normalize area path: remove leading backslash and strip \Area\ segment if present
+    let path = areaPath.replace(/^\\/, '');
+    const areaSegmentMatch = path.match(/^([^\\]+)\\Area\\(.+)$/i);
+    if (areaSegmentMatch) {
+      path = `${areaSegmentMatch[1]}\\${areaSegmentMatch[2]}`;
+    }
+    const escapedArea = path.replace(/'/g, "''");
+    
+    // WIQL query to fetch all tasks resolved, closed or changed under the area path in that month range
+    const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] = 'Task' AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+      { query: wiqlQuery },
+      { headers }
+    ).pipe(
+      timeout(20000),
+      switchMap(res => {
+        const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
+        if (ids.length === 0) return of([]);
+        
+        const fields = [
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
+          'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
+          'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Activity',
+          'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State'
+        ].join(',');
+
+        return this.getWorkItemDetails(ids, fields);
+      }),
+      catchError(err => {
+        console.error('getKpiTasksForMonth failed:', err);
+        return of([]);
+      })
+    );
   }
 
   private getEmptyMetrics(): CMMIMetrics {
@@ -1542,7 +1663,7 @@ export class AzureDevOpsService {
       // UAT with "inyectado sprint" tag (e.g. bugUAT with inyectadoSprint)
       const hasUat = tags.some(t => t.includes('uat'));
       if (hasUat) {
-        return 'uat';
+        return 'produccion';
       }
 
       // Production bugs

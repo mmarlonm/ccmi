@@ -23,51 +23,75 @@ import { forkJoin } from 'rxjs';
   imports: [CommonModule, LucideAngularModule, FormsModule, PdfTemplateComponent],
   template: `
 <div id="dashboard-content" class="h-full overflow-y-auto overflow-x-hidden space-y-8 animate-in fade-in duration-1000">
-  <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-5 -mx-4 md:-mx-8 px-4 md:px-8 mb-6 shadow-md transition-all duration-300">
-    <div>
+  <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-4 -mx-2 md:-mx-2.5 px-2 md:px-2.5 mb-6 shadow-md transition-all duration-300">
+    <div class="shrink-0">
       <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Métricas CMMI 5</h2>
       <p class="text-slate-500 dark:text-slate-400 mt-1 text-xs">Formato BFYPH047 - Recopilación y Análisis de Métricas</p>
     </div>
-    <div class="flex flex-wrap gap-3">
-      <select [(ngModel)]="selectedArea" (change)="onSelectionChange()" class="glass-input text-xs font-medium w-48">
-        <option value="">Todas las Áreas</option>
-        <option *ngFor="let item of areas" [value]="item.path">{{ item.name }}</option>
-      </select>
-      <select [(ngModel)]="selectedIteration" (change)="onSelectionChange()" class="glass-input text-xs font-medium w-48">
-        <option value="">Todas las Iteraciones</option>
-        <option *ngFor="let item of iterations" [value]="item.id">{{ item.name }}</option>
-      </select>
-      
-      <!-- Sprint Dates Display -->
-      <div *ngIf="metrics?.startDate && selectedIteration" class="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 h-[38px]">
-        <div class="flex flex-col">
-          <span class="text-[8px] font-black text-slate-400 uppercase leading-none">Vigencia del Sprint</span>
-          <span class="text-[10px] font-bold text-slate-600 dark:text-slate-350">
-            {{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}
-          </span>
+    
+    <!-- Controls Area: Grouped together in a flex column, aligned to the right inside the header -->
+    <div class="flex flex-col items-end gap-1.5 w-full md:w-auto shrink-0">
+      <!-- Selects and buttons in a single line -->
+      <div class="flex flex-row items-center gap-2 md:gap-3 justify-end w-full shrink-0">
+        <select [(ngModel)]="selectedArea" (change)="onSelectionChange()" class="glass-input text-xs font-medium w-28 md:w-32 shrink-0">
+          <option value="">Todas las Áreas</option>
+          <option *ngFor="let item of areas" [value]="item.path">{{ item.name }}</option>
+        </select>
+        <select [(ngModel)]="selectedIteration" (change)="onSelectionChange()" class="glass-input text-xs font-medium w-24 md:w-28 shrink-0">
+          <option value="">Todas las Iteraciones</option>
+          <option *ngFor="let item of iterations" [value]="item.id">{{ item.name }}</option>
+        </select>
+
+        <select [(ngModel)]="selectedISW" (change)="onISWChange()" class="glass-input text-xs font-medium w-32 md:w-36 border-indigo-200 dark:border-indigo-800 shrink-0">
+          <option value="">Todos los ISW</option>
+          <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
+        </select>
+
+        <!-- Action Buttons Tray -->
+        <div class="flex items-center gap-2 shrink-0 bg-slate-200/50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/40 dark:border-slate-700/50 h-[38px] box-border">
+          <div class="relative group">
+            <button (click)="reloadSprintData()" [disabled]="isReloading || !selectedIteration" 
+              class="glass-button flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm cursor-pointer">
+              <lucide-icon [name]="RefreshCw" size="15" [class.animate-spin]="isReloading"></lucide-icon>
+            </button>
+            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium rounded-lg opacity-0 scale-75 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-250 shadow-xl whitespace-nowrap z-50 border border-slate-700">
+              Recargar Sprint
+            </div>
+          </div>
+
+          <div class="relative group">
+            <button (click)="runAI()" [disabled]="isAnalyzing || !metrics" 
+              class="glass-button flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md cursor-pointer">
+              <lucide-icon [name]="Sparkles" size="15" [class.animate-spin]="isAnalyzing"></lucide-icon>
+            </button>
+            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium rounded-lg opacity-0 scale-75 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-250 shadow-xl whitespace-nowrap z-50 border border-slate-700">
+              {{ isAnalyzing ? 'Analizando...' : (aiAnalysis ? 'Volver a analizar IA' : 'Generar Análisis IA') }}
+            </div>
+          </div>
+
+          <div class="relative group">
+            <button (click)="export()" [disabled]="!metrics || isExporting" 
+              class="glass-button flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm cursor-pointer">
+              <lucide-icon [name]="isExporting ? RefreshCw : Download" size="15" [class.animate-spin]="isExporting"></lucide-icon>
+            </button>
+            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium rounded-lg opacity-0 scale-75 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-250 shadow-xl whitespace-nowrap z-50 border border-slate-700">
+              {{ isExporting ? 'Generando PDF...' : 'Exportar PDF' }}
+            </div>
+          </div>
         </div>
       </div>
 
-      <select [(ngModel)]="selectedISW" (change)="onISWChange()" class="glass-input text-xs font-medium w-48 border-indigo-200 dark:border-indigo-800">
-        <option value="">Todos los ISW</option>
-        <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
-      </select>
-      <button (click)="reloadSprintData()" [disabled]="isReloading || !selectedIteration" class="glass-button flex items-center gap-2" title="Recargar datos de DevOps para este Sprint">
-        <lucide-icon [name]="RefreshCw" size="18" [class.animate-spin]="isReloading"></lucide-icon>
-        <span>Recargar Sprint</span>
-      </button>
-      <button (click)="runAI()" [disabled]="isAnalyzing || !metrics" class="glass-button flex items-center gap-2 bg-indigo-600 text-white">
-        <lucide-icon [name]="Sparkles" size="18" [class.animate-spin]="isAnalyzing"></lucide-icon>
-        <span>{{ isAnalyzing ? 'Analizando...' : (aiAnalysis ? 'Volver a analizar IA' : 'Generar Análisis IA') }}</span>
-      </button>
-      <button (click)="export()" [disabled]="!metrics || isExporting" class="glass-button flex items-center gap-2">
-        <lucide-icon [name]="isExporting ? RefreshCw : Download" size="18" [class.animate-spin]="isExporting"></lucide-icon>
-        <span>{{ isExporting ? 'Generando PDF...' : 'Exportar PDF' }}</span>
-      </button>
+      <!-- Sprint Dates Display directly under buttons in the same container -->
+      <div *ngIf="metrics?.startDate && selectedIteration" class="animate-in fade-in duration-500 mr-1">
+        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+          Vigencia del Sprint: <strong class="text-indigo-600 dark:text-indigo-400">{{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}</strong>
+        </span>
+      </div>
     </div>
   </header>
 
-  <div *ngIf="metrics" class="space-y-12 relative transition-all duration-300" [class.opacity-45]="isReloading" [class.pointer-events-none]="isReloading">
+  <div *ngIf="metrics" class="space-y-6 relative transition-all duration-300" [class.opacity-45]="isReloading" [class.pointer-events-none]="isReloading">
+
     <!-- Reloading premium backdrop overlay -->
     <div *ngIf="isReloading" class="absolute inset-0 flex items-center justify-center bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-[2px] z-50 rounded-3xl min-h-[400px]">
       <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3 animate-in zoom-in-95 duration-200 sticky top-1/2 -translate-y-1/2">
@@ -310,21 +334,20 @@ import { forkJoin } from 'rxjs';
 
           <!-- AI Timeline Analysis Box (same format as other metrics) -->
           <div class="space-y-4">
-            <div *ngIf="metricAnalyses['cumplimiento']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+            <div *ngIf="metricAnalyses['cumplimiento']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+              <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button (click)="copyAnalysis('cumplimiento', metricAnalyses['cumplimiento'])"
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['cumplimiento'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['cumplimiento'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['cumplimiento'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['cumplimiento'] }}
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['cumplimiento'])">
               </div>
             </div>
             <div *ngIf="!metricAnalyses['cumplimiento']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -373,6 +396,13 @@ import { forkJoin } from 'rxjs';
             <div class="text-xs text-slate-400 uppercase font-bold mb-1">Size Total</div>
             <div class="text-2xl font-bold">{{ metrics.developmentRate.totalSize }}</div>
           </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Std</div>
+            <div class="text-2xl font-bold" [class.text-emerald-600]="metrics.developmentRate.stdDeviation <= 1.00" [class.text-rose-500]="metrics.developmentRate.stdDeviation > 1.00">
+              {{ metrics.developmentRate.stdDeviation.toFixed(2) }}
+            </div>
+            <div class="text-[8pt] opacity-50">Umbrales: 1.00</div>
+          </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
             'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.developmentRate.status === 'green',
             'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.developmentRate.status === 'yellow',
@@ -394,13 +424,6 @@ import { forkJoin } from 'rxjs';
               'text-rose-600/85 dark:text-rose-400/85': metrics.developmentRate.status === 'red'
             }">Umbrales: 1.7, 2.0</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
-            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Desviación Std</div>
-            <div class="text-2xl font-bold" [class.text-emerald-600]="metrics.developmentRate.stdDeviation <= 1.00" [class.text-rose-500]="metrics.developmentRate.stdDeviation > 1.00">
-              {{ metrics.developmentRate.stdDeviation.toFixed(2) }}
-            </div>
-            <div class="text-[8pt] opacity-50">Umbrales: 1.00</div>
-          </div>
         </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
@@ -411,21 +434,20 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <div *ngIf="metricAnalyses['tasa de desarrollo']" class="mt-6 p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 mb-8 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+        <div *ngIf="metricAnalyses['tasa de desarrollo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
             <button (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
-                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['tasa de desarrollo'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['tasa de desarrollo'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['tasa de desarrollo'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-            {{ metricAnalyses['tasa de desarrollo'] }}
+          <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['tasa de desarrollo'])">
           </div>
         </div>
         
@@ -668,8 +690,12 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
-          Esta métrica mide el porcentaje de desviación entre el esfuerzo real y el esfuerzo planeado en la construcción de <strong>requerimientos</strong>. Considera el tiempo total estimado y el tiempo total real de las tareas asociadas a los elementos de trabajo.
+        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
+          Según fuentes oficiales Cálculo de la Desviación de Estimación de Desarrollo.
+          <br><strong>Fórmula:</strong> Tasa de Desviación de Esfuerzo = [(Esfuerzo Real - Esfuerzo Planeado) / Esfuerzo Planeado] x 100
+          <br><strong>Esfuerzo Real:</strong> Suma del "Completed Work" de las tareas.
+          <br><strong>Esfuerzo Planeado:</strong> Suma del "Original Estimate" de las tareas.
+          <br><strong>Procedimiento:</strong> Se calcula la variación porcentual entre el esfuerzo real registrado frente a la estimación original planificada para los entregables cerrados.
           <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 15% | Amarillo &le; 30% | Rojo &gt; 30%
         </p>
 
@@ -694,6 +720,10 @@ import { forkJoin } from 'rxjs';
             </div>
             <div class="text-[8pt] opacity-50">Umbrales: 15%, 30%</div>
           </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Promedio % Desviación Ind.</div>
+            <div class="text-2xl font-bold">{{ (metrics.effortVariance.avgIndividualRate || 0).toFixed(2) }}%</div>
+          </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300" [ngClass]="{
             'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.effortVariance.status === 'green',
             'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.effortVariance.status === 'yellow',
@@ -717,10 +747,6 @@ import { forkJoin } from 'rxjs';
               'text-rose-600/85 dark:text-rose-400/85': metrics.effortVariance.status === 'red'
             }">Umbrales: 15%, 30%</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-            <div class="text-xs text-slate-400 uppercase font-bold mb-1">Promedio % Desviación Ind.</div>
-            <div class="text-2xl font-bold">{{ (metrics.effortVariance.avgIndividualRate || 0).toFixed(2) }}%</div>
-          </div>
         </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-6">
@@ -731,22 +757,21 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30 mb-8 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
             <button *ngIf="metricAnalyses['tasa de desviación']" 
                     (click)="copyAnalysis('tasa de desviación', metricAnalyses['tasa de desviación'])" 
-                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['tasa de desviación'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['tasa de desviación'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['tasa de desviación'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-            {{ metricAnalyses['tasa de desviación'] }}
+          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['tasa de desviación'], true)">
           </div>
           <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50">
             Genera el análisis IA para visualizar las recomendaciones.
@@ -1048,21 +1073,20 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <!-- Rework AI Analysis Box -->
-        <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 animate-in fade-in duration-300">
-          <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+        <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] animate-in fade-in duration-300">
+          <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
             <button (click)="copyAnalysis('retrabajo', metricAnalyses['retrabajo'])" 
-                    class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                     [title]="copiedKeys['retrabajo'] ? 'Copiado' : 'Copiar análisis'">
               <lucide-icon [name]="copiedKeys['retrabajo'] ? Check : Copy" size="12"></lucide-icon>
               <span>{{ copiedKeys['retrabajo'] ? '¡Copiado!' : 'Copiar' }}</span>
             </button>
           </h4>
-          <div class="text-sm leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-350">
-            {{ metricAnalyses['retrabajo'] }}
+          <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['retrabajo'])">
           </div>
         </div>
         <div *ngIf="!metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -1075,7 +1099,16 @@ import { forkJoin } from 'rxjs';
     <!-- Section 3.4: Defect -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
+            'bg-green-100 text-green-700': metrics.defectDensity.status === 'green',
+            'bg-yellow-100 text-yellow-700': metrics.defectDensity.status === 'yellow',
+            'bg-red-100 text-red-700': metrics.defectDensity.status === 'red'
+          }">
+            {{ metrics.defectDensity.status }}
+          </div>
+        </div>
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
@@ -1159,21 +1192,20 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-            <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
               <button (click)="copyAnalysis('densidad de defectos', metricAnalyses['densidad de defectos'])" 
-                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                       [title]="copiedKeys['densidad de defectos'] ? 'Copiado' : 'Copiar análisis'">
                 <lucide-icon [name]="copiedKeys['densidad de defectos'] ? Check : Copy" size="12"></lucide-icon>
                 <span>{{ copiedKeys['densidad de defectos'] ? '¡Copiado!' : 'Copiar' }}</span>
               </button>
             </h4>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-              {{ metricAnalyses['densidad de defectos'] }}
+            <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['densidad de defectos'])">
             </div>
           </div>
           <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -1631,21 +1663,20 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['eed']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-            <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+          <div *ngIf="metricAnalyses['eed']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
               <button (click)="copyAnalysis('eed', metricAnalyses['eed'])" 
-                      class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                       [title]="copiedKeys['eed'] ? 'Copiado' : 'Copiar análisis'">
                 <lucide-icon [name]="copiedKeys['eed'] ? Check : Copy" size="12"></lucide-icon>
                 <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
               </button>
             </h4>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-              {{ metricAnalyses['eed'] }}
+            <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(metricAnalyses['eed'])">
             </div>
           </div>
           <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -1658,13 +1689,57 @@ import { forkJoin } from 'rxjs';
     <!-- Section 3.6: Escaped Defects / Bugs Escapados -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
+            'bg-green-100 text-green-700': filteredEscapedBugs.status === 'green',
+            'bg-yellow-100 text-yellow-700': filteredEscapedBugs.status === 'yellow',
+            'bg-red-100 text-red-700': filteredEscapedBugs.status === 'red'
+          }">
+            {{ filteredEscapedBugs.status }}
+          </div>
+        </div>
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
           Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
           <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100.
           <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 33% | Amarillo &le; 40% | Rojo &gt; 40%
         </p>
+
+        <!-- Sprint Comparison Selector for Escaped Bugs -->
+        <div class="mb-4">
+          <button (click)="showCompareEscapedPanel = !showCompareEscapedPanel"
+                  class="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer mb-2">
+            <lucide-icon [name]="showCompareEscapedPanel ? ChevronDown : ChevronDown" size="13"></lucide-icon>
+            {{ showCompareEscapedPanel ? 'Ocultar' : 'Comparar sprints anteriores' }}
+          </button>
+
+          <div *ngIf="showCompareEscapedPanel" class="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-4 animate-in fade-in duration-200">
+            <p class="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wide">Selecciona sprints a comparar en tendencia de bugs escapados</p>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <label *ngFor="let iter of iterations" class="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox"
+                       [value]="iter.id"
+                       [checked]="selectedCompareEscapedIterations.includes(iter.id)"
+                       (change)="onCompareEscapedToggle(iter.id, $event)"
+                       class="w-3.5 h-3.5 rounded accent-indigo-500 cursor-pointer">
+                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-300 group-hover:text-indigo-500 transition-colors">{{ iter.name }}</span>
+              </label>
+            </div>
+            <div class="flex gap-2">
+              <button (click)="loadCompareEscaped()"
+                      [disabled]="selectedCompareEscapedIterations.length === 0 || isLoadingCompareEscaped"
+                      class="text-[11px] font-bold px-3 py-1.5 bg-indigo-500 hover:bg-indigo-650 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+                <lucide-icon *ngIf="isLoadingCompareEscaped" [name]="RefreshCw" size="11" class="animate-spin"></lucide-icon>
+                {{ isLoadingCompareEscaped ? 'Cargando...' : 'Generar comparativa' }}
+              </button>
+              <button *ngIf="selectedCompareEscapedIterations.length > 0" (click)="clearCompareEscaped()"
+                      class="text-[11px] font-medium px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-all cursor-pointer">
+                Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- KPI summary grid -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
@@ -1683,6 +1758,13 @@ import { forkJoin } from 'rxjs';
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Bugs</div>
             <div class="text-2xl font-bold">{{ filteredEscapedBugs.totalBugs }}</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
+            <div class="text-2xl font-bold">
+              {{ filteredEscapedBugs.stdDeviation.toFixed(2) }}%
+            </div>
+            <div class="text-[8px] text-slate-400 mt-0.5">Umbral: 30.00%</div>
           </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
             'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': filteredEscapedBugs.status === 'green',
@@ -1706,13 +1788,6 @@ import { forkJoin } from 'rxjs';
               'text-amber-600/85 dark:text-amber-400/85': filteredEscapedBugs.status === 'yellow',
               'text-rose-600/85 dark:text-rose-400/85': filteredEscapedBugs.status === 'red'
             }">Umbrales: 33%, 40%</div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden flex flex-col justify-center items-center">
-            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Desviación Estándar</div>
-            <div class="text-2xl font-bold">
-              {{ filteredEscapedBugs.stdDeviation.toFixed(2) }}%
-            </div>
-            <div class="text-[8px] text-slate-400 mt-0.5">Umbral: 30.00%</div>
           </div>
         </div>
 
@@ -1812,21 +1887,20 @@ import { forkJoin } from 'rxjs';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div *ngIf="metricAnalyses['escaped']" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+            <div *ngIf="metricAnalyses['escaped']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+              <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button (click)="copyAnalysis('escaped', metricAnalyses['escaped'])" 
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['escaped'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['escaped'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['escaped'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300">
-                {{ metricAnalyses['escaped'] }}
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['escaped'])">
               </div>
             </div>
             <div *ngIf="!metricAnalyses['escaped']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -1987,22 +2061,21 @@ import { forkJoin } from 'rxjs';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+              <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button *ngIf="metricAnalyses['testExecution'] || metricAnalyses['ejecución de pruebas']" 
                         (click)="copyAnalysis('testExecution', getTestExecutionAnalysis())" 
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['testExecution'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['testExecution'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-350">
-                {{ getTestExecutionAnalysis() }}
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(getTestExecutionAnalysis())">
               </div>
             </div>
           </div>
@@ -2014,7 +2087,16 @@ import { forkJoin } from 'rxjs';
     <!-- Section 3.8: Satisfactory Tests / % Pruebas Satisfactorias -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-teal-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
+            'bg-green-100 text-green-700': m38Stats.status === 'green',
+            'bg-yellow-100 text-yellow-700': m38Stats.status === 'yellow',
+            'bg-red-100 text-red-700': m38Stats.status === 'red'
+          }">
+            {{ m38Stats.status }}
+          </div>
+        </div>
 
         <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-teal-500">
           Esta métrica mide la efectividad de las pruebas ejecutadas, calculando el porcentaje de test points que finalizaron con resultado satisfactorio (Passed) respecto al total de pruebas que fueron ejecutadas.<br/>
@@ -2151,22 +2233,21 @@ import { forkJoin } from 'rxjs';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
-              <h4 class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-2 flex items-center justify-between w-full">
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+              <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
                 <button *ngIf="metricAnalyses['satisfactoryTests'] || metricAnalyses['pruebas satisfactorias']" 
                         (click)="copyAnalysis('satisfactoryTests', getSatisfactoryTestsAnalysis())" 
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-emerald-600 hover:text-emerald-800 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
                         [title]="copiedKeys['satisfactoryTests'] ? 'Copiado' : 'Copiar análisis'">
                   <lucide-icon [name]="copiedKeys['satisfactoryTests'] ? Check : Copy" size="12"></lucide-icon>
                   <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-350">
-                {{ getSatisfactoryTestsAnalysis() }}
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(getSatisfactoryTestsAnalysis())">
               </div>
             </div>
           </div>
@@ -2532,6 +2613,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isLoadingCompare = false;
   showComparePanel = false;
 
+  // --- Escaped Bugs Sprint Comparison ---
+  selectedCompareEscapedIterations: string[] = [];
+  comparedEscapedData: { id: string; name: string; rate: number; status: string }[] = [];
+  isLoadingCompareEscaped = false;
+  showCompareEscapedPanel = false;
+
   get selectedSprintDisplayName(): string {
     if (!this.selectedIteration) return '';
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
@@ -2721,6 +2808,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.isReloading = true;
     this.aiAnalysis = '';
     this.metricAnalyses = {};
+    this.selectedCompareIterations = [];
+    this.comparedDensityData = [];
+    this.selectedCompareEscapedIterations = [];
+    this.comparedEscapedData = [];
     this.saveSelection();
     if (this.selectedIteration) {
       localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
@@ -2775,6 +2866,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         }
 
         this.applyFilter();
+
+        // Pre-populate comparison sprints for escaped bugs chart automatically if none are selected yet
+        if (this.selectedCompareEscapedIterations.length === 0 && this.iterations.length > 0) {
+          const currentIndex = this.iterations.findIndex(i => i.id === this.selectedIteration);
+          if (currentIndex !== -1) {
+            const prevIterations = this.iterations
+              .slice(Math.max(0, currentIndex - 4), currentIndex)
+              .map(i => i.id);
+            if (prevIterations.length > 0) {
+              this.selectedCompareEscapedIterations = prevIterations;
+              this.loadCompareEscaped();
+            }
+          }
+        }
 
         // Restore cached AI analysis if present (persists across tabs/reloads if sprint is the same)
         const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
@@ -2885,6 +2990,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     let bugsProd = 0;
 
     filteredList.forEach((b: any) => {
+      if (b.classification === 'uat') {
+        b.classification = 'produccion';
+      }
       if (b.classification === 'testing') bugsTesting++;
       else if (b.classification === 'uat') bugsUat++;
       else if (b.classification === 'produccion') bugsProd++;
@@ -2892,7 +3000,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     const totalBugs = bugsTesting + bugsUat + bugsProd;
     const rate = totalBugs > 0
-      ? ((bugsProd + bugsUat) / totalBugs) * 100
+      ? (bugsProd / totalBugs) * 100
       : 0;
     const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
 
@@ -2910,7 +3018,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
 
     const rows = Object.entries(iterationGroups).map(([iteration, g]) => {
-      const rowRate = g.total > 0 ? Math.min(((g.prod + g.uat) / g.total) * 100, 150) : 0;
+      const rowRate = g.total > 0 ? Math.min((g.prod / g.total) * 100, 150) : 0;
       return {
         project: g.project.split('\\').pop() || g.project,
         projectFull: g.project,
@@ -2925,7 +3033,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       };
     });
 
-    const historyRates = [12.5, 18.2, 8.5, 15.0, rate];
+    const historyRates = this.comparedEscapedData.length > 0
+      ? [...this.comparedEscapedData.map(d => d.rate), rate]
+      : [12.5, 18.2, 8.5, 15.0, rate];
     let stdDeviation = 0;
     if (historyRates.length > 1) {
       const mean = historyRates.reduce((sum, r) => sum + r, 0) / historyRates.length;
@@ -3206,23 +3316,40 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
 
-    let labels = ['S1', 'S2', 'S3', 'S4', 'Actual'];
-    const iterForChart1 = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
-    const sprintText1 = iterForChart1 ? iterForChart1.path : this.selectedIterationName;
-    const match = sprintText1.match(/Sprint\s*(\d+)/i);
-    if (match) {
-      const currentNum = parseInt(match[1]);
-      labels = [
-        `Sprint ${currentNum - 4}`,
-        `Sprint ${currentNum - 3}`,
-        `Sprint ${currentNum - 2}`,
-        `Sprint ${currentNum - 1}`,
-        `Sprint ${currentNum}`
-      ];
+    const sorted = [...this.comparedEscapedData].sort((a, b) => {
+      const ai = this.iterations.findIndex((it: any) => it.id === a.id);
+      const bi = this.iterations.findIndex((it: any) => it.id === b.id);
+      return ai - bi;
+    });
+
+    const compareWithoutCurrent = sorted.filter(d => d.id !== this.selectedIteration);
+
+    let labels: string[] = [];
+    let rates: number[] = [];
+
+    if (compareWithoutCurrent.length > 0) {
+      labels = [...compareWithoutCurrent.map(d => this.shortSprintLabel(d.name)), this.shortSprintLabel(this.selectedIterationName || 'Actual')];
+      rates = [...compareWithoutCurrent.map(d => d.rate), this.filteredEscapedBugs.rate];
     } else {
-      labels = ['Anterior 4', 'Anterior 3', 'Anterior 2', 'Anterior 1', this.selectedIterationName];
+      let defaultLabels = ['S1', 'S2', 'S3', 'S4', 'Actual'];
+      const iterForChart1 = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
+      const sprintText1 = iterForChart1 ? iterForChart1.path : this.selectedIterationName;
+      const match = sprintText1.match(/Sprint\s*(\d+)/i);
+      if (match) {
+        const currentNum = parseInt(match[1]);
+        defaultLabels = [
+          `Sprint ${currentNum - 4}`,
+          `Sprint ${currentNum - 3}`,
+          `Sprint ${currentNum - 2}`,
+          `Sprint ${currentNum - 1}`,
+          `Sprint ${currentNum}`
+        ];
+      } else {
+        defaultLabels = ['Anterior 4', 'Anterior 3', 'Anterior 2', 'Anterior 1', this.selectedIterationName];
+      }
+      labels = defaultLabels;
+      rates = [12.5, 18.2, 8.5, 15.0, this.filteredEscapedBugs.rate];
     }
-    const rates = [12.5, 18.2, 8.5, 15.0, this.filteredEscapedBugs.rate];
 
     this.escapedChart = new Chart(this.escapedChartCanvas.nativeElement, {
       type: 'line',
@@ -4382,6 +4509,59 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  // ── Sprint Comparison for Escaped Bugs ─────────────────────────────────────
+
+  onCompareEscapedToggle(iterationId: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      if (!this.selectedCompareEscapedIterations.includes(iterationId)) {
+        this.selectedCompareEscapedIterations = [...this.selectedCompareEscapedIterations, iterationId];
+      }
+    } else {
+      this.selectedCompareEscapedIterations = this.selectedCompareEscapedIterations.filter(id => id !== iterationId);
+    }
+  }
+
+  clearCompareEscaped() {
+    this.selectedCompareEscapedIterations = [];
+    this.comparedEscapedData = [];
+    this.updateEscapedChart();
+  }
+
+  loadCompareEscaped() {
+    if (this.selectedCompareEscapedIterations.length === 0 || !this.metrics) return;
+    this.isLoadingCompareEscaped = true;
+
+    const observables = this.selectedCompareEscapedIterations.map((id: string) =>
+      this.azureService.getMetrics(id)
+    );
+
+    forkJoin(observables).subscribe({
+      next: (results: any[]) => {
+        this.comparedEscapedData = results.map((m: any, i: number) => {
+          const iterId = this.selectedCompareEscapedIterations[i];
+          const iter = this.iterations.find((it: any) => it.id === iterId);
+          const eb = m?.escapedBugs;
+          let bugsTesting = eb?.bugsTesting ?? 0;
+          let bugsUat = eb?.bugsUat ?? 0;
+          let bugsProd = eb?.bugsProd ?? 0;
+          // Remember: UAT is Production for us.
+          const total = bugsTesting + bugsUat + bugsProd;
+          const rate = total > 0 ? ((bugsProd + bugsUat) / total) * 100 : 0;
+          const status = rate <= 33 ? 'green' : (rate <= 40 ? 'yellow' : 'red');
+          return { id: iterId, name: iter?.name ?? iterId, rate, status };
+        });
+        this.isLoadingCompareEscaped = false;
+        this.updateEscapedChart();
+        this.notificationService.success(`Comparativa de ${results.length} sprint(s) cargada.`);
+      },
+      error: () => {
+        this.isLoadingCompareEscaped = false;
+        this.notificationService.error('Error al cargar métricas de sprints para comparar.');
+      }
+    });
+  }
+
   // ── Sprint Comparison for Defect Density ──────────────────────────────────
 
   onCompareIterationToggle(iterationId: string, event: Event) {
@@ -4505,8 +4685,22 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (lowerSeg.includes('tasa de desarrollo')) this.metricAnalyses['tasa de desarrollo'] = seg.split(']')[1]?.trim();
       if (lowerSeg.includes('tasa de desviación')) this.metricAnalyses['tasa de desviación'] = seg.split(']')[1]?.trim();
       if (lowerSeg.includes('cumplimiento') || lowerSeg.includes('línea de tiempo') || lowerSeg.includes('linea de tiempo') || lowerSeg.includes('sprint timeline')) {
-        const val = seg.split(']')[1]?.trim();
-        if (val) this.metricAnalyses['cumplimiento'] = val;
+        let val = seg.split(']')[1]?.trim();
+        if (val) {
+          const analysisHeaderMatch = val.match(/-\s*Análisis de resultados:?([\s\S]*?)(?=-\s*Acciones correctivas:?|-\s*Análisis acumulado|$)/i);
+          if (analysisHeaderMatch && analysisHeaderMatch[1]) {
+            val = analysisHeaderMatch[1].trim();
+          } else {
+            val = val
+              .replace(/-\s*Meta establecida para el periodo:[^\n]*/gi, '')
+              .replace(/-\s*Resultado del periodo:[^\n]*/gi, '')
+              .replace(/-\s*Análisis de resultados:?/gi, '')
+              .replace(/-\s*Acciones correctivas:?[\s\S]*?(?=-\s*Análisis acumulado|$)/gi, '')
+              .replace(/-\s*Análisis acumulado del periodo:?[\s\S]*/gi, '')
+              .trim();
+          }
+          this.metricAnalyses['cumplimiento'] = val;
+        }
       }
       if (lowerSeg.includes('tasa de retrabajo') || lowerSeg.includes('retrabajo')) {
         const val = seg.split(']')[1]?.trim();
@@ -4535,6 +4729,42 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricAnalyses['pruebas satisfactorias'] = val;
       }
     });
+  }
+
+  formatAnalysisText(text: string, isMetric32: boolean = false): string {
+    if (!text) return '';
+    let formatted = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+      
+    if (isMetric32) {
+      // Find the line/bullet containing "Resultado del periodo" and strip any negative sign before numbers
+      const lines = formatted.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes('resultado del periodo')) {
+          lines[i] = lines[i].replace(/-(\d+(\.\d+)?%?)/g, '$1');
+        }
+      }
+      formatted = lines.join('\n');
+    }
+      
+    const headers = [
+      'Meta establecida para el periodo',
+      'Resultado del periodo',
+      'Análisis de resultados',
+      'Acciones correctivas',
+      'Análisis acumulado del periodo',
+      'Meta acumulada',
+      'Resultado acumulado'
+    ];
+    
+    headers.forEach(h => {
+      const regex = new RegExp(`(-?\\s*|o\\s*)(${h})(:?)`, 'gi');
+      formatted = formatted.replace(regex, '$1<strong>$2</strong>$3');
+    });
+    
+    return formatted.replace(/\n/g, '<br>');
   }
 
   getTestExecutionAnalysis(): string {
