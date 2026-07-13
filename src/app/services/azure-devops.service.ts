@@ -1376,16 +1376,18 @@ export class AzureDevOpsService {
                 allPointsList.forEach(({ plan, suite, points }) => {
                   points.forEach((pt: any) => {
                     // Use the most recent execution date from result history
-                    // Priority: lastResultDetails.dateCompleted > lastRun.completedDate > lastUpdatedDate
+                    // Priority: lastResultDetails.dateCompleted > lastResult.lastUpdatedDate > lastRun.completedDate > lastUpdatedDate
                     const execDate = pt.lastResultDetails?.dateCompleted
                       || pt.lastResultDetails?.dateStarted
+                      || pt.lastResult?.lastUpdatedDate
+                      || pt.lastResult?.dateCompleted
                       || pt.lastRun?.completedDate
                       || pt.lastRun?.dateCompleted
+                      || pt.lastResult?.dateStarted
                       || '';
-                    const configDate = pt.lastUpdatedDate || '';
+                    const configDate = pt.lastUpdatedDate || pt.lastResult?.lastUpdatedDate || '';
 
                     // Use exec date if available, else fall back to config date
-                    // CORRECCIÓN: Se eliminó el duplicado de 'const lastUpdated' previo para evitar el error TS2451
                     const lastUpdated = execDate || configDate;
                     const lastUpdatedTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
 
@@ -1394,23 +1396,21 @@ export class AzureDevOpsService {
                     const planEndStr = plan.endDate || metrics.endDate || '';
 
                     let onTime = false;
+                    let planEndUTC = Infinity;
+                    let planStartUTC = 0;
                     if (lastUpdatedTime > 0) {
-                      let planEndUTC = Infinity;
                       if (planEndStr) {
                         const planEndObj = new Date(planEndStr);
-                        const planEndYear = planEndObj.getUTCFullYear();
-                        const planEndMonth = planEndObj.getUTCMonth();
-                        const planEndDay = planEndObj.getUTCDate();
-                        planEndUTC = Date.UTC(planEndYear, planEndMonth, planEndDay, 18, 0, 0, 0);
+                        // Set time to end of day in local time to match lastUpdated local timezone representation
+                        planEndObj.setHours(23, 59, 59, 999);
+                        planEndUTC = planEndObj.getTime();
                       }
 
-                      let planStartUTC = 0;
                       if (planStartStr) {
                         const planStartObj = new Date(planStartStr);
-                        const planStartYear = planStartObj.getUTCFullYear();
-                        const planStartMonth = planStartObj.getUTCMonth();
-                        const planStartDay = planStartObj.getUTCDate();
-                        planStartUTC = Date.UTC(planStartYear, planStartMonth, planStartDay, 0, 0, 0, 0);
+                        // Set time to start of day in local time
+                        planStartObj.setHours(0, 0, 0, 0);
+                        planStartUTC = planStartObj.getTime();
                       }
 
                       onTime = lastUpdatedTime >= planStartUTC && lastUpdatedTime <= planEndUTC;
@@ -1426,6 +1426,8 @@ export class AzureDevOpsService {
                     if (testerName.includes('<')) {
                       testerName = testerName.split('<')[0].trim();
                     }
+
+                    console.warn(`[DEBUG TEST] Point #${pt.id} - TestCase: "${pt.testCaseTitle || pt.testCase?.name}" - Outcome: ${pt.outcome} - LastUpdated: "${lastUpdated}" (${lastUpdatedTime}) - PlanWindow: [${planStartStr} (${planStartUTC}) - ${planEndStr} (${planEndUTC})] - Evaluated onTime: ${onTime}`);
 
                     // Include ALL test points from the sprint's plan (the plan membership IS the sprint filter)
                     allPoints.push({
