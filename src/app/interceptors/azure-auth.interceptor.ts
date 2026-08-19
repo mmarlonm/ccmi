@@ -6,7 +6,7 @@ export const azureAuthInterceptor: HttpInterceptorFn = (req, next) => {
   const configService = inject(ConfigService);
   const config = configService.getConfig();
 
-  if (config && config.azure.pat && req.url.includes('dev.azure.com')) {
+  if (config && config.azure.pat && (req.url.includes('dev.azure.com') || req.url.includes('visualstudio.com'))) {
     // Basic Auth with empty username and PAT as password
     const authHeader = 'Basic ' + btoa(':' + config.azure.pat);
     const authReq = req.clone({

@@ -1,0 +1,745 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, of, switchMap, map, catchError, forkJoin } from 'rxjs';
+import { ConfigService } from './config.service';
+
+export interface AdoOrganization {
+  id: string;
+  name: string;
+}
+
+export interface AdoProject {
+  id: string;
+  name: string;
+}
+
+export interface AdoTeam {
+  id: string;
+  name: string;
+}
+
+export interface AdoSprint {
+  id: string;
+  name: string;
+  path: string;
+  startDate: string | null;
+  finishDate: string | null;
+}
+
+export interface SprintHierarchyNode {
+  id: number;
+  type: string;
+  title: string;
+  parentId: number | null;
+  missingParent: boolean;
+  childIds: number[];
+  originalEstimate: number;
+  completedWork: number;
+  activatedDate: string | null;
+  closedDate: string | null;
+  assignedToName: string;
+  assignedToAvatarUrl: string | null;
+  webUrl: string;
+}
+
+interface WorkItemWithRelations {
+  id: number;
+  fields: Record<string, unknown>;
+}
+
+interface RelationEdge {
+  source: number;
+  target: number;
+  rel: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class SprintGanttService {
+  private http = inject(HttpClient);
+  private configService = inject(ConfigService);
+
+  private getHeaders(): HttpHeaders {
+    const config = this.configService.getConfig();
+    const token = btoa(`:${config?.azure.pat || ''}`);
+    return new HttpHeaders({
+      Authorization: `Basic ${token}`,
+      'Content-Type': 'application/json'
+    });
+  }
+
+  hasPatConfigured(): boolean {
+    const config = this.configService.getConfig();
+    return Boolean(config?.azure.pat);
+  }
+
+  getDefaultOrganization(): string {
+    return this.configService.getConfig()?.azure.organization || '';
+  }
+
+  getDefaultProject(): string {
+    return this.configService.getConfig()?.azure.project || '';
+  }
+
+  getOrganizations(): Observable<AdoOrganization[]> {
+    if (!this.hasPatConfigured()) {
+      return of([]);
+    }
+
+    const profileUrl = 'https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=7.0';
+    const accountsBaseUrl = 'https://app.vssps.visualstudio.com/_apis/accounts';
+
+    return this.http.get<{ id?: string }>(profileUrl, { headers: this.getHeaders() }).pipe(
+      switchMap(profile => {
+        if (!profile.id) {
+          return of([]);
+        }
+
+        const accountsUrl = `${accountsBaseUrl}?memberId=${encodeURIComponent(profile.id)}&api-version=7.0`;
+        return this.http.get<{ value?: Array<{ accountId?: string; accountName?: string }> }>(accountsUrl, { headers: this.getHeaders() }).pipe(
+          map(res => {
+            const orgs = (res.value || [])
+              .map(org => ({
+                id: org.accountId || org.accountName || '',
+                name: org.accountName || ''
+              }))
+              .filter(org => Boolean(org.name));
+
+            const unique = new Map<string, AdoOrganization>();
+            orgs.forEach(org => unique.set(org.name.toLowerCase(), org));
+            return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name));
+          })
+        );
+      }),
+      catchError(() => {
+        const fallbackOrg = this.getDefaultOrganization();
+        if (!fallbackOrg) {
+          return of([]);
+        }
+        return of([{ id: fallbackOrg, name: fallbackOrg }]);
+      })
+    );
+  }
+
+  getProjects(organization: string): Observable<AdoProject[]> {
+    if (!organization) {
+      return of([]);
+    }
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=7.0`;
+    return this.http.get<{ value?: Array<{ id?: string; name?: string }> }>(url, { headers: this.getHeaders() }).pipe(
+      map(res => (res.value || [])
+        .map(project => ({ id: project.id || project.name || '', name: project.name || '' }))
+        .filter(project => Boolean(project.id && project.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  getTeams(organization: string, projectId: string): Observable<AdoTeam[]> {
+    if (!organization || !projectId) {
+      return of([]);
+    }
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects/${encodeURIComponent(projectId)}/teams?api-version=7.0`;
+    return this.http.get<{ value?: Array<{ id?: string; name?: string }> }>(url, { headers: this.getHeaders() }).pipe(
+      map(res => (res.value || [])
+        .map(team => ({ id: team.id || '', name: team.name || '' }))
+        .filter(team => Boolean(team.id && team.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  getSprints(organization: string, projectName: string, teamId: string): Observable<AdoSprint[]> {
+    if (!organization || !projectName || !teamId) {
+      return of([]);
+    }
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations?api-version=7.0`;
+    return this.http.get<{ value?: Array<{ id?: string; name?: string; path?: string; attributes?: { startDate?: string; finishDate?: string } }> }>(url, { headers: this.getHeaders() }).pipe(
+      map(res => (res.value || [])
+        .map(sprint => ({
+          id: sprint.id || '',
+          name: sprint.name || '',
+          path: sprint.path || '',
+          startDate: sprint.attributes?.startDate || null,
+          finishDate: sprint.attributes?.finishDate || null
+        }))
+        .filter(sprint => Boolean(sprint.id && sprint.name))
+        .sort((a, b) => {
+          const aStart = a.startDate ? new Date(a.startDate).getTime() : Number.MAX_SAFE_INTEGER;
+          const bStart = b.startDate ? new Date(b.startDate).getTime() : Number.MAX_SAFE_INTEGER;
+          return aStart - bStart;
+        })
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  getSprintDateRange(organization: string, projectName: string, teamId: string, sprintId: string): Observable<{ startDate: string | null; finishDate: string | null }> {
+    if (!organization || !projectName || !teamId || !sprintId) {
+      return of({ startDate: null, finishDate: null });
+    }
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${encodeURIComponent(sprintId)}?api-version=7.0`;
+    return this.http.get<{ attributes?: { startDate?: string; finishDate?: string } }>(url, { headers: this.getHeaders() }).pipe(
+      map(res => ({
+        startDate: res.attributes?.startDate || null,
+        finishDate: res.attributes?.finishDate || null
+      })),
+      catchError(() => of({ startDate: null, finishDate: null }))
+    );
+  }
+
+  getSprintHierarchyNodes(organization: string, projectName: string, teamId: string, sprintId: string, sprintPath: string): Observable<SprintHierarchyNode[]> {
+    if (!organization || !projectName || !teamId || !sprintId) {
+      return of([]);
+    }
+
+    const sprintItemsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${encodeURIComponent(sprintId)}/workitems?api-version=7.0`;
+    return forkJoin({
+      relationsRes: this.http.get<{ workItemRelations?: Array<{ rel?: string; source?: { id?: number; url?: string }; target?: { id?: number; url?: string } }> }>(
+        sprintItemsUrl,
+        { headers: this.getHeaders() }
+      ).pipe(
+        catchError(() => of({ workItemRelations: [] }))
+      ),
+      resolvedSprintPath: this.resolveSprintPath(organization, projectName, teamId, sprintId, sprintPath)
+    }).pipe(
+      switchMap(({ relationsRes, resolvedSprintPath }) => this.getSprintWorkItemIdsByWiql(organization, projectName, resolvedSprintPath).pipe(
+        map(wiqlIds => ({ res: relationsRes, wiqlIds }))
+      )),
+      switchMap(({ res, wiqlIds }) => {
+        const relations = res.workItemRelations || [];
+        const idSet = new Set<number>();
+
+        relations.forEach(rel => {
+          if (rel.source?.id) {
+            idSet.add(rel.source.id);
+          }
+          if (rel.target?.id) {
+            idSet.add(rel.target.id);
+          }
+          const sourceFromUrl = this.extractIdFromUrl(rel.source?.url || '');
+          const targetFromUrl = this.extractIdFromUrl(rel.target?.url || '');
+          if (sourceFromUrl) {
+            idSet.add(sourceFromUrl);
+          }
+          if (targetFromUrl) {
+            idSet.add(targetFromUrl);
+          }
+        });
+        wiqlIds.forEach(id => idSet.add(id));
+
+        const ids = Array.from(idSet.values()).sort((a, b) => a - b);
+        if (ids.length === 0) {
+          return of([]);
+        }
+
+        const fields = [
+          'System.Id',
+          'System.WorkItemType',
+          'System.Title',
+          'System.Parent',
+          'System.AssignedTo',
+          'Microsoft.VSTS.Scheduling.OriginalEstimate',
+          'Microsoft.VSTS.Scheduling.CompletedWork',
+          'Microsoft.VSTS.Common.ActivatedDate',
+          'Microsoft.VSTS.Common.ClosedDate'
+        ];
+        return this.getWorkItemsWithAncestorsAndRelated(organization, projectName, ids, fields).pipe(
+          switchMap(items => this.getWorkItemRelationEdges(organization, projectName, items.map(item => item.id)).pipe(
+            map(extraEdges => this.buildHierarchy(items, relations, extraEdges, organization, projectName))
+          ))
+        );
+      }),
+      catchError(() => of([]))
+    );
+  }
+
+  private getSprintWorkItemIdsByWiql(
+    organization: string,
+    projectName: string,
+    sprintPath: string
+  ): Observable<number[]> {
+    if (!sprintPath) {
+      return of([]);
+    }
+    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/wiql?api-version=7.0`;
+    const projectEscaped = projectName.replace(/'/g, "''");
+    const pathCandidates = this.buildIterationPathCandidates(sprintPath, projectName);
+    if (pathCandidates.length === 0) {
+      return of([]);
+    }
+
+    const whereByPath = pathCandidates.map(path => {
+      const escapedPath = path.replace(/'/g, "''");
+      return `([System.IterationPath] = '${escapedPath}' OR [System.IterationPath] UNDER '${escapedPath}')`;
+    }).join(' OR ');
+
+    const queryWithProject = `
+      SELECT [System.Id]
+      FROM WorkItems
+      WHERE [System.TeamProject] = '${projectEscaped}'
+        AND (${whereByPath})
+    `;
+    const queryWithoutProject = `
+      SELECT [System.Id]
+      FROM WorkItems
+      WHERE (${whereByPath})
+    `;
+
+    const extractIds = (res: { workItems?: Array<{ id?: number }> }): number[] => {
+      return (res.workItems || [])
+        .map(item => item.id || 0)
+        .filter(id => id > 0);
+    };
+
+    return this.http.post<{ workItems?: Array<{ id?: number }> }>(
+      wiqlUrl,
+      { query: queryWithProject },
+      { headers: this.getHeaders() }
+    ).pipe(
+      map(extractIds),
+      switchMap(ids => {
+        if (ids.length > 0) {
+          return of(ids);
+        }
+        return this.http.post<{ workItems?: Array<{ id?: number }> }>(
+          wiqlUrl,
+          { query: queryWithoutProject },
+          { headers: this.getHeaders() }
+        ).pipe(
+          map(extractIds)
+        );
+      }),
+      catchError(() => of([]))
+    );
+  }
+
+  private buildIterationPathCandidates(sprintPath: string, projectName: string): string[] {
+    const project = projectName.trim();
+    const raw = sprintPath.trim().replace(/\//g, '\\');
+    if (!raw) {
+      return [];
+    }
+
+    const cleaned = raw.replace(/^\\+/, '').replace(/\\+/g, '\\');
+    const candidates = new Set<string>();
+    candidates.add(cleaned);
+
+    if (project) {
+      const projectPrefix = `${project}\\`;
+      if (!cleaned.toLowerCase().startsWith(projectPrefix.toLowerCase())) {
+        candidates.add(`${projectPrefix}${cleaned}`);
+      }
+    }
+
+    const firstSlash = cleaned.indexOf('\\');
+    if (firstSlash > 0 && firstSlash < cleaned.length - 1) {
+      const withoutFirstSegment = cleaned.slice(firstSlash + 1);
+      candidates.add(withoutFirstSegment);
+      if (project && !withoutFirstSegment.toLowerCase().startsWith(`${project.toLowerCase()}\\`)) {
+        candidates.add(`${project}\\${withoutFirstSegment}`);
+      }
+    }
+
+    return Array.from(candidates.values()).filter(path => path.length > 0);
+  }
+
+  private resolveSprintPath(
+    organization: string,
+    projectName: string,
+    teamId: string,
+    sprintId: string,
+    fallbackPath: string
+  ): Observable<string> {
+    const cleanedFallback = (fallbackPath || '').trim();
+    if (cleanedFallback) {
+      return of(cleanedFallback);
+    }
+
+    const teamSprintUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${encodeURIComponent(sprintId)}?api-version=7.0`;
+    return this.http.get<{ path?: string; name?: string }>(teamSprintUrl, { headers: this.getHeaders() }).pipe(
+      switchMap(teamSprint => {
+        const fromTeam = (teamSprint.path || '').trim();
+        if (fromTeam) {
+          return of(fromTeam);
+        }
+        return this.resolveSprintPathFromClassification(organization, projectName, sprintId).pipe(
+          map(path => path || (teamSprint.name || ''))
+        );
+      }),
+      catchError(() => this.resolveSprintPathFromClassification(organization, projectName, sprintId).pipe(
+        map(path => path || '')
+      ))
+    );
+  }
+
+  private resolveSprintPathFromClassification(
+    organization: string,
+    projectName: string,
+    sprintId: string
+  ): Observable<string> {
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/classificationnodes/Iterations?$depth=10&api-version=7.0`;
+    return this.http.get<any>(url, { headers: this.getHeaders() }).pipe(
+      map(root => {
+        const queue: any[] = [root];
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (!current) {
+            continue;
+          }
+          if ((current.identifier || '') === sprintId) {
+            return String(current.path || '').trim();
+          }
+          const children: any[] = Array.isArray(current.children) ? current.children : [];
+          children.forEach((child: any) => queue.push(child));
+        }
+        return '';
+      }),
+      catchError(() => of(''))
+    );
+  }
+
+  private getWorkItemsWithAncestorsAndRelated(
+    organization: string,
+    projectName: string,
+    initialIds: number[],
+    fields: string[],
+    maxDepth: number = 5
+  ): Observable<WorkItemWithRelations[]> {
+    const visited = new Set<number>();
+    const collected = new Map<number, WorkItemWithRelations>();
+
+    const loadLevel = (ids: number[], depth: number): Observable<WorkItemWithRelations[]> => {
+      const pendingIds = ids.filter(id => !visited.has(id));
+      pendingIds.forEach(id => visited.add(id));
+      if (pendingIds.length === 0) {
+        return of(Array.from(collected.values()));
+      }
+
+      return this.getWorkItemsBatch(organization, projectName, pendingIds, fields).pipe(
+        switchMap(items => {
+          items.forEach(item => collected.set(item.id, item));
+          if (depth >= maxDepth) {
+            return of(Array.from(collected.values()));
+          }
+
+          const nextIds = new Set<number>();
+          items.forEach(item => {
+            const parentId = this.toNumber(item.fields['System.Parent']);
+            if (parentId > 0 && !visited.has(parentId)) {
+              nextIds.add(parentId);
+            }
+          });
+
+          if (nextIds.size === 0) {
+            return of(Array.from(collected.values()));
+          }
+          return loadLevel(Array.from(nextIds.values()), depth + 1);
+        })
+      );
+    };
+
+    return loadLevel(initialIds, 0);
+  }
+
+  private getWorkItemRelationEdges(
+    organization: string,
+    projectName: string,
+    ids: number[]
+  ): Observable<RelationEdge[]> {
+    if (ids.length === 0) {
+      return of([]);
+    }
+
+    const chunks: number[][] = [];
+    const chunkSize = 200;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      chunks.push(ids.slice(i, i + chunkSize));
+    }
+
+    const requests = chunks.map(chunk => {
+      const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/workitemsbatch?api-version=7.0`;
+      return this.http.post<{ value?: Array<{ id?: number; relations?: Array<{ rel?: string; url?: string }> }> }>(
+        url,
+        { ids: chunk, errorPolicy: 'omit', $expand: 'relations' },
+        { headers: this.getHeaders() }
+      ).pipe(
+        map(res => {
+          const edges: RelationEdge[] = [];
+          (res.value || []).forEach(item => {
+            const sourceId = item.id || 0;
+            if (!sourceId) {
+              return;
+            }
+            (item.relations || []).forEach(rel => {
+              const relType = rel.rel || '';
+              const targetId = this.extractIdFromUrl(rel.url || '');
+              if (!targetId || !relType) {
+                return;
+              }
+              if (!relType.includes('Related') && !relType.includes('Hierarchy')) {
+                return;
+              }
+              edges.push({ source: sourceId, target: targetId, rel: relType });
+            });
+          });
+          return edges;
+        }),
+        catchError(() => of([]))
+      );
+    });
+
+    return forkJoin(requests).pipe(
+      map(all => all.flat())
+    );
+  }
+
+  private getWorkItemsBatch(
+    organization: string,
+    projectName: string,
+    ids: number[],
+    fields: string[]
+  ): Observable<WorkItemWithRelations[]> {
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/workitemsbatch?api-version=7.0`;
+    return this.http.post<{ value?: WorkItemWithRelations[] }>(
+      url,
+      { ids, fields, errorPolicy: 'omit' },
+      { headers: this.getHeaders() }
+    ).pipe(
+      map(res => res.value || []),
+      catchError(() => of([]))
+    );
+  }
+
+  private buildHierarchy(
+    items: WorkItemWithRelations[],
+    relations: Array<{ rel?: string; source?: { id?: number }; target?: { id?: number } }>,
+    extraEdges: RelationEdge[],
+    organization: string,
+    projectName: string
+  ): SprintHierarchyNode[] {
+    const nodeMap = new Map<number, SprintHierarchyNode>();
+
+    items.forEach(item => {
+      const assignedTo = item.fields['System.AssignedTo'] as
+        | { displayName?: string; imageUrl?: string; _links?: { avatar?: { href?: string } } }
+        | string
+        | undefined;
+
+      const assignedToName = typeof assignedTo === 'string'
+        ? assignedTo
+        : (assignedTo?.displayName || 'Sin asignar');
+
+      const assignedToAvatarUrl = typeof assignedTo === 'object'
+        ? (assignedTo?.imageUrl || assignedTo?._links?.avatar?.href || null)
+        : null;
+
+      nodeMap.set(item.id, {
+        id: item.id,
+        type: String(item.fields['System.WorkItemType'] || 'Unknown'),
+        title: String(item.fields['System.Title'] || ''),
+        parentId: null,
+        missingParent: false,
+        childIds: [],
+        originalEstimate: this.toNumber(item.fields['Microsoft.VSTS.Scheduling.OriginalEstimate']),
+        completedWork: this.toNumber(item.fields['Microsoft.VSTS.Scheduling.CompletedWork']),
+        activatedDate: this.toNullableIso(item.fields['Microsoft.VSTS.Common.ActivatedDate']),
+        closedDate: this.toNullableIso(item.fields['Microsoft.VSTS.Common.ClosedDate']),
+        assignedToName,
+        assignedToAvatarUrl,
+        webUrl: `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${item.id}`
+      });
+    });
+
+    const relationEdges: RelationEdge[] = [];
+    relations.forEach(rel => {
+      const source = rel.source?.id;
+      const target = rel.target?.id;
+      if (!source || !target || !rel.rel) {
+        return;
+      }
+      relationEdges.push({ source, target, rel: rel.rel });
+    });
+    relationEdges.push(...extraEdges);
+
+    const parentByChild = new Map<number, number>();
+    const relatedPairs: Array<{ source: number; target: number }> = [];
+    relationEdges.forEach(edge => {
+      if (edge.rel.includes('Hierarchy-Forward')) {
+        const source = edge.source;
+        const target = edge.target;
+        if (!parentByChild.has(target)) {
+          parentByChild.set(target, source);
+        }
+      } else if (edge.rel.includes('Hierarchy-Reverse')) {
+        const source = edge.source;
+        const target = edge.target;
+        if (!parentByChild.has(source)) {
+          parentByChild.set(source, target);
+        }
+      } else if (edge.rel.includes('Related')) {
+        relatedPairs.push({ source: edge.source, target: edge.target });
+      }
+    });
+
+    nodeMap.forEach(node => {
+      const parentFromRelation = parentByChild.get(node.id);
+      const parentFromField = this.toNumber(items.find(i => i.id === node.id)?.fields['System.Parent']);
+      const resolvedParent = parentFromRelation || parentFromField || null;
+
+      if (resolvedParent && nodeMap.has(resolvedParent)) {
+        node.parentId = resolvedParent;
+      } else if (resolvedParent && !nodeMap.has(resolvedParent)) {
+        node.parentId = null;
+        node.missingParent = true;
+      }
+    });
+
+    const walkUpToItemParent = (startId: number): number | null => {
+      const visited = new Set<number>();
+      let currentId: number | null = startId;
+      while (currentId) {
+        if (visited.has(currentId)) {
+          break;
+        }
+        visited.add(currentId);
+        const currentNode = nodeMap.get(currentId);
+        if (!currentNode) {
+          return null;
+        }
+        if (this.isFeatureOrUserStoryType(currentNode.type)) {
+          return currentNode.id;
+        }
+        currentId = currentNode.parentId;
+      }
+      return null;
+    };
+
+    relatedPairs.forEach(pair => {
+      const sourceNode = nodeMap.get(pair.source);
+      const targetNode = nodeMap.get(pair.target);
+      if (!sourceNode || !targetNode) {
+        return;
+      }
+
+      if (this.isBugType(sourceNode.type) && !this.isTaskType(targetNode.type) && !this.isBugType(targetNode.type)) {
+        sourceNode.parentId = targetNode.id;
+        sourceNode.missingParent = false;
+      } else if (this.isBugType(targetNode.type) && !this.isTaskType(sourceNode.type) && !this.isBugType(sourceNode.type)) {
+        targetNode.parentId = sourceNode.id;
+        targetNode.missingParent = false;
+      }
+    });
+
+    nodeMap.forEach(node => {
+      if (this.isBugType(node.type) && node.parentId) {
+        const itemParentId = walkUpToItemParent(node.parentId);
+        if (itemParentId) {
+          node.parentId = itemParentId;
+          node.missingParent = false;
+        }
+      }
+    });
+
+    const resolveVisibleParent = (startId: number | null): number | null => {
+      const visited = new Set<number>();
+      let currentId = startId;
+      while (currentId) {
+        if (visited.has(currentId)) {
+          break;
+        }
+        visited.add(currentId);
+        const currentNode = nodeMap.get(currentId);
+        if (!currentNode) {
+          return null;
+        }
+        if (!this.isDiscardedTopType(currentNode.type)) {
+          return currentNode.id;
+        }
+        currentId = currentNode.parentId;
+      }
+      return null;
+    };
+
+    nodeMap.forEach(node => {
+      node.parentId = resolveVisibleParent(node.parentId);
+    });
+
+    nodeMap.forEach(node => {
+      node.childIds = [];
+    });
+
+    nodeMap.forEach(node => {
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId)?.childIds.push(node.id);
+      }
+    });
+
+    const nodes = Array.from(nodeMap.values());
+    nodes.forEach(node => {
+      node.childIds.sort((a, b) => a - b);
+    });
+
+    return nodes
+      .filter(node => !this.isDiscardedTopType(node.type))
+      .sort((a, b) => a.id - b.id);
+  }
+
+  private extractIdFromUrl(url: string): number | null {
+    if (!url) {
+      return null;
+    }
+    const match = url.match(/workItems\/(\d+)/i);
+    if (!match) {
+      return null;
+    }
+    return Number(match[1]);
+  }
+
+  private toNumber(value: unknown): number {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  }
+
+  private toNullableIso(value: unknown): string | null {
+    if (typeof value !== 'string' || !value.trim()) {
+      return null;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  }
+
+  private isTaskType(type: string): boolean {
+    return type.trim().toLowerCase() === 'task';
+  }
+
+  private isBugType(type: string): boolean {
+    return type.trim().toLowerCase() === 'bug';
+  }
+
+  private isFeatureOrUserStoryType(type: string): boolean {
+    const normalized = type.trim().toLowerCase();
+    return normalized === 'feature' || normalized === 'user story';
+  }
+
+  private isDiscardedTopType(type: string): boolean {
+    const normalized = type.trim().toLowerCase();
+    return normalized === 'epic' || normalized === 'issue';
+  }
+}

@@ -14,6 +14,7 @@ export const routes: Routes = [
       { path: 'update', component: UpdateComponent },
       { path: 'report-completion', loadComponent: () => import('./pages/report-completion/report-completion.component').then(m => m.ReportCompletionComponent) },
       { path: 'kpi-report', loadComponent: () => import('./pages/kpi-report/kpi-report.component').then(m => m.KpiReportComponent) },
+      { path: 'sprint-gantt', loadComponent: () => import('./pages/sprint-gantt/sprint-gantt.component').then(m => m.SprintGanttComponent) },
       { path: 'config', component: ConfigComponent },
       { path: 'sprint-config', loadComponent: () => import('./pages/sprint-config/sprint-config.component').then(m => m.SprintConfigComponent) }
     ]
