@@ -7,9 +7,16 @@ import {
   AdoTeam,
   AdoSprint,
   SprintGanttService,
-  SprintHierarchyNode
+  SprintHierarchyNode,
+  SprintAssignmentEvent
 } from '../../services/sprint-gantt.service';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
+import { SprintGanttBaselineService } from '../../services/sprint-gantt-baseline.service';
+import { AIService, GanttAiInput } from '../../services/ai.service';
+import {
+  SprintBaselineParseResult,
+  SprintPersonComparisonSummary
+} from '../../models/sprint-gantt-baseline.model';
 
 interface SprintDay {
   date: Date;
@@ -39,15 +46,85 @@ interface WorkflowPlanResult {
   startByTaskId: Map<number, number>;
 }
 
+interface BaselineSummary {
+  totalRows: number;
+  matchedRows: number;
+  unmatchedRows: number;
+  matchedOnTime: number;
+  matchedLate: number;
+}
+
+interface BaselineComparisonNode {
+  startKey: string;
+  endKey: string;
+  plannedPeople: string[];
+  hasLateEnd: boolean;
+}
+
+interface CachedGanttAiAnalysis {
+  baselineSignature: string;
+  text: string;
+}
+
+interface TaskStageAggregate {
+  stage: string;
+  plannedHours: number;
+  realHours: number;
+  taskCount: number;
+}
+
 @Component({
   selector: 'app-sprint-gantt',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
 <div class="max-w-[1800px] mx-auto space-y-6 pt-4 md:pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-  <header>
-    <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Seguimiento de Sprint - Gantt</h2>
-    <p class="text-slate-500 dark:text-slate-400 mt-1">Comparación de horas planificadas vs horas reales por work item.</p>
+  <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-4 -mx-2 md:-mx-2.5 px-2 md:px-2.5 shadow-md transition-all duration-300">
+    <div class="shrink-0">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Seguimiento de Sprint - Gantt</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1 text-xs">Comparación de planeado (Excel) vs real (Azure DevOps).</p>
+    </div>
+
+    <div class="flex flex-col items-end gap-1.5 w-full md:w-auto shrink-0">
+      <div class="flex flex-row items-center gap-2 md:gap-3 justify-end w-full shrink-0 flex-wrap">
+        <select class="glass-input text-xs font-medium w-36 md:w-40 shrink-0" [(ngModel)]="selectedOrganization" (ngModelChange)="onOrganizationChange()">
+          <option value="">Organización</option>
+          <option *ngFor="let org of organizations" [value]="org.name">{{ org.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-36 shrink-0" [(ngModel)]="selectedProjectId" (ngModelChange)="onProjectChange()" [disabled]="!selectedOrganization">
+          <option value="">Proyecto</option>
+          <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-36 shrink-0" [(ngModel)]="selectedTeamId" (ngModelChange)="onTeamChange()" [disabled]="!selectedProjectId">
+          <option value="">Team</option>
+          <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-36 shrink-0" [(ngModel)]="selectedSprintId" (ngModelChange)="onSprintChange()" [disabled]="!selectedTeamId">
+          <option value="">Sprint</option>
+          <option *ngFor="let sprint of sprints" [value]="sprint.id">{{ sprint.name }}</option>
+        </select>
+
+        <div class="flex items-center gap-2 shrink-0 bg-slate-200/50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/40 dark:border-slate-700/50 h-[38px] box-border">
+          <button (click)="loadGanttData()" [disabled]="!canLoadGantt || loadingData"
+            class="glass-button flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px]">
+            {{ loadingData ? 'Cargando...' : 'Cargar' }}
+          </button>
+          <label class="glass-button cursor-pointer flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px]" [class.opacity-60]="loadingData">
+            Excel
+            <input type="file" accept=".xlsx,.xls" class="hidden" (change)="onBaselineFileSelected($event)" [disabled]="loadingData">
+          </label>
+          <button (click)="runComparisonAnalysis()" [disabled]="!canGenerateComparisonAnalysis"
+            class="glass-button flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white">
+            {{ isAnalyzingComparison ? 'Analizando...' : 'Analizar IA' }}
+          </button>
+        </div>
+      </div>
+      <div class="text-[11px] mr-1 flex items-center gap-3">
+        <span *ngIf="loadingCatalogs" class="text-slate-500 dark:text-slate-400">Actualizando catálogos...</span>
+        <span *ngIf="errorMessage" class="text-red-600 dark:text-red-400">{{ errorMessage }}</span>
+        <span *ngIf="baselineFileName" class="text-slate-500 dark:text-slate-400">Baseline: <strong>{{ baselineFileName }}</strong></span>
+      </div>
+    </div>
   </header>
 
   <section class="glass-card space-y-4">
@@ -55,43 +132,64 @@ interface WorkflowPlanResult {
       Configura un PAT en la sección de Configuración para cargar datos de Azure DevOps.
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-      <div>
-        <label class="block text-sm font-medium mb-1.5 opacity-70">Organización</label>
-        <select class="glass-input w-full" [(ngModel)]="selectedOrganization" (ngModelChange)="onOrganizationChange()">
-          <option value="">-- Selecciona organización --</option>
-          <option *ngFor="let org of organizations" [value]="org.name">{{ org.name }}</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium mb-1.5 opacity-70">Proyecto</label>
-        <select class="glass-input w-full" [(ngModel)]="selectedProjectId" (ngModelChange)="onProjectChange()" [disabled]="!selectedOrganization">
-          <option value="">-- Selecciona proyecto --</option>
-          <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium mb-1.5 opacity-70">Team</label>
-        <select class="glass-input w-full" [(ngModel)]="selectedTeamId" (ngModelChange)="onTeamChange()" [disabled]="!selectedProjectId">
-          <option value="">-- Selecciona team --</option>
-          <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium mb-1.5 opacity-70">Sprint</label>
-        <select class="glass-input w-full" [(ngModel)]="selectedSprintId" (ngModelChange)="onSprintChange()" [disabled]="!selectedTeamId">
-          <option value="">-- Selecciona sprint --</option>
-          <option *ngFor="let sprint of sprints" [value]="sprint.id">{{ sprint.name }}</option>
-        </select>
+    <div *ngIf="baselineFileName" class="rounded-lg border border-slate-200/70 dark:border-slate-700/70 overflow-hidden">
+      <button
+        class="w-full px-3 py-2 text-left text-sm font-medium bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between"
+        (click)="toggleBaselinePanel()">
+        <span>Resumen de Excel: <strong>{{ baselineFileName }}</strong></span>
+        <span>{{ isBaselinePanelCollapsed ? 'Mostrar' : 'Ocultar' }}</span>
+      </button>
+      <div *ngIf="!isBaselinePanelCollapsed" class="p-3 space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div *ngIf="baselineSummary.totalRows > 0">
+          Filas Excel: <strong>{{ baselineSummary.totalRows }}</strong> |
+          Match ADO: <strong>{{ baselineSummary.matchedRows }}</strong> |
+          Sin match: <strong>{{ baselineSummary.unmatchedRows }}</strong> |
+          En tiempo: <strong>{{ baselineSummary.matchedOnTime }}</strong> |
+          Atrasadas: <strong>{{ baselineSummary.matchedLate }}</strong>
+        </div>
+        <div *ngIf="baselineWarnings.length > 0" class="text-amber-600 dark:text-amber-300">
+          Avisos de importación: {{ baselineWarnings.length }}
+        </div>
+        <div *ngIf="personComparison.length > 0" class="overflow-auto border border-slate-200/70 dark:border-slate-700/70 rounded-lg">
+          <table class="min-w-[680px] w-full text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800/60">
+              <tr>
+                <th class="text-left px-3 py-2">Persona</th>
+                <th class="text-right px-3 py-2">Planeado (marcas)</th>
+                <th class="text-right px-3 py-2">Planeado (items)</th>
+                <th class="text-right px-3 py-2">Real (asignaciones)</th>
+                <th class="text-right px-3 py-2">Real (items)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let person of personComparison" class="border-t border-slate-200/60 dark:border-slate-700/60">
+                <td class="px-3 py-2">{{ person.person }}</td>
+                <td class="px-3 py-2 text-right">{{ person.plannedMarks }}</td>
+                <td class="px-3 py-2 text-right">{{ person.plannedItems }}</td>
+                <td class="px-3 py-2 text-right">{{ person.realAssignments }}</td>
+                <td class="px-3 py-2 text-right">{{ person.realItems }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="flex items-center gap-3">
-      <button class="glass-button" (click)="loadGanttData()" [disabled]="!canLoadGantt || loadingData">
-        {{ loadingData ? 'Cargando...' : 'Cargar Gantt' }}
-      </button>
-      <span *ngIf="loadingCatalogs" class="text-sm text-slate-500 dark:text-slate-400">Actualizando catálogos...</span>
-      <span *ngIf="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</span>
+  <section *ngIf="comparisonAnalysisText" class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-600 overflow-visible shadow-lg animate-in fade-in duration-500">
+    <div class="p-5 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">Análisis IA: Real vs Planeado</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Diagnóstico ejecutivo del sprint basado en baseline Excel y ejecución real en ADO.</p>
+        </div>
+        <button class="glass-button !text-[11px] !py-1.5 !px-2.5" (click)="copyComparisonAnalysis()">
+          {{ comparisonAnalysisCopied ? 'Copiado' : 'Copiar análisis' }}
+        </button>
+      </div>
+      <div class="rounded-xl border border-indigo-200/70 dark:border-indigo-700/60 bg-indigo-50/50 dark:bg-indigo-900/20 p-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+        {{ comparisonAnalysisText }}
+      </div>
     </div>
   </section>
 
@@ -103,12 +201,12 @@ interface WorkflowPlanResult {
       </div>
       <div class="flex items-center gap-4">
         <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
-          <input type="checkbox" class="accent-indigo-600" [(ngModel)]="showPlannedTime">
-          <span>Planeado</span>
-        </label>
-        <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
           <input type="checkbox" class="accent-emerald-600" [(ngModel)]="showCompletedTime">
           <span>Completado</span>
+        </label>
+        <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer" *ngIf="baselineFileName">
+          <input type="checkbox" class="accent-amber-600" [(ngModel)]="showBaselineTime">
+          <span>Excel</span>
         </label>
       </div>
     </div>
@@ -202,14 +300,14 @@ interface WorkflowPlanResult {
               <div *ngFor="let day of sprintDays" class="border-l border-slate-200/40 dark:border-slate-700/40"></div>
             </div>
 
-            <div *ngIf="showPlannedTime" class="absolute top-[8px] h-3 rounded-full bg-blue-500/90"
-              [style.left.%]="getPlanBarLeftPct(row.node)"
-              [style.width.%]="getPlanBarWidthPct(row.node)"
-              [title]="'Planeado: ' + (getPlannedHours(row.node.id) | number:'1.0-1') + 'h'">
+            <div *ngIf="showBaselineTime && hasBaselineForNode(row.node.id)" class="absolute top-[12px] h-2 rounded-full bg-amber-500/90"
+              [style.left.%]="getBaselineBarLeftPct(row.node.id)"
+              [style.width.%]="getBaselineBarWidthPct(row.node.id)"
+              [title]="getBaselineBarTitle(row.node.id)">
             </div>
 
             <div *ngIf="showCompletedTime"
-              class="absolute top-[30px] h-3 rounded-full"
+              class="absolute top-[22px] h-3 rounded-full"
               [ngClass]="getCompletedBarClass(row.node)"
               [style.left.%]="getRealBarLeftPct(row.node)"
               [style.width.%]="getRealBarWidthPct(row.node)"
@@ -231,6 +329,8 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
   private readonly mexicoTimeZone = 'America/Mexico_City';
   private readonly administrativeNodeId = -1;
   private sprintGanttService = inject(SprintGanttService);
+  private baselineService = inject(SprintGanttBaselineService);
+  private aiService = inject(AIService);
 
   hasPatConfigured = false;
   loadingCatalogs = false;
@@ -276,11 +376,38 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
   private resizeStartWidth = 420;
   private moveListener: ((event: MouseEvent) => void) | null = null;
   private upListener: ((event: MouseEvent) => void) | null = null;
-  showPlannedTime = false;
   showCompletedTime = true;
+  showBaselineTime = true;
+  isBaselinePanelCollapsed = true;
+  isAnalyzingComparison = false;
+  comparisonAnalysisText = '';
+  comparisonAnalysisCopied = false;
+  baselineFileName = '';
+  baselineWarnings: string[] = [];
+  baselineSummary: BaselineSummary = {
+    totalRows: 0,
+    matchedRows: 0,
+    unmatchedRows: 0,
+    matchedOnTime: 0,
+    matchedLate: 0
+  };
+  personComparison: SprintPersonComparisonSummary[] = [];
+  private baselineByNode = new Map<number, BaselineComparisonNode>();
+  private assignmentEvents: SprintAssignmentEvent[] = [];
+  private rawBaselineResult: SprintBaselineParseResult | null = null;
 
   get canLoadGantt(): boolean {
     return Boolean(this.selectedOrganization && this.selectedProjectId && this.selectedTeamId && this.selectedSprintId && this.hasPatConfigured);
+  }
+
+  get canGenerateComparisonAnalysis(): boolean {
+    return Boolean(
+      this.baselineFileName &&
+      this.baselineSummary.matchedRows > 0 &&
+      this.selectedSprintId &&
+      !this.loadingData &&
+      !this.isAnalyzingComparison
+    );
   }
 
   ngOnInit(): void {
@@ -361,13 +488,29 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
               .getSprintDateRange(this.selectedOrganization, projectName, this.selectedTeamId, this.selectedSprintId)
               .pipe(catchError(() => of({ startDate: selectedSprint?.startDate || null, finishDate: selectedSprint?.finishDate || null })))
           })
-        )
+        ),
+        switchMap(({ nodes, sprintRange }) => {
+          const startDate = sprintRange.startDate || selectedSprint?.startDate || null;
+          const finishDate = sprintRange.finishDate || selectedSprint?.finishDate || null;
+          const nodeIds = nodes.map(node => node.id);
+          return this.sprintGanttService.getSprintAssignmentHistory(
+            this.selectedOrganization,
+            projectName,
+            nodeIds,
+            startDate,
+            finishDate
+          ).pipe(
+            catchError(() => of([])),
+            switchMap(events => of({ nodes, sprintRange, events }))
+          );
+        })
       )
       .subscribe({
-        next: ({ nodes, sprintRange }) => {
+        next: ({ nodes, sprintRange, events }) => {
           this.loadingData = false;
           this.loadedSprintStartDate = sprintRange.startDate || selectedSprint?.startDate || null;
           this.loadedSprintFinishDate = sprintRange.finishDate || selectedSprint?.finishDate || null;
+          this.assignmentEvents = events;
           this.allNodes = this.sortNodesWithOrphansFirst(this.attachAdministrativeTasksSection(nodes));
           this.allNodesMap = new Map<number, SprintHierarchyNode>(this.allNodes.map(node => [node.id, node]));
           this.initializeCollapsedState(this.allNodes);
@@ -375,6 +518,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
           this.recalculatePlannedHours();
           this.rebuildVisibleRows();
           this.buildSprintTimeline();
+          this.rebuildBaselineComparison();
           if (this.allNodes.length === 0) {
             this.errorMessage = 'No se encontraron work items en el sprint seleccionado.';
           }
@@ -421,6 +565,126 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
 
   getRealBarWidthPct(node: SprintHierarchyNode): number {
     return this.getDateRangeBar(node, 'real').widthPct;
+  }
+
+  onBaselineFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    this.errorMessage = '';
+    this.baselineFileName = file.name;
+    this.isBaselinePanelCollapsed = true;
+    this.resetComparisonAnalysisState();
+    file.arrayBuffer()
+      .then(buffer => {
+        this.rawBaselineResult = this.baselineService.parseTimelineWorkbook(buffer);
+        this.baselineWarnings = this.rawBaselineResult.warnings;
+        this.rebuildBaselineComparison();
+      })
+      .catch(() => {
+        this.rawBaselineResult = null;
+        this.baselineByNode.clear();
+        this.baselineWarnings = ['No se pudo procesar el archivo Excel.'];
+        this.baselineSummary = {
+          totalRows: 0,
+          matchedRows: 0,
+          unmatchedRows: 0,
+          matchedOnTime: 0,
+          matchedLate: 0
+        };
+        this.personComparison = [];
+        this.resetComparisonAnalysisState();
+        this.errorMessage = 'No fue posible importar el baseline de Excel.';
+      })
+      .finally(() => {
+        input.value = '';
+      });
+  }
+
+  hasBaselineForNode(nodeId: number): boolean {
+    return this.baselineByNode.has(nodeId);
+  }
+
+  getBaselineBarLeftPct(nodeId: number): number {
+    return this.getBaselineBar(nodeId).leftPct;
+  }
+
+  getBaselineBarWidthPct(nodeId: number): number {
+    return this.getBaselineBar(nodeId).widthPct;
+  }
+
+  getBaselineBarTitle(nodeId: number): string {
+    const baseline = this.baselineByNode.get(nodeId);
+    if (!baseline) {
+      return 'Sin baseline';
+    }
+    const startLabel = this.formatDayTooltip(this.dayKeyToDate(baseline.startKey));
+    const endLabel = this.formatDayTooltip(this.dayKeyToDate(baseline.endKey));
+    return `Excel: ${startLabel} a ${endLabel}${baseline.hasLateEnd ? ' (cierre tardío)' : ''}`;
+  }
+
+  toggleBaselinePanel(): void {
+    this.isBaselinePanelCollapsed = !this.isBaselinePanelCollapsed;
+  }
+
+  runComparisonAnalysis(): void {
+    if (!this.canGenerateComparisonAnalysis) {
+      return;
+    }
+
+    const input = this.buildComparisonAiInput();
+    if (!input) {
+      this.errorMessage = 'No hay suficientes datos para generar el análisis IA.';
+      return;
+    }
+
+    this.errorMessage = '';
+    this.isAnalyzingComparison = true;
+    this.comparisonAnalysisCopied = false;
+    this.comparisonAnalysisText = '';
+
+    this.aiService.analyzeGanttComparison(input).subscribe({
+      next: response => {
+        const isErrorResponse = response && (
+          response.startsWith('Error al') ||
+          response.startsWith('El análisis tardó') ||
+          response.startsWith('Cuota de') ||
+          response.startsWith('API Key de') ||
+          response.startsWith('AI Configuration') ||
+          response.startsWith('Configuración de IA')
+        );
+        if (isErrorResponse) {
+          this.errorMessage = response;
+          this.isAnalyzingComparison = false;
+          return;
+        }
+
+        this.comparisonAnalysisText = response;
+        this.isAnalyzingComparison = false;
+        this.saveComparisonAnalysisCache(response);
+      },
+      error: () => {
+        this.isAnalyzingComparison = false;
+        this.errorMessage = 'Error al generar análisis IA de comparación.';
+      }
+    });
+  }
+
+  copyComparisonAnalysis(): void {
+    if (!this.comparisonAnalysisText) {
+      return;
+    }
+    navigator.clipboard.writeText(this.comparisonAnalysisText).then(() => {
+      this.comparisonAnalysisCopied = true;
+      setTimeout(() => {
+        this.comparisonAnalysisCopied = false;
+      }, 2000);
+    }).catch(() => {
+      this.errorMessage = 'No se pudo copiar el análisis al portapapeles.';
+    });
   }
 
   getTimelineMinWidthPx(): number {
@@ -962,6 +1226,334 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     return this.clampDateRangeToTimeline(startKey, endKey);
   }
 
+  private getBaselineBar(nodeId: number): { leftPct: number; widthPct: number } {
+    const baseline = this.baselineByNode.get(nodeId);
+    if (!baseline) {
+      return { leftPct: 0, widthPct: 0 };
+    }
+    return this.clampDateRangeToTimeline(baseline.startKey, baseline.endKey);
+  }
+
+  private rebuildBaselineComparison(): void {
+    this.baselineByNode.clear();
+    this.personComparison = [];
+    this.baselineSummary = {
+      totalRows: this.rawBaselineResult?.rows.length || 0,
+      matchedRows: 0,
+      unmatchedRows: 0,
+      matchedOnTime: 0,
+      matchedLate: 0
+    };
+
+    const plannedPersonMarks = new Map<string, number>();
+    const plannedPersonItems = new Map<string, Set<number>>();
+
+    if (!this.rawBaselineResult || this.rawBaselineResult.rows.length === 0) {
+      this.resetComparisonAnalysisState();
+      return;
+    }
+
+    let unmatchedRows = 0;
+    this.rawBaselineResult.rows.forEach(row => {
+      const node = this.allNodesMap.get(row.workItemId);
+      if (!node) {
+        unmatchedRows++;
+      } else {
+        const realEnd = this.getNodeRealClosedDayKey(node);
+        const hasLateEnd = Boolean(realEnd && realEnd > row.plannedEndKey);
+        this.baselineByNode.set(row.workItemId, {
+          startKey: row.plannedStartKey,
+          endKey: row.plannedEndKey,
+          plannedPeople: row.personMarks,
+          hasLateEnd
+        });
+        this.baselineSummary.matchedRows++;
+        if (hasLateEnd) {
+          this.baselineSummary.matchedLate++;
+        } else {
+          this.baselineSummary.matchedOnTime++;
+        }
+      }
+
+      const normalizedPeople = row.personMarks
+        .map(person => this.baselineService.normalizePersonName(person))
+        .filter(person => Boolean(person));
+
+      normalizedPeople.forEach(person => {
+        plannedPersonMarks.set(person, (plannedPersonMarks.get(person) || 0) + 1);
+        const itemSet = plannedPersonItems.get(person) || new Set<number>();
+        itemSet.add(row.workItemId);
+        plannedPersonItems.set(person, itemSet);
+      });
+    });
+
+    this.baselineSummary.unmatchedRows = unmatchedRows;
+    this.buildPersonComparison(plannedPersonMarks, plannedPersonItems);
+    this.restoreCachedComparisonAnalysis();
+  }
+
+  private buildComparisonAiInput(): GanttAiInput | null {
+    if (!this.baselineFileName || this.baselineSummary.matchedRows <= 0) {
+      return null;
+    }
+
+    const selectedProject = this.projects.find(project => project.id === this.selectedProjectId);
+    const selectedTeam = this.teams.find(team => team.id === this.selectedTeamId);
+    const selectedSprint = this.sprints.find(sprint => sprint.id === this.selectedSprintId);
+
+    const itemSummaries = Array.from(this.baselineByNode.entries()).map(([workItemId, baseline]) => {
+      const node = this.allNodesMap.get(workItemId);
+      const realStart = node ? (this.getNodeRealStartDayKey(node) || '') : '';
+      const realEnd = node ? (this.getNodeRealClosedDayKey(node) || '') : '';
+      return {
+        workItemId,
+        title: node?.title || '',
+        plannedStart: baseline.startKey,
+        plannedEnd: baseline.endKey,
+        realStart,
+        realEnd,
+        late: baseline.hasLateEnd
+      };
+    });
+    const matchedItemIds = itemSummaries.map(item => item.workItemId);
+    const taskLayer = this.buildTaskLayerSummary(matchedItemIds);
+
+    return {
+      organization: this.selectedOrganization,
+      project: selectedProject?.name || this.selectedProjectId,
+      team: selectedTeam?.name || this.selectedTeamId,
+      sprint: selectedSprint?.name || this.selectedSprintId,
+      baselineName: this.baselineFileName,
+      summary: {
+        totalRows: this.baselineSummary.totalRows,
+        matchedRows: this.baselineSummary.matchedRows,
+        unmatchedRows: this.baselineSummary.unmatchedRows,
+        matchedOnTime: this.baselineSummary.matchedOnTime,
+        matchedLate: this.baselineSummary.matchedLate
+      },
+      items: itemSummaries,
+      people: this.personComparison.map(person => ({
+        person: person.person,
+        plannedMarks: person.plannedMarks,
+        plannedItems: person.plannedItems,
+        realAssignments: person.realAssignments,
+        realItems: person.realItems
+      })),
+      taskLayer
+    };
+  }
+
+  private buildTaskLayerSummary(matchedItemIds: number[]): {
+    matchedItemsWithTasks: number;
+    totalPlannedTaskHours: number;
+    totalRealTaskHours: number;
+    dependencyViolations: number;
+    adminTaskCount: number;
+    adminPlannedHours: number;
+    adminRealHours: number;
+    stageBreakdown: TaskStageAggregate[];
+  } {
+    const nodeMap = new Map<number, SprintHierarchyNode>(this.allNodes.map(node => [node.id, node]));
+    const stageMap = new Map<string, TaskStageAggregate>();
+    let matchedItemsWithTasks = 0;
+    let totalPlannedTaskHours = 0;
+    let totalRealTaskHours = 0;
+    let dependencyViolations = 0;
+    let adminTaskCount = 0;
+    let adminPlannedHours = 0;
+    let adminRealHours = 0;
+
+    matchedItemIds.forEach(itemId => {
+      const itemNode = nodeMap.get(itemId);
+      if (!itemNode) {
+        return;
+      }
+      const tasks = this.getDescendantTasks(itemId, nodeMap);
+      if (tasks.length === 0) {
+        return;
+      }
+      matchedItemsWithTasks++;
+
+      const sequenceEndByStage = new Map<string, string>();
+      tasks.forEach(taskNode => {
+        const taskMeta = this.buildWorkflowTask(taskNode);
+        const stage = this.normalizeTaskStageForAnalysis(taskMeta.stage);
+        const plannedHours = Math.max(0, taskNode.originalEstimate);
+        const realHours = Math.max(0, taskNode.completedWork);
+        totalPlannedTaskHours += plannedHours;
+        totalRealTaskHours += realHours;
+
+        const aggregate = stageMap.get(stage) || { stage, plannedHours: 0, realHours: 0, taskCount: 0 };
+        aggregate.plannedHours += plannedHours;
+        aggregate.realHours += realHours;
+        aggregate.taskCount += 1;
+        stageMap.set(stage, aggregate);
+
+        if (this.isAdministrativeAnalysisStage(stage)) {
+          adminTaskCount += 1;
+          adminPlannedHours += plannedHours;
+          adminRealHours += realHours;
+        }
+
+        const taskClosedKey = this.getNodeRealClosedDayKey(taskNode);
+        if (!taskClosedKey) {
+          return;
+        }
+        const previousEnd = sequenceEndByStage.get(stage);
+        if (!previousEnd || taskClosedKey > previousEnd) {
+          sequenceEndByStage.set(stage, taskClosedKey);
+        }
+      });
+
+      const codingEnd = sequenceEndByStage.get('codificacion');
+      const peerEnd = sequenceEndByStage.get('peer-review');
+      const iswEnd = sequenceEndByStage.get('pruebas-isw');
+      const qaEnd = sequenceEndByStage.get('pruebas-ejecucion');
+
+      if (codingEnd && peerEnd && peerEnd < codingEnd) {
+        dependencyViolations++;
+      }
+      if (peerEnd && iswEnd && iswEnd < peerEnd) {
+        dependencyViolations++;
+      }
+      if (iswEnd && qaEnd && qaEnd < iswEnd) {
+        dependencyViolations++;
+      }
+    });
+
+    const stageBreakdown = Array.from(stageMap.values())
+      .map(stage => ({
+        stage: stage.stage,
+        plannedHours: Number(stage.plannedHours.toFixed(2)),
+        realHours: Number(stage.realHours.toFixed(2)),
+        taskCount: stage.taskCount
+      }))
+      .sort((a, b) => b.realHours - a.realHours);
+
+    return {
+      matchedItemsWithTasks,
+      totalPlannedTaskHours: Number(totalPlannedTaskHours.toFixed(2)),
+      totalRealTaskHours: Number(totalRealTaskHours.toFixed(2)),
+      dependencyViolations,
+      adminTaskCount,
+      adminPlannedHours: Number(adminPlannedHours.toFixed(2)),
+      adminRealHours: Number(adminRealHours.toFixed(2)),
+      stageBreakdown
+    };
+  }
+
+  private normalizeTaskStageForAnalysis(stage: string): string {
+    const normalized = stage.trim().toLowerCase();
+    if (normalized === 'dev-coding') {
+      return 'codificacion';
+    }
+    if (normalized === 'reviewer-peer' || normalized === 'dev-review') {
+      return 'peer-review';
+    }
+    if (normalized === 'post-review-isw') {
+      return 'pruebas-isw';
+    }
+    if (normalized === 'qa-execution') {
+      return 'pruebas-ejecucion';
+    }
+    if (normalized === 'kickoff' || normalized === 'daily-scrum' || normalized === 'closing') {
+      return 'administrativa';
+    }
+    return normalized;
+  }
+
+  private isAdministrativeAnalysisStage(stage: string): boolean {
+    return stage === 'administrativa';
+  }
+
+  private getComparisonAnalysisCacheKey(): string {
+    return `cmmi5_gantt_ai_analysis_${this.selectedOrganization}_${this.selectedProjectId}_${this.selectedTeamId}_${this.selectedSprintId}`;
+  }
+
+  private getBaselineSignature(): string {
+    const timelineDays = this.rawBaselineResult?.timelineDays.join(',') || '';
+    return [
+      this.baselineFileName,
+      this.baselineSummary.totalRows,
+      this.baselineSummary.matchedRows,
+      this.baselineSummary.unmatchedRows,
+      this.baselineSummary.matchedOnTime,
+      this.baselineSummary.matchedLate,
+      timelineDays
+    ].join('|');
+  }
+
+  private saveComparisonAnalysisCache(text: string): void {
+    const key = this.getComparisonAnalysisCacheKey();
+    const payload: CachedGanttAiAnalysis = {
+      baselineSignature: this.getBaselineSignature(),
+      text
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+  }
+
+  private restoreCachedComparisonAnalysis(): void {
+    const key = this.getComparisonAnalysisCacheKey();
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      this.comparisonAnalysisText = '';
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as CachedGanttAiAnalysis;
+      if (parsed.baselineSignature === this.getBaselineSignature()) {
+        this.comparisonAnalysisText = parsed.text || '';
+        this.comparisonAnalysisCopied = false;
+        return;
+      }
+    } catch {
+      this.errorMessage = 'Se detectó caché inválido de análisis IA y se descartó.';
+    }
+    this.comparisonAnalysisText = '';
+  }
+
+  private resetComparisonAnalysisState(): void {
+    this.isAnalyzingComparison = false;
+    this.comparisonAnalysisCopied = false;
+    this.comparisonAnalysisText = '';
+  }
+
+  private buildPersonComparison(
+    plannedPersonMarks: Map<string, number>,
+    plannedPersonItems: Map<string, Set<number>>
+  ): void {
+    const realPersonAssignments = new Map<string, number>();
+    const realPersonItems = new Map<string, Set<number>>();
+
+    this.assignmentEvents.forEach(event => {
+      const person = this.baselineService.normalizePersonName(event.assignedToName || '');
+      if (!person) {
+        return;
+      }
+      realPersonAssignments.set(person, (realPersonAssignments.get(person) || 0) + 1);
+      const itemSet = realPersonItems.get(person) || new Set<number>();
+      itemSet.add(event.workItemId);
+      realPersonItems.set(person, itemSet);
+    });
+
+    const allPeople = new Set<string>([
+      ...Array.from(plannedPersonMarks.keys()),
+      ...Array.from(realPersonAssignments.keys())
+    ]);
+
+    const result: SprintPersonComparisonSummary[] = Array.from(allPeople.values())
+      .map(person => ({
+        person: this.toDisplayPersonName(person),
+        plannedMarks: plannedPersonMarks.get(person) || 0,
+        plannedItems: plannedPersonItems.get(person)?.size || 0,
+        realAssignments: realPersonAssignments.get(person) || 0,
+        realItems: realPersonItems.get(person)?.size || 0
+      }))
+      .sort((a, b) => a.person.localeCompare(b.person));
+
+    this.personComparison = result;
+  }
+
   private clampDateRangeToTimeline(startKey: string, endKey: string): { leftPct: number; widthPct: number } {
     if (!this.sprintStartKey || !this.sprintEndKey || this.sprintDays.length === 0) {
       return { leftPct: 0, widthPct: 0 };
@@ -1146,6 +1738,17 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.upListener = null;
   }
 
+  private toDisplayPersonName(normalizedName: string): string {
+    if (!normalizedName) {
+      return '';
+    }
+    return normalizedName
+      .split(' ')
+      .filter(part => part.length > 0)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
   private clearData(): void {
     this.allNodes = [];
     this.allNodesMap.clear();
@@ -1163,6 +1766,17 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.delayedEndFullDate = '';
     this.hasDelayedEndLine = false;
     this.delayedEndLinePct = 100;
+    this.assignmentEvents = [];
+    this.baselineByNode.clear();
+    this.personComparison = [];
+    this.baselineSummary = {
+      totalRows: this.rawBaselineResult?.rows.length || 0,
+      matchedRows: 0,
+      unmatchedRows: this.rawBaselineResult?.rows.length || 0,
+      matchedOnTime: 0,
+      matchedLate: 0
+    };
+    this.resetComparisonAnalysisState();
   }
 
   private isTaskType(type: string): boolean {

@@ -42,6 +42,12 @@ export interface SprintHierarchyNode {
   webUrl: string;
 }
 
+export interface SprintAssignmentEvent {
+  workItemId: number;
+  changedDate: string;
+  assignedToName: string;
+}
+
 interface WorkItemWithRelations {
   id: number;
   fields: Record<string, unknown>;
@@ -192,6 +198,69 @@ export class SprintGanttService {
         finishDate: res.attributes?.finishDate || null
       })),
       catchError(() => of({ startDate: null, finishDate: null }))
+    );
+  }
+
+  getSprintAssignmentHistory(
+    organization: string,
+    projectName: string,
+    workItemIds: number[],
+    sprintStartDate: string | null,
+    sprintEndDate: string | null
+  ): Observable<SprintAssignmentEvent[]> {
+    if (!organization || !projectName || workItemIds.length === 0 || !sprintStartDate || !sprintEndDate) {
+      return of([]);
+    }
+
+    const uniqueIds = Array.from(new Set(workItemIds.filter(id => id > 0)));
+    if (uniqueIds.length === 0) {
+      return of([]);
+    }
+
+    const sprintStart = new Date(sprintStartDate);
+    const sprintEnd = new Date(sprintEndDate);
+    if (Number.isNaN(sprintStart.getTime()) || Number.isNaN(sprintEnd.getTime())) {
+      return of([]);
+    }
+    sprintStart.setHours(0, 0, 0, 0);
+    sprintEnd.setHours(23, 59, 59, 999);
+
+    const requests = uniqueIds.map(workItemId => {
+      const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/workItems/${workItemId}/updates?api-version=7.0`;
+      return this.http.get<{ value?: Array<{ revisedDate?: string; fields?: Record<string, { oldValue?: unknown; newValue?: unknown }> }> }>(
+        url,
+        { headers: this.getHeaders() }
+      ).pipe(
+        map(res => {
+          const events: SprintAssignmentEvent[] = [];
+          (res.value || []).forEach(update => {
+            const revisedDateRaw = update.revisedDate || '';
+            const revisedDate = new Date(revisedDateRaw);
+            if (Number.isNaN(revisedDate.getTime())) {
+              return;
+            }
+            if (revisedDate < sprintStart || revisedDate > sprintEnd) {
+              return;
+            }
+            const assignedToUpdate = update.fields?.['System.AssignedTo'];
+            const assignedToName = this.extractAssignedToName(assignedToUpdate?.newValue);
+            if (!assignedToName) {
+              return;
+            }
+            events.push({
+              workItemId,
+              changedDate: revisedDate.toISOString(),
+              assignedToName
+            });
+          });
+          return events;
+        }),
+        catchError(() => of([]))
+      );
+    });
+
+    return forkJoin(requests).pipe(
+      map(items => items.flat())
     );
   }
 
@@ -723,6 +792,25 @@ export class SprintGanttService {
       return null;
     }
     return date.toISOString();
+  }
+
+  private extractAssignedToName(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (value && typeof value === 'object') {
+      const candidate = value as { displayName?: unknown; uniqueName?: unknown; name?: unknown };
+      if (typeof candidate.displayName === 'string' && candidate.displayName.trim()) {
+        return candidate.displayName.trim();
+      }
+      if (typeof candidate.uniqueName === 'string' && candidate.uniqueName.trim()) {
+        return candidate.uniqueName.trim();
+      }
+      if (typeof candidate.name === 'string' && candidate.name.trim()) {
+        return candidate.name.trim();
+      }
+    }
+    return '';
   }
 
   private isTaskType(type: string): boolean {
