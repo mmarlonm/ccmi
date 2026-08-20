@@ -5,6 +5,60 @@ import { Observable, of, catchError, timeout, retry, timer, forkJoin } from 'rxj
 import { map } from 'rxjs/operators';
 import { CMMIMetrics } from '../models/metrics.model';
 
+export interface GanttAiItemSummary {
+  workItemId: number;
+  title: string;
+  plannedStart: string;
+  plannedEnd: string;
+  realStart: string;
+  realEnd: string;
+  late: boolean;
+}
+
+export interface GanttAiPersonSummary {
+  person: string;
+  plannedMarks: number;
+  plannedItems: number;
+  realAssignments: number;
+  realItems: number;
+}
+
+export interface GanttAiTaskStageSummary {
+  stage: string;
+  plannedHours: number;
+  realHours: number;
+  taskCount: number;
+}
+
+export interface GanttAiTaskLayerSummary {
+  matchedItemsWithTasks: number;
+  totalPlannedTaskHours: number;
+  totalRealTaskHours: number;
+  dependencyViolations: number;
+  adminTaskCount: number;
+  adminPlannedHours: number;
+  adminRealHours: number;
+  stageBreakdown: GanttAiTaskStageSummary[];
+}
+
+export interface GanttAiInput {
+  organization: string;
+  project: string;
+  team: string;
+  sprint: string;
+  baselineName: string;
+  summary: {
+    totalRows: number;
+    matchedRows: number;
+    unmatchedRows: number;
+    matchedOnTime: number;
+    matchedLate: number;
+  };
+  items: GanttAiItemSummary[];
+  people: GanttAiPersonSummary[];
+  taskLayer: GanttAiTaskLayerSummary;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -228,6 +282,101 @@ ${iswSummary}
     } else {
       return this.callGemini(config.ai.apiKey, config.ai.model, prompt);
     }
+  }
+
+  analyzeGanttComparison(input: GanttAiInput): Observable<string> {
+    const config = this.configService.getConfig();
+    if (!config || !config.ai.apiKey) return of('AI Configuration missing.');
+
+    const topLateItems = input.items
+      .filter(item => item.late)
+      .slice(0, 20)
+      .map(item => `- #${item.workItemId}: Planeado ${item.plannedStart}→${item.plannedEnd} | Real ${item.realStart || 'N/A'}→${item.realEnd || 'N/A'}`)
+      .join('\n');
+
+    const representativeItems = input.items
+      .slice(0, 30)
+      .map(item => `- #${item.workItemId} | Planeado ${item.plannedStart}→${item.plannedEnd} | Real ${item.realStart || 'N/A'}→${item.realEnd || 'N/A'} | ${item.late ? 'Atrasado' : 'En tiempo'}`)
+      .join('\n');
+
+    const peopleSummary = input.people
+      .slice(0, 30)
+      .map(person => `- ${person.person}: Planeado marcas=${person.plannedMarks}, Planeado items=${person.plannedItems}, Real asignaciones=${person.realAssignments}, Real items=${person.realItems}`)
+      .join('\n');
+
+    const taskStageSummary = input.taskLayer.stageBreakdown
+      .slice(0, 20)
+      .map(stage => `- ${stage.stage}: tareas=${stage.taskCount}, planeado=${stage.plannedHours.toFixed(1)}h, real=${stage.realHours.toFixed(1)}h`)
+      .join('\n');
+
+    const prompt = `
+Actúa como un analista senior de gestión de sprints en un contexto CMMI.
+Tu tarea es analizar la comparación REAL vs PLANEADO (Excel timeline) y redactar un análisis ejecutivo en ESPAÑOL.
+
+CONTEXTO
+- Organización: ${input.organization || 'N/A'}
+- Proyecto: ${input.project || 'N/A'}
+- Team: ${input.team || 'N/A'}
+- Sprint: ${input.sprint || 'N/A'}
+- Baseline: ${input.baselineName || 'N/A'}
+
+CONSIDERACIONES DE GRANULARIDAD (MUY IMPORTANTE)
+- El Excel de planeación NO incluye el desglose completo de tareas técnicas por work item; representa una planeación resumida por duración/marcas.
+- Azure DevOps SÍ incluye mayor detalle operativo (tareas, reasignaciones y movimientos durante el sprint).
+- Por lo anterior, NO debes interpretar como desviación negativa automática que en ADO exista mayor cantidad de asignaciones o mayor detalle que en Excel.
+- La comparación por persona debe usarse para detectar concentración, cambios de carga o riesgos de coordinación, no para penalizar diferencias de granularidad del desglose.
+
+RESUMEN GENERAL
+- Filas Excel: ${input.summary.totalRows}
+- Match con ADO: ${input.summary.matchedRows}
+- Sin match: ${input.summary.unmatchedRows}
+- En tiempo: ${input.summary.matchedOnTime}
+- Atrasadas: ${input.summary.matchedLate}
+
+ITEMS REPRESENTATIVOS
+${representativeItems || '- Sin datos de ítems'}
+
+TOP ITEMS ATRASADOS
+${topLateItems || '- Sin atrasos detectados'}
+
+COMPARACIÓN POR PERSONA
+${peopleSummary || '- Sin datos por persona'}
+
+CAPA DE TAREAS (ADO) PARA ITEMS CON MATCH
+- Items con tareas: ${input.taskLayer.matchedItemsWithTasks}
+- Horas planeadas (tareas): ${input.taskLayer.totalPlannedTaskHours.toFixed(1)}h
+- Horas reales (tareas): ${input.taskLayer.totalRealTaskHours.toFixed(1)}h
+- Posibles violaciones de dependencia temporal: ${input.taskLayer.dependencyViolations}
+- Tareas administrativas: ${input.taskLayer.adminTaskCount} (Plan=${input.taskLayer.adminPlannedHours.toFixed(1)}h, Real=${input.taskLayer.adminRealHours.toFixed(1)}h)
+
+DESGLOSE POR ETAPA (TAREAS)
+${taskStageSummary || '- Sin desglose por etapa'}
+
+ENTREGABLE REQUERIDO (texto único, no tablas):
+1) Paso 1 (obligatorio): Diagnóstico general de cumplimiento por ITEM (cierre vs planeado Excel).
+2) Paso 2 (obligatorio): Análisis por TAREAS ADO para explicar causas (plan vs real), respetando dependencias.
+3) Riesgos operativos detectados (fechas, dependencias y distribución por persona).
+4) Acciones concretas para el siguiente sprint (máximo 6 bullets).
+5) Cierre ejecutivo con prioridad de atención (alta/media/baja).
+
+REGLAS
+- No inventes datos no presentes.
+- Sé directo, profesional y accionable.
+- Si faltan datos, dilo explícitamente y sugiere cómo capturarlos.
+- Prohibido concluir “mala planeación” solo porque Real (ADO) tenga más tareas/asignaciones que Planeado (Excel); primero explica la diferencia de nivel de detalle entre fuentes.
+- Si detectas diferencias de volumen entre Planeado y Real, trátalas como hipótesis de desagregación operativa y evalúa impacto real en fechas/cierres, no como incumplimiento por sí mismo.
+- Restricciones de proceso a respetar en tu interpretación:
+  a) Solo un desarrollador codifica un item (bug/feature/user story) a la vez.
+  b) Peer review depende de codificación.
+  c) Pruebas ISW dependen de peer review.
+  d) Ejecución de pruebas depende de pruebas ISW.
+  e) Existen tareas administrativas al inicio, durante y cierre de sprint que pueden impactar capacidad.
+`;
+
+    if (config.ai.provider === 'openai') {
+      return this.callOpenAI(config.ai.apiKey, config.ai.model, prompt);
+    }
+    return this.callGemini(config.ai.apiKey, config.ai.model, prompt);
   }
 
   askAboutMetrics(metrics: CMMIMetrics, question: string, chatHistory: Array<{ role: 'user' | 'assistant', content: string }>): Observable<string> {

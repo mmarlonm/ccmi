@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud, FileSpreadsheet } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud, FileSpreadsheet, BarChart3 } from 'lucide-angular';
 import { UpdateService } from '../../services/update.service';
 import { NotificationComponent } from '../notification/notification.component';
 
@@ -89,6 +89,15 @@ import { NotificationComponent } from '../notification/notification.component';
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Configurar Sprint</span>
       </a>
       <a 
+        routerLink="/sprint-gantt" 
+        routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
+        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
+        [class.justify-center]="isMenuCollapsed"
+        [title]="isMenuCollapsed ? 'Seguimiento - Gantt' : ''">
+        <lucide-icon [name]="BarChart3" size="20" class="shrink-0"></lucide-icon>
+        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Seguimiento - Gantt</span>
+      </a>
+      <a 
         routerLink="/update" 
         routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
         class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300 relative"
@@ -149,6 +158,10 @@ import { NotificationComponent } from '../notification/notification.component';
       <lucide-icon [name]="ClipboardList" size="20"></lucide-icon>
       <span>Sprint</span>
     </a>
+    <a routerLink="/sprint-gantt" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+      <lucide-icon [name]="BarChart3" size="20"></lucide-icon>
+      <span>Gantt</span>
+    </a>
     <a routerLink="/update" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <div class="relative flex items-center justify-center">
         <lucide-icon [name]="DownloadCloud" size="20"></lucide-icon>
@@ -181,6 +194,7 @@ export class LayoutComponent {
   readonly ClipboardList = ClipboardList;
   readonly DownloadCloud = DownloadCloud;
   readonly FileSpreadsheet = FileSpreadsheet;
+  readonly BarChart3 = BarChart3;
 
   isDarkMode = false;
   isMenuCollapsed = false;
