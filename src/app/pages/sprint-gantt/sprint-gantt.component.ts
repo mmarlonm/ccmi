@@ -907,6 +907,8 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
       closedDate: null,
       assignedToName: 'Sin asignar',
       assignedToAvatarUrl: null,
+      areaPath: '',
+      iterationPath: '',
       webUrl: ''
     };
 
@@ -1352,6 +1354,8 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     adminPlannedHours: number;
     adminRealHours: number;
     stageBreakdown: TaskStageAggregate[];
+    relatedItemTaskContext: string[];
+    relatedBugTaskContext: string[];
   } {
     const nodeMap = new Map<number, SprintHierarchyNode>(this.allNodes.map(node => [node.id, node]));
     const stageMap = new Map<string, TaskStageAggregate>();
@@ -1362,6 +1366,8 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     let adminTaskCount = 0;
     let adminPlannedHours = 0;
     let adminRealHours = 0;
+    const relatedItemTaskContext: string[] = [];
+    const relatedBugTaskContext: string[] = [];
 
     matchedItemIds.forEach(itemId => {
       const itemNode = nodeMap.get(itemId);
@@ -1373,6 +1379,30 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
         return;
       }
       matchedItemsWithTasks++;
+
+      const parentItemId = this.resolveAnalysisParentId(itemNode, nodeMap);
+      if (parentItemId) {
+        const parentNode = nodeMap.get(parentItemId);
+        const associatedItems = Array.from(nodeMap.values()).filter(node =>
+          node.id === parentItemId || node.parentId === parentItemId
+        );
+        associatedItems.forEach(associated => {
+          const associatedTasks = this.isTaskType(associated.type)
+            ? [associated]
+            : this.getDescendantTasks(associated.id, nodeMap);
+          if (associatedTasks.length > 0) {
+            relatedItemTaskContext.push(
+              `- Padre #${parentItemId} (${parentNode?.type || 'N/A'}) -> Item #${associated.id} (${associated.type}) con ${associatedTasks.length} tareas`
+            );
+          }
+          if (associated.type.trim().toLowerCase() === 'bug') {
+            const bugTaskHours = associatedTasks.reduce((acc, task) => acc + Math.max(0, task.originalEstimate), 0);
+            relatedBugTaskContext.push(
+              `- Bug #${associated.id}: ${associated.title} | Tareas hijas=${associatedTasks.length} | Horas plan=${bugTaskHours.toFixed(1)}h`
+            );
+          }
+        });
+      }
 
       const sequenceEndByStage = new Map<string, string>();
       tasks.forEach(taskNode => {
@@ -1438,8 +1468,19 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
       adminTaskCount,
       adminPlannedHours: Number(adminPlannedHours.toFixed(2)),
       adminRealHours: Number(adminRealHours.toFixed(2)),
-      stageBreakdown
+      stageBreakdown,
+      relatedItemTaskContext: Array.from(new Set(relatedItemTaskContext.values())),
+      relatedBugTaskContext: Array.from(new Set(relatedBugTaskContext.values()))
     };
+  }
+
+  private resolveAnalysisParentId(node: SprintHierarchyNode, nodeMap: Map<number, SprintHierarchyNode>): number | null {
+    if (!node) return null;
+    if (this.isTaskType(node.type)) return node.parentId || null;
+    if (node.type.trim().toLowerCase() === 'bug') return node.parentId || node.id;
+    if (this.isParentItemType(node.type)) return node.id;
+    if (node.parentId && nodeMap.has(node.parentId)) return node.parentId;
+    return node.id;
   }
 
   private normalizeTaskStageForAnalysis(stage: string): string {
