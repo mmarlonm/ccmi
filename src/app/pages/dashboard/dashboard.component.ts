@@ -124,9 +124,17 @@ import { forkJoin, of } from 'rxjs';
               <p class="text-xs text-slate-400 dark:text-slate-400">Distribución temporal de entregas construidas en el Sprint vs. Fase Extendida</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 self-start md:self-auto">
+          <div class="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <span class="text-[10px] font-black px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 uppercase shadow-sm border border-indigo-100 dark:border-indigo-900/50">
               Vigencia Oficial: {{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}
+            </span>
+            <span *ngIf="selectedVersionNumber" class="text-[10px] font-black px-2.5 py-1 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase shadow-sm border border-purple-100 dark:border-purple-900/50 flex items-center gap-1">
+              <lucide-icon [name]="Check" size="11" class="text-purple-600 dark:text-purple-400"></lucide-icon>
+              Guardado BD (v{{ selectedVersionNumber }})
+            </span>
+            <span *ngIf="!selectedVersionNumber && aiAnalysis" class="text-[10px] font-black px-2.5 py-1 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-1">
+              <lucide-icon [name]="AlertTriangle" size="11" class="text-amber-500"></lucide-icon>
+              No Guardado en BD (Local Cache)
             </span>
           </div>
         </div>
