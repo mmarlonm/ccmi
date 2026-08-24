@@ -2907,32 +2907,32 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           }
         }
 
-        // Load database version history list and check for active analysis
+        // Load database version history list
         this.loadVersionsHistory();
 
-        // Restore cached AI analysis or load active database analysis if present
-        const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
-        if (cachedAnalysis) {
-          this.aiAnalysis = cachedAnalysis;
-          this.parseAnalysis(cachedAnalysis);
-          this.isLoading = false;
-          this.isReloading = false;
-        } else {
-          // Check for active analysis in the Mongo database
-          this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
-            if (dbAnalysis) {
-              this.aiAnalysis = dbAnalysis.aiAnalysis;
-              this.parseAnalysis(dbAnalysis.aiAnalysis);
-              this.selectedVersionNumber = dbAnalysis.version;
+        // 1. Check for active analysis in the Mongo database first to populate the DB badge/version selector
+        this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
+          if (dbAnalysis) {
+            this.aiAnalysis = dbAnalysis.aiAnalysis;
+            this.parseAnalysis(dbAnalysis.aiAnalysis);
+            this.selectedVersionNumber = dbAnalysis.version;
+            this.isLoading = false;
+            this.isReloading = false;
+          } else {
+            // 2. Fall back to cached localStorage analysis if not saved on database yet
+            const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
+            if (cachedAnalysis) {
+              this.aiAnalysis = cachedAnalysis;
+              this.parseAnalysis(cachedAnalysis);
             } else {
               this.aiAnalysis = '';
               this.metricAnalyses = {};
-              this.selectedVersionNumber = null;
             }
+            this.selectedVersionNumber = null;
             this.isLoading = false;
             this.isReloading = false;
-          });
-        }
+          }
+        });
       },
       error: () => {
         this.isLoading = false;
