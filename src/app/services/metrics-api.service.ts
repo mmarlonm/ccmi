@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 import { CMMIMetrics } from '../models/metrics.model';
 
 export interface VersionInfo {
@@ -27,8 +28,7 @@ export interface MetricAnalysisSaveResponse {
 })
 export class MetricsApiService {
   private http = inject(HttpClient);
-  // Default URL point for local API, easily interchangeable or configurable
-  private apiUrl = 'http://localhost:5000/api/analysis';
+  private apiUrl = environment.apiUrl;
 
   /** Save new metrics analysis, automatically increments versions in DB */
   saveAnalysis(sprintId: string, sprintName: string, metrics: CMMIMetrics, aiAnalysis: string): Observable<MetricAnalysisSaveResponse | null> {
