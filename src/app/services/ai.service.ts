@@ -66,7 +66,7 @@ export class AIService {
   private http = inject(HttpClient);
   private configService = inject(ConfigService);
 
-  analyzeMetrics(metrics: CMMIMetrics): Observable<string> {
+  analyzeMetrics(metrics: CMMIMetrics, historicalMetrics: CMMIMetrics[] = []): Observable<string> {
     const config = this.configService.getConfig();
     if (!config || !config.ai.apiKey) return of('AI Configuration missing.');
 
@@ -95,6 +95,22 @@ export class AIService {
       return `  * ${g.name}: Tasa ${rate} | Desviación ${variance}% | Esfuerzo Real ${g.effort.toFixed(1)}h`;
     }).join('\n');
 
+    // Build historical summaries for cumulative calculations context
+    let historySummary = 'Sin historial de sprints anteriores disponible.';
+    if (historicalMetrics && historicalMetrics.length > 0) {
+      historySummary = historicalMetrics.map(m => {
+        return `  - ${m.iterationName || 'Sprint previo'}:
+            * Tasa de Desarrollo: ${m.developmentRate.rate.toFixed(2)} (Esfuerzo: ${m.developmentRate.totalEffort.toFixed(1)}h, Size: ${m.developmentRate.totalSize})
+            * Desviación Esfuerzo: ${Math.abs(m.effortVariance.rate * 100).toFixed(1)}% (Planeado: ${m.effortVariance.planned?.toFixed(1)}h, Real: ${m.effortVariance.actual?.toFixed(1)}h)
+            * Tasa de Retrabajo: ${m.rework.rate.toFixed(1)}% (Req: ${m.rework.reqEffort.toFixed(1)}h, Retrabajo: ${m.rework.totalRework.toFixed(1)}h)
+            * Densidad Defectos: ${m.defectDensity.density.toFixed(3)} (Bugs: ${m.defectDensity.bugs}, Size: ${m.defectDensity.size})
+            * EED: ${m.defectRemovalEfficiency.rate.toFixed(2)}% (Bugs: ${m.defectRemovalEfficiency.totalBugs}, Cerrados a Tiempo: ${m.defectRemovalEfficiency.closedOnTime})
+            * Bugs Escapados: ${m.escapedBugs?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.escapedBugs?.totalBugs ?? 0}, Prod: ${m.escapedBugs?.bugsProd ?? 0})
+            * Ejecución Pruebas (Run Rate): ${m.testExecution?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.testExecution?.totalTestPoints ?? 0}, Ej: ${m.testExecution?.executed ?? 0})
+            * Pruebas Satisfactorias (Pass Rate): ${m.satisfactoryTests?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.satisfactoryTests?.total ?? 0}, Pasados: ${m.satisfactoryTests?.passedEnTiempo ?? 0})`;
+      }).join('\n');
+    }
+
     const prompt = `
       Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas métricas y devuelve el resultado en ESPAÑOL. 
 
@@ -103,7 +119,7 @@ export class AIService {
       - No hay ISW SR (Senior) en el equipo. No menciones ISW SR en el análisis.
       - El equipo trabaja bajo metodología SCRUM con sprints.
 
-      MÉTRICAS DEL SPRINT:
+      MÉTRICAS DEL SPRINT ACTUAL:
       0. Cumplimiento y Línea de Tiempo del Sprint:
       ${(() => {
         const items = metrics.developmentRate?.items || [];
@@ -186,6 +202,9 @@ ${iswSummary}
          (Semáforo: Verde ≥ 90% | Amarillo 80%–89% | Rojo < 80%)
          Total Test Points: ${metrics.satisfactoryTests?.total ?? 0} | Pasados a Tiempo (Satisfactorios): ${metrics.satisfactoryTests?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.satisfactoryTests?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.satisfactoryTests?.failed ?? 0} | Bloqueados: ${metrics.satisfactoryTests?.blocked ?? 0} | N/A: ${metrics.satisfactoryTests?.notApplicable ?? 0}
 
+      HISTORIAL DE SPRINTS ANTERIORES PARA CÁLCULO ACUMULADO REAL:
+${historySummary}
+
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
       (NOTA IMPORTANTE PARA LA PRIMERA MÉTRICA "Cumplimiento y Línea de Tiempo del Sprint" o "Cumplimiento": Para esta primera métrica, NO generes viñetas de metas, resultados, acciones correctivas ni análisis acumulado. En su lugar, genera únicamente un análisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Para el resto de las métricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
@@ -200,8 +219,8 @@ ${iswSummary}
         No te limites a "mantener", sugiere ajustes en la planeación, mentoría entre pares ISW MID, 
         o refinamiento de criterios de aceptación para reducir la incertidumbre técnica.)
       - Análisis acumulado del periodo:
-        o Meta acumulada: (valor meta)
-        o Resultado acumulado: (valor real + pequeño margen estimado)
+        o Meta acumulada: (valor meta acumulada de la fase actual)
+        o Resultado acumulado: (Calcula el valor real acumulado de toda la FASE, sumando o promediando matemáticamente los valores del SPRINT ACTUAL con los de todos los SPRINTS ANTERIORES listados en el HISTORIAL. Muestra el resultado acumulado real obtenido hasta ahora en la Fase 1.)
         (párrafo breve sobre cómo estas acciones impulsan la madurez CMMI Nivel 5 del equipo.)
       [METRICA_FIN]
 

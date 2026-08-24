@@ -15,7 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
 import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
 import { NotificationService } from '../../services/notification.service';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -2136,7 +2136,7 @@ import { forkJoin } from 'rxjs';
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-pink-500 uppercase font-bold mb-1">Paused</div>
-            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused ?? 0 }}</div>
+            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused }}</div>
           </div>
           
           <div class="p-3.5 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center col-span-2 md:col-span-1" [ngClass]="{
@@ -4647,32 +4647,74 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.isAnalyzing = true;
     this.aiAnalysis = '';
     this.metricAnalyses = {};
-    this.aiService.analyzeMetrics(this.metrics).subscribe({
-      next: (res) => {
-        // Detect any error string returned from the service
-        const isErrorResponse = res && (
-          res.startsWith('Error al') ||
-          res.startsWith('El análisis tardó') ||
-          res.startsWith('Cuota de') ||
-          res.startsWith('API Key de') ||
-          res.startsWith('AI Configuration') ||
-          res.startsWith('Configuración de IA')
+
+    // 1. Identify previous sprints within Bepensa - Fase 1 that are older than the current selected one
+    const currentIdx = this.iterations.findIndex(i => i.id === this.selectedIteration);
+    let historicalObservables = of([] as CMMIMetrics[]);
+
+    if (currentIdx > 0) {
+      // Sprints are date-sorted ascending. All sprints before currentIdx are historical.
+      const previousSprintIds = this.iterations
+        .slice(0, currentIdx)
+        .filter(i => (i.path || '').toLowerCase().includes('mayansoft'))
+        .map(i => i.id);
+
+      if (previousSprintIds.length > 0) {
+        historicalObservables = forkJoin(
+          previousSprintIds.map(id => this.azureService.getMetrics(id))
         );
-        if (isErrorResponse) {
-          this.isAnalyzing = false;
-          this.notificationService.error(res);
-          return;
-        }
-        this.aiAnalysis = res;
-        this.parseAnalysis(res);
-        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
-        this.isAnalyzing = false;
-        this.notificationService.success('Análisis de IA generado exitosamente.');
+      }
+    }
+
+    historicalObservables.subscribe({
+      next: (historicalData: CMMIMetrics[]) => {
+        // Filter out empty metrics if any failed to load
+        const cleanHistory = historicalData.filter(h => h.developmentRate && h.developmentRate.items);
+
+        this.aiService.analyzeMetrics(this.metrics!, cleanHistory).subscribe({
+          next: (res) => {
+            const isErrorResponse = res && (
+              res.startsWith('Error al') ||
+              res.startsWith('El análisis tardó') ||
+              res.startsWith('Cuota de') ||
+              res.startsWith('API Key de') ||
+              res.startsWith('AI Configuration') ||
+              res.startsWith('Configuración de IA')
+            );
+            if (isErrorResponse) {
+              this.isAnalyzing = false;
+              this.notificationService.error(res);
+              return;
+            }
+            this.aiAnalysis = res;
+            this.parseAnalysis(res);
+            localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
+            this.isAnalyzing = false;
+            this.notificationService.success('Análisis de IA generado exitosamente.');
+          },
+          error: (err: any) => {
+            this.isAnalyzing = false;
+            const detail = err && (err.message || err.error?.message || err.statusText) ? `: ${err.message || err.error?.message || err.statusText}` : '';
+            this.notificationService.error('Error al generar el análisis de IA. Revisa tu API Key y modelo' + detail);
+          }
+        });
       },
-      error: (err) => {
-        this.isAnalyzing = false;
-        const detail = err && (err.message || err.error?.message || err.statusText) ? `: ${err.message || err.error?.message || err.statusText}` : '';
-        this.notificationService.error('Error al generar el análisis de IA. Revisa tu API Key y modelo' + detail);
+      error: (err: any) => {
+        console.error('Error fetching historical metrics for AI context:', err);
+        // Fallback to analyzing current metric data without history if call fails
+        this.aiService.analyzeMetrics(this.metrics!).subscribe({
+          next: (res) => {
+            this.aiAnalysis = res;
+            this.parseAnalysis(res);
+            localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
+            this.isAnalyzing = false;
+            this.notificationService.success('Análisis de IA generado sin historial.');
+          },
+          error: (err2: any) => {
+            this.isAnalyzing = false;
+            this.notificationService.error('Error al generar el análisis de IA.');
+          }
+        });
       }
     });
   }
@@ -4734,6 +4776,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   formatAnalysisText(text: string, isMetric32: boolean = false): string {
     if (!text) return '';
     let formatted = text
+      .replace(/\/UP/gi, '') // Remove any raw '/UP' or '/up' tags generated by AI or system
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
