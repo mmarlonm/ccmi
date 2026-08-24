@@ -5,6 +5,7 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 import { AIService } from '../../services/ai.service';
 import { PdfService } from '../../services/pdf.service';
 import { CMMIMetrics } from '../../models/metrics.model';
+import { MetricsApiService, VersionInfo } from '../../services/metrics-api.service';
 import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight, MessageSquare, Send, X, Bot, User, Copy, Check } from 'lucide-angular';
 import { Chart, registerables } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -45,6 +46,17 @@ import { forkJoin, of } from 'rxjs';
         <select [(ngModel)]="selectedISW" (change)="onISWChange()" class="glass-input text-xs font-medium w-32 md:w-36 border-indigo-200 dark:border-indigo-800 shrink-0">
           <option value="">Todos los ISW</option>
           <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
+        </select>
+
+        <!-- Version History Selector (Mongo DB Atlas integration) -->
+        <select *ngIf="selectedIteration && analysisVersions.length > 0" 
+                [(ngModel)]="selectedVersionNumber" 
+                (change)="onVersionChange()" 
+                class="glass-input text-xs font-medium w-28 md:w-32 border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-300 shrink-0">
+          <option [ngValue]="null">Análisis Actual</option>
+          <option *ngFor="let ver of analysisVersions" [ngValue]="ver.version">
+            v{{ ver.version }} {{ ver.isActive ? '(Activo)' : '' }}
+          </option>
         </select>
 
         <!-- Action Buttons Tray -->
@@ -2574,6 +2586,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private configService = inject(ConfigService);
   private router = inject(Router);
   private notificationService = inject(NotificationService);
+  private metricsApiService = inject(MetricsApiService);
 
   metrics?: CMMIMetrics;
   config = this.configService.getConfig();
@@ -2581,6 +2594,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isAnalyzing = false;
   isExporting = false;
   isLoading = true;
+
+  // Database version management
+  analysisVersions: VersionInfo[] = [];
+  selectedVersionNumber: number | null = null;
+  isLoadingVersions = false;
 
   areas: any[] = [];
   selectedArea: string = '';
@@ -2881,18 +2899,32 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           }
         }
 
-        // Restore cached AI analysis if present (persists across tabs/reloads if sprint is the same)
+        // Load database version history list and check for active analysis
+        this.loadVersionsHistory();
+
+        // Restore cached AI analysis or load active database analysis if present
         const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
         if (cachedAnalysis) {
           this.aiAnalysis = cachedAnalysis;
           this.parseAnalysis(cachedAnalysis);
+          this.isLoading = false;
+          this.isReloading = false;
         } else {
-          this.aiAnalysis = '';
-          this.metricAnalyses = {};
+          // Check for active analysis in the Mongo database
+          this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
+            if (dbAnalysis) {
+              this.aiAnalysis = dbAnalysis.aiAnalysis;
+              this.parseAnalysis(dbAnalysis.aiAnalysis);
+              this.selectedVersionNumber = dbAnalysis.version;
+            } else {
+              this.aiAnalysis = '';
+              this.metricAnalyses = {};
+              this.selectedVersionNumber = null;
+            }
+            this.isLoading = false;
+            this.isReloading = false;
+          });
         }
-
-        this.isLoading = false;
-        this.isReloading = false;
       },
       error: () => {
         this.isLoading = false;
@@ -4691,6 +4723,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
             this.isAnalyzing = false;
             this.notificationService.success('Análisis de IA generado exitosamente.');
+
+            // Save to Mongo DB Atlas
+            this.metricsApiService.saveAnalysis(
+              this.selectedIteration,
+              this.selectedSprintDisplayName || this.selectedIterationName,
+              this.metrics!,
+              res
+            ).subscribe(dbRes => {
+              if (dbRes) {
+                this.selectedVersionNumber = dbRes.version;
+                this.loadVersionsHistory();
+                this.notificationService.success(`Análisis guardado en BD Atlas como v${dbRes.version}`);
+              }
+            });
           },
           error: (err: any) => {
             this.isAnalyzing = false;
@@ -4709,6 +4755,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
             this.isAnalyzing = false;
             this.notificationService.success('Análisis de IA generado sin historial.');
+
+            // Save to Mongo DB Atlas
+            this.metricsApiService.saveAnalysis(
+              this.selectedIteration,
+              this.selectedSprintDisplayName || this.selectedIterationName,
+              this.metrics!,
+              res
+            ).subscribe(dbRes => {
+              if (dbRes) {
+                this.selectedVersionNumber = dbRes.version;
+                this.loadVersionsHistory();
+                this.notificationService.success(`Análisis guardado en BD Atlas como v${dbRes.version}`);
+              }
+            });
           },
           error: (err2: any) => {
             this.isAnalyzing = false;
@@ -4841,7 +4901,47 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
     this.aiAnalysis = '';
     this.metricAnalyses = {};
+    this.selectedVersionNumber = null;
     this.loadData();
+  }
+
+  loadVersionsHistory() {
+    if (!this.selectedIteration) return;
+    this.isLoadingVersions = true;
+    this.metricsApiService.getVersionsList(this.selectedIteration).subscribe(list => {
+      this.analysisVersions = list;
+      this.isLoadingVersions = false;
+    });
+  }
+
+  onVersionChange() {
+    if (!this.selectedIteration || !this.selectedVersionNumber) return;
+    this.isReloading = true;
+    this.metricsApiService.getSpecificVersion(this.selectedIteration, this.selectedVersionNumber).subscribe(dbRes => {
+      if (dbRes) {
+        this.aiAnalysis = dbRes.aiAnalysis;
+        this.parseAnalysis(dbRes.aiAnalysis);
+        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
+        this.notificationService.success(`Versión v${dbRes.version} cargada del historial.`);
+      }
+      this.isReloading = false;
+    });
+  }
+
+  restoreSelectedVersion(versionId: string) {
+    if (!versionId) return;
+    this.isReloading = true;
+    this.metricsApiService.restoreVersion(versionId).subscribe(dbRes => {
+      if (dbRes) {
+        this.aiAnalysis = dbRes.aiAnalysis;
+        this.parseAnalysis(dbRes.aiAnalysis);
+        this.selectedVersionNumber = dbRes.version;
+        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
+        this.loadVersionsHistory();
+        this.notificationService.success(`Versión v${dbRes.version} restablecida como activa.`);
+      }
+      this.isReloading = false;
+    });
   }
 
   updateTestExecChart() {
