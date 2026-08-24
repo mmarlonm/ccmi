@@ -1,109 +1,70 @@
-/**
- * Sprint Task Preconfiguration Models
- * Módulo: Configurar Sprint
- */
+import { SprintTaskTemplate } from './config.model';
 
-export type TaskSection = 'dev' | 'testing' | 'otras';
-export type SizeSource = 'field' | 'discussion' | 'none';
+export type TaskCategory = 'dev' | 'testing' | 'other';
 
-/** Tabla de horas por SIZE */
-export const SIZE_HOURS_TABLE: Record<number, { dev: number; testing: number; otras: number }> = {
-  1:  { dev: 4,   testing: 2,  otras: 1 },
-  2:  { dev: 8,   testing: 4,  otras: 2 },
-  3:  { dev: 12,  testing: 6,  otras: 3 },
-  5:  { dev: 20,  testing: 10, otras: 5 },
-  8:  { dev: 32,  testing: 16, otras: 8 },
-  13: { dev: 52,  testing: 26, otras: 13 },
-  20: { dev: 80,  testing: 40, otras: 20 },
-  40: { dev: 160, testing: 80, otras: 40 },
-};
-
-/** Distribución DEV por porcentaje */
-export const DEV_DISTRIBUTION: Record<string, number> = {
-  'Elaboración de código':                     0.80,
-  'Review':                                    0.05,
-  'Peer Review':                               0.05,
-  'Pruebas funcionales ISW':                   0.10,
-  'Corrección de defectos de Peer Review':     0,  // opcional, no tiene distribución fija
-  'Corrección de defectos de pruebas ISW':     0,  // opcional, no tiene distribución fija
-};
-
-/** Definición de cada tarea del sistema */
-export interface TaskDefinition {
-  taskCode: string;      // ej. "01.01"
-  name: string;          // ej. "Elaboración de código"
-  section: TaskSection;
-  defaultPct?: number;   // Porcentaje del total de la sección (DEV)
-  isOptional: boolean;   // Si puede deseleccionarse
-}
-
-export const TASK_DEFINITIONS: TaskDefinition[] = [
-  // --- DEV ---
-  { taskCode: '01.01', name: 'Elaboración de código',             section: 'dev',     defaultPct: 0.80, isOptional: false },
-  { taskCode: '01.03', name: 'Review',                            section: 'dev',     defaultPct: 0.05, isOptional: true },
-  { taskCode: '01.04', name: 'Peer Review',                       section: 'dev',     defaultPct: 0.05, isOptional: true },
-  { taskCode: '01.05', name: 'Pruebas funcionales ISW',           section: 'dev',     defaultPct: 0.10, isOptional: false },
-  { taskCode: '01.07', name: 'Corrección de defectos de Peer Review',   section: 'dev', defaultPct: 0, isOptional: true },
-  { taskCode: '01.07', name: 'Corrección de defectos de pruebas ISW',   section: 'dev', defaultPct: 0, isOptional: true },
-
-  // --- TESTING ---
-  { taskCode: '01',    name: 'Diseño de pruebas',                 section: 'testing', defaultPct: 0.20, isOptional: false },
-  { taskCode: '02',    name: 'Ejecución de pruebas',              section: 'testing', defaultPct: 0.20, isOptional: false },
-  { taskCode: '03',    name: 'Registro de defectos',              section: 'testing', defaultPct: 0.20, isOptional: false },
-  { taskCode: '04',    name: 'Peer Review de especificación',     section: 'testing', defaultPct: 0.20, isOptional: true },
-  { taskCode: '04',    name: 'Peer Review Test y especificación', section: 'testing', defaultPct: 0.20, isOptional: true },
-
-  // --- OTRAS ---
-  { taskCode: '01.00', name: 'Análisis',                          section: 'otras',   defaultPct: 0.34, isOptional: true },
-  { taskCode: '01.00', name: 'Integración UAT',                   section: 'otras',   defaultPct: 0.33, isOptional: true },
-  { taskCode: '01.00', name: 'Documentación y videos capacitación', section: 'otras', defaultPct: 0.33, isOptional: true },
-];
-
-/** Item de tarea dentro del borrador */
-export interface DraftTaskItem {
-  taskCode: string;
-  name: string;
-  section: TaskSection;
-  selected: boolean;
+export interface DevelopmentComponent {
+  componentNo: number;
   hours: number;
-  assignedTo: string;   // email o displayName del usuario
 }
 
-/** Configuración de un Work Item (US o FT) dentro del borrador */
+export interface DraftTaskItem {
+  existingTaskId?: number;
+  templateTaskId: number;
+  name: string;
+  category: TaskCategory;
+  componentNo?: number;
+  percentage?: number;
+  originalEstimate: number;
+  remainingWork: number;
+  assignedTo: string;
+  state?: string;
+  isEditable?: boolean;
+  useCustomTitle?: boolean;
+}
+
 export interface WorkItemDraftConfig {
   workItemId: number;
-  workItemType: string;
+  workItemType: 'User Story' | 'Feature' | 'Bug';
   title: string;
-  size: number;
-  sizeSource: SizeSource;
   iterationPath: string;
   areaPath: string;
-  /** Usuarios asignados por sección */
+  workItemState?: string;
+  isEditable?: boolean;
+  isManualCapture?: boolean;
+  bugTags: string[];
+  devComponents: DevelopmentComponent[];
+  devTaskPercentages: Array<{
+    id: number;
+    name: string;
+    percentage: number;
+  }>;
   devAssignedTo: string;
+  devPeerReviewAssignedTo: string;
   testingAssignedTo: string;
-  otrasAssignedTo: string;
-  /** Tareas preconfiguradas */
+  testingReviewAssignedTo: string;
+  otherAssignedTo: string;
   tasks: DraftTaskItem[];
-  /** Estado de importación */
+  usesExistingTasks?: boolean;
   imported: boolean;
   importedTaskIds?: number[];
 }
 
-/** Borrador completo del sprint */
 export interface SprintTaskDraft {
+  organization: string;
+  projectName: string;
+  projectId: string;
+  teamId: string;
+  teamName: string;
   sprintId: string;
   sprintName: string;
   iterationPath: string;
-  /** Lista de usuarios detectados del sprint */
-  sprintUsers: string[];
-  /** Configuración por cada US/FT */
+  teamUsers: string[];
+  template: SprintTaskTemplate;
   items: WorkItemDraftConfig[];
-  /** Estado general */
   status: 'draft' | 'partial' | 'imported';
-  lastSaved: string; // ISO date string
+  lastSaved: string;
 }
 
-/** Resultado de importación a Azure */
 export interface ImportResult {
   workItemId: number;
   success: boolean;

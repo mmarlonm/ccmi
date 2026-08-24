@@ -30,6 +30,8 @@ export interface SprintHierarchyNode {
   id: number;
   type: string;
   title: string;
+  state?: string;
+  tags?: string;
   parentId: number | null;
   missingParent: boolean;
   childIds: number[];
@@ -39,7 +41,19 @@ export interface SprintHierarchyNode {
   closedDate: string | null;
   assignedToName: string;
   assignedToAvatarUrl: string | null;
+  areaPath: string;
+  iterationPath: string;
   webUrl: string;
+}
+
+export interface AdoChildTask {
+  id: number;
+  title: string;
+  state: string;
+  activity: string;
+  assignedTo: string;
+  originalEstimate: number;
+  remainingWork: number;
 }
 
 export interface SprintAssignmentEvent {
@@ -164,7 +178,6 @@ export class SprintGanttService {
     if (!organization || !projectName || !teamId) {
       return of([]);
     }
-
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations?api-version=7.0`;
     return this.http.get<{ value?: Array<{ id?: string; name?: string; path?: string; attributes?: { startDate?: string; finishDate?: string } }> }>(url, { headers: this.getHeaders() }).pipe(
       map(res => (res.value || [])
@@ -182,6 +195,104 @@ export class SprintGanttService {
           return aStart - bStart;
         })
       ),
+      catchError(() => of([]))
+    );
+  }
+
+  getTeamMembers(organization: string, projectId: string, teamId: string): Observable<string[]> {
+    if (!organization || !projectId || !teamId) {
+      return of([]);
+    }
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects/${encodeURIComponent(projectId)}/teams/${encodeURIComponent(teamId)}/members?api-version=7.0`;
+    return this.http.get<{ value?: Array<{ identity?: { displayName?: string; uniqueName?: string } }> }>(url, { headers: this.getHeaders() }).pipe(
+      map(res => (res.value || [])
+        .map(member => member.identity?.displayName || member.identity?.uniqueName || '')
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b))
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  getWorkItemBasic(organization: string, projectName: string, workItemId: number): Observable<SprintHierarchyNode | null> {
+    if (!organization || !projectName || !workItemId) {
+      return of(null);
+    }
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/workitems/${workItemId}?fields=System.Id,System.WorkItemType,System.Title,System.AreaPath,System.IterationPath,System.AssignedTo,System.State,System.Tags&api-version=7.0`;
+    return this.http.get<any>(url, { headers: this.getHeaders() }).pipe(
+      map(item => {
+        const assigned = this.extractAssignedToName(item?.fields?.['System.AssignedTo']) || 'Sin asignar';
+        return {
+          id: Number(item?.id || 0),
+          type: String(item?.fields?.['System.WorkItemType'] || ''),
+          title: String(item?.fields?.['System.Title'] || ''),
+          state: String(item?.fields?.['System.State'] || ''),
+          tags: String(item?.fields?.['System.Tags'] || ''),
+          parentId: null,
+          missingParent: false,
+          childIds: [],
+          originalEstimate: 0,
+          completedWork: 0,
+          activatedDate: null,
+          closedDate: null,
+          assignedToName: assigned,
+          assignedToAvatarUrl: null,
+          areaPath: String(item?.fields?.['System.AreaPath'] || ''),
+          iterationPath: String(item?.fields?.['System.IterationPath'] || ''),
+          webUrl: `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${workItemId}`
+        } as SprintHierarchyNode;
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  getChildTasks(organization: string, projectName: string, workItemId: number): Observable<AdoChildTask[]> {
+    if (!organization || !projectName || !workItemId) {
+      return of([]);
+    }
+
+    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/wiql?api-version=7.0`;
+    const escapedProject = projectName.replace(/'/g, "''");
+    const query = `
+      SELECT [System.Id]
+      FROM WorkItems
+      WHERE [System.TeamProject] = '${escapedProject}'
+        AND [System.WorkItemType] = 'Task'
+        AND [System.Parent] = ${workItemId}
+    `;
+
+    const fields = [
+      'System.Id',
+      'System.Title',
+      'System.State',
+      'System.AssignedTo',
+      'Microsoft.VSTS.Scheduling.OriginalEstimate',
+      'Microsoft.VSTS.Scheduling.RemainingWork',
+      'Microsoft.VSTS.Common.Activity'
+    ];
+
+    return this.http.post<{ workItems?: Array<{ id?: number }> }>(
+      wiqlUrl,
+      { query },
+      { headers: this.getHeaders() }
+    ).pipe(
+      map(res => (res.workItems || []).map(item => Number(item.id || 0)).filter(id => id > 0)),
+      switchMap(ids => {
+        if (ids.length === 0) {
+          return of([]);
+        }
+        return this.getWorkItemsBatch(organization, projectName, ids, fields).pipe(
+          map(items => items.map(item => ({
+            id: item.id,
+            title: String(item.fields['System.Title'] || ''),
+            state: String(item.fields['System.State'] || ''),
+            activity: String(item.fields['Microsoft.VSTS.Common.Activity'] || ''),
+            assignedTo: this.extractAssignedToName(item.fields['System.AssignedTo']) || '',
+            originalEstimate: this.toNumber(item.fields['Microsoft.VSTS.Scheduling.OriginalEstimate']),
+            remainingWork: this.toNumber(item.fields['Microsoft.VSTS.Scheduling.RemainingWork'])
+          })).sort((a, b) => a.id - b.id))
+        );
+      }),
       catchError(() => of([]))
     );
   }
@@ -313,8 +424,12 @@ export class SprintGanttService {
           'System.Id',
           'System.WorkItemType',
           'System.Title',
+          'System.State',
+          'System.Tags',
           'System.Parent',
           'System.AssignedTo',
+          'System.AreaPath',
+          'System.IterationPath',
           'Microsoft.VSTS.Scheduling.OriginalEstimate',
           'Microsoft.VSTS.Scheduling.CompletedWork',
           'Microsoft.VSTS.Common.ActivatedDate',
@@ -614,6 +729,8 @@ export class SprintGanttService {
         id: item.id,
         type: String(item.fields['System.WorkItemType'] || 'Unknown'),
         title: String(item.fields['System.Title'] || ''),
+        state: String(item.fields['System.State'] || ''),
+        tags: String(item.fields['System.Tags'] || ''),
         parentId: null,
         missingParent: false,
         childIds: [],
@@ -623,6 +740,8 @@ export class SprintGanttService {
         closedDate: this.toNullableIso(item.fields['Microsoft.VSTS.Common.ClosedDate']),
         assignedToName,
         assignedToAvatarUrl,
+        areaPath: String(item.fields['System.AreaPath'] || ''),
+        iterationPath: String(item.fields['System.IterationPath'] || ''),
         webUrl: `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${item.id}`
       });
     });

@@ -39,6 +39,8 @@ export interface GanttAiTaskLayerSummary {
   adminPlannedHours: number;
   adminRealHours: number;
   stageBreakdown: GanttAiTaskStageSummary[];
+  relatedItemTaskContext: string[];
+  relatedBugTaskContext: string[];
 }
 
 export interface GanttAiInput {
@@ -328,6 +330,14 @@ ${historySummary}
       .map(stage => `- ${stage.stage}: tareas=${stage.taskCount}, planeado=${stage.plannedHours.toFixed(1)}h, real=${stage.realHours.toFixed(1)}h`)
       .join('\n');
 
+    const relatedItemTaskSummary = input.taskLayer.relatedItemTaskContext
+      .slice(0, 40)
+      .join('\n');
+
+    const relatedBugTaskSummary = input.taskLayer.relatedBugTaskContext
+      .slice(0, 40)
+      .join('\n');
+
     const prompt = `
 Actúa como un analista senior de gestión de sprints en un contexto CMMI.
 Tu tarea es analizar la comparación REAL vs PLANEADO (Excel timeline) y redactar un análisis ejecutivo en ESPAÑOL.
@@ -371,6 +381,12 @@ CAPA DE TAREAS (ADO) PARA ITEMS CON MATCH
 DESGLOSE POR ETAPA (TAREAS)
 ${taskStageSummary || '- Sin desglose por etapa'}
 
+CONTEXTO AMPLIADO POR ITEM PADRE (TAREAS RELACIONADAS)
+${relatedItemTaskSummary || '- Sin tareas adicionales relacionadas por padre'}
+
+BUGS RELACIONADOS Y SUS TAREAS HIJAS
+${relatedBugTaskSummary || '- Sin bugs/tareas hijas relacionadas'}
+
 ENTREGABLE REQUERIDO (texto único, no tablas):
 1) Paso 1 (obligatorio): Diagnóstico general de cumplimiento por ITEM (cierre vs planeado Excel).
 2) Paso 2 (obligatorio): Análisis por TAREAS ADO para explicar causas (plan vs real), respetando dependencias.
@@ -384,6 +400,7 @@ REGLAS
 - Si faltan datos, dilo explícitamente y sugiere cómo capturarlos.
 - Prohibido concluir “mala planeación” solo porque Real (ADO) tenga más tareas/asignaciones que Planeado (Excel); primero explica la diferencia de nivel de detalle entre fuentes.
 - Si detectas diferencias de volumen entre Planeado y Real, trátalas como hipótesis de desagregación operativa y evalúa impacto real en fechas/cierres, no como incumplimiento por sí mismo.
+- Debes incorporar explícitamente en el diagnóstico las tareas relacionadas del mismo item padre y los bugs asociados con sus tareas hijas para no perder contexto operacional.
 - Restricciones de proceso a respetar en tu interpretación:
   a) Solo un desarrollador codifica un item (bug/feature/user story) a la vez.
   b) Peer review depende de codificación.

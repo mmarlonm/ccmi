@@ -1,797 +1,968 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AzureDevOpsService } from '../../services/azure-devops.service';
-import { SprintTaskService } from '../../services/sprint-task.service';
+import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
+import { ConfigService } from '../../services/config.service';
 import {
-  SprintTaskDraft,
-  WorkItemDraftConfig,
+  AdoOrganization,
+  AdoProject,
+  AdoSprint,
+  AdoTeam,
+  SprintGanttService
+} from '../../services/sprint-gantt.service';
+import { SprintTaskService } from '../../services/sprint-task.service';
+import { SprintTaskTemplate } from '../../models/config.model';
+import {
   DraftTaskItem,
   ImportResult,
-  TaskSection,
-  TASK_DEFINITIONS
+  SprintTaskDraft,
+  WorkItemDraftConfig
 } from '../../models/sprint-task-config.model';
-import {
-  LucideAngularModule,
-  ClipboardList, ChevronDown, ChevronUp, Check, Save, Upload,
-  AlertTriangle, RefreshCw, User, Clock, CheckSquare, Square,
-  Layers, Code2, TestTube, MoreHorizontal, Loader2, X, Info,
-  BookCheck, Zap, FileCode
-} from 'lucide-angular';
-import { finalize, catchError } from 'rxjs/operators';
-import { of, forkJoin } from 'rxjs';
-
-type StepState = 'select-sprint' | 'configure';
 
 @Component({
   selector: 'app-sprint-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
-  styles: [`
-    :host { display: block; }
-
-    .step-badge {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 14px;
-    }
-
-    .section-header-dev     { background: linear-gradient(135deg, #4f46e5, #6366f1); }
-    .section-header-testing { background: linear-gradient(135deg, #059669, #10b981); }
-    .section-header-otras   { background: linear-gradient(135deg, #d97706, #f59e0b); }
-
-    .section-card-dev     { border-left: 4px solid #6366f1; }
-    .section-card-testing { border-left: 4px solid #10b981; }
-    .section-card-otras   { border-left: 4px solid #f59e0b; }
-
-    .badge-size {
-      font-size: 11px; font-weight: 700; padding: 2px 8px;
-      border-radius: 999px; letter-spacing: 0.05em;
-    }
-    .badge-field      { background: #dbeafe; color: #1d4ed8; }
-    .badge-discussion { background: #ede9fe; color: #7c3aed; }
-    .badge-none       { background: #f1f5f9; color: #64748b; }
-
-    .wi-card {
-      background: white;
-      border-radius: 16px;
-      border: 1.5px solid #e2e8f0;
-      box-shadow: 0 1px 8px rgba(0,0,0,.04);
-      overflow: hidden;
-      transition: box-shadow .2s;
-    }
-    .wi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-    .dark .wi-card { background: #1e293b; border-color: #334155; }
-
-    .task-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 12px;
-      border-radius: 10px;
-      transition: background .15s;
-    }
-    .task-row:hover { background: #f8fafc; }
-    .dark .task-row:hover { background: #0f172a; }
-
-    .task-row.selected-dev     { background: #eef2ff; }
-    .task-row.selected-testing { background: #ecfdf5; }
-    .task-row.selected-otras   { background: #fffbeb; }
-
-    .hours-input {
-      width: 70px; text-align: center;
-      border: 1.5px solid #e2e8f0; border-radius: 8px;
-      padding: 4px 8px; font-size: 13px;
-      background: white; color: #1e293b;
-      transition: border-color .15s;
-    }
-    .hours-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-    .dark .hours-input { background: #0f172a; border-color: #334155; color: #f1f5f9; }
-
-    .user-select {
-      border: 1.5px solid #e2e8f0; border-radius: 8px;
-      padding: 6px 10px; font-size: 13px;
-      background: white; color: #1e293b;
-      transition: border-color .15s; cursor: pointer;
-    }
-    .user-select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-    .dark .user-select { background: #0f172a; border-color: #334155; color: #f1f5f9; }
-
-    .import-btn {
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white; border: none; border-radius: 12px;
-      padding: 12px 28px; font-weight: 700; font-size: 15px;
-      cursor: pointer; display: flex; align-items: center; gap: 8px;
-      box-shadow: 0 4px 16px rgba(79,70,229,.35);
-      transition: all .2s;
-    }
-    .import-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,70,229,.45); }
-    .import-btn:active { transform: translateY(0); }
-    .import-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-
-    .save-btn {
-      background: white; color: #4f46e5;
-      border: 2px solid #4f46e5; border-radius: 12px;
-      padding: 11px 24px; font-weight: 700; font-size: 15px;
-      cursor: pointer; display: flex; align-items: center; gap: 8px;
-      transition: all .2s;
-    }
-    .save-btn:hover { background: #eef2ff; }
-    .dark .save-btn { background: transparent; color: #818cf8; border-color: #818cf8; }
-    .dark .save-btn:hover { background: rgba(99,102,241,.15); }
-
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fsi { animation: fadeSlideIn .35s ease both; }
-
-    .progress-bar-track { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
-    .progress-bar-fill  { height: 100%; border-radius: 999px; transition: width .4s ease;
-                          background: linear-gradient(90deg, #4f46e5, #7c3aed); }
-
-    .spinner { animation: spin 1s linear infinite; }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  `],
+  imports: [CommonModule, FormsModule],
   template: `
-<div class="max-w-6xl mx-auto space-y-6 pt-4 md:pt-8 pb-10">
-
-  <!-- Header -->
-  <header class="animate-fsi">
-    <div class="flex items-center gap-3 mb-1">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
-        <lucide-icon [name]="ClipboardList" size="20" class="text-white"></lucide-icon>
-      </div>
-      <div>
-        <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Configurar Sprint</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Preconfigura tareas para US/FT antes de importar a Azure DevOps</p>
-      </div>
-    </div>
+<div class="max-w-7xl mx-auto space-y-6 pt-4 md:pt-8 pb-10">
+  <header>
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Configurar Sprint</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400">Configura tareas por User Story, Feature o Bug usando plantilla editable.</p>
   </header>
 
-  <!-- Step indicator -->
-  <div class="flex items-center gap-3 animate-fsi" style="animation-delay:.05s">
-    <div class="flex items-center gap-2">
-      <div class="step-badge" [ngClass]="step === 'select-sprint' ? 'bg-indigo-500 text-white' : 'bg-green-500 text-white'">
-        <lucide-icon *ngIf="step !== 'select-sprint'" [name]="Check" size="16"></lucide-icon>
-        <span *ngIf="step === 'select-sprint'">1</span>
-      </div>
-      <span class="text-sm font-semibold" [ngClass]="step === 'select-sprint' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'">Seleccionar Sprint</span>
+  <section class="glass-card space-y-4">
+    <h3 class="text-lg font-semibold">Filtros de sprint</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <select class="glass-input" [(ngModel)]="selectedOrganization" (ngModelChange)="onOrganizationChange()">
+        <option value="">Organización</option>
+        <option *ngFor="let org of organizations" [value]="org.name">{{ org.name }}</option>
+      </select>
+      <select class="glass-input" [(ngModel)]="selectedProjectId" (ngModelChange)="onProjectChange()" [disabled]="!selectedOrganization">
+        <option value="">Proyecto</option>
+        <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
+      </select>
+      <select class="glass-input" [(ngModel)]="selectedTeamId" (ngModelChange)="onTeamChange()" [disabled]="!selectedProjectId">
+        <option value="">Equipo</option>
+        <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
+      </select>
+      <select class="glass-input" [(ngModel)]="selectedSprintId" [disabled]="!selectedTeamId">
+        <option value="">Sprint</option>
+        <option *ngFor="let sprint of sprints" [value]="sprint.id">{{ sprint.name }}</option>
+      </select>
     </div>
-    <div class="flex-1 h-px bg-gradient-to-r from-slate-300 to-slate-200 dark:from-slate-600 dark:to-slate-700 max-w-16"></div>
-    <div class="flex items-center gap-2">
-      <div class="step-badge" [ngClass]="step === 'configure' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 dark:bg-slate-700'">
-        <span>2</span>
-      </div>
-      <span class="text-sm font-semibold" [ngClass]="step === 'configure' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'">Configurar Tareas</span>
+    <div class="flex flex-wrap gap-2">
+      <button class="glass-button" (click)="loadSprintItems()" [disabled]="!canLoadSprint || loadingItems">
+        {{ loadingItems ? 'Cargando...' : 'Cargar items del sprint' }}
+      </button>
+      <button class="glass-button" (click)="saveDraft()" [disabled]="!draft">Guardar borrador</button>
+      <button class="glass-button" (click)="confirmImport()" [disabled]="!canImportToAzure || importing">Importar a Azure</button>
     </div>
-  </div>
+    <p *ngIf="message" class="text-sm" [ngClass]="messageType === 'error' ? 'text-red-600' : 'text-green-600'">{{ message }}</p>
+    <p *ngIf="captureMode === 'manual'" class="text-xs text-indigo-600 dark:text-indigo-300">
+      Modo independiente por ID: solo se muestra el item capturado fuera de sprint.
+    </p>
+  </section>
 
-  <!-- ─── PASO 1: Selección de Sprint ─────────────────────────────────────────── -->
-  <div *ngIf="step === 'select-sprint'" class="glass-card animate-fsi" style="animation-delay:.1s">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-        <lucide-icon [name]="Layers" size="16" class="text-indigo-600 dark:text-indigo-400"></lucide-icon>
-      </div>
-      <h3 class="text-lg font-semibold text-slate-800 dark:text-white">Selecciona el Sprint</h3>
+  <section class="glass-card space-y-3">
+    <h3 class="text-lg font-semibold">Captura por ID (fuera de sprint)</h3>
+    <p class="text-xs text-slate-500">Usa Organización/Proyecto seleccionados; si no existen, se toma Configuración global.</p>
+    <div class="flex gap-2">
+      <input [(ngModel)]="manualItemId" type="number" min="1" class="glass-input w-56" placeholder="ID del item">
+      <button class="glass-button" (click)="addItemById()" [disabled]="!manualItemId || loadingManual">Agregar item por ID</button>
     </div>
+  </section>
 
-    <div *ngIf="loadingSprints" class="flex items-center gap-3 text-slate-500 py-4">
-      <lucide-icon [name]="Loader2" size="18" class="spinner text-indigo-500"></lucide-icon>
-      <span class="text-sm">Cargando sprints...</span>
-    </div>
-
-    <div *ngIf="!loadingSprints" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium mb-2 text-slate-600 dark:text-slate-300">Sprint disponible</label>
-        <select [(ngModel)]="selectedSprintId" class="user-select w-full max-w-lg text-base" (change)="onSprintChange()">
-          <option value="">-- Selecciona un sprint --</option>
-          <option *ngFor="let s of sprints" [value]="s.id">{{ s.name }}</option>
-        </select>
+  <section *ngIf="draft" class="glass-card space-y-4">
+    <h3 class="text-lg font-semibold">Resumen previo a importación</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <p class="text-xs text-slate-500">Total Desarrollo</p>
+        <p class="text-xl font-bold">{{ getGlobalCategoryHours('dev') | number:'1.3-3' }}h</p>
       </div>
-
-      <!-- Draft restored notice -->
-      <div *ngIf="draftRestored && existingDraft" class="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl">
-        <lucide-icon [name]="Info" size="18" class="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"></lucide-icon>
-        <div class="flex-1 text-sm">
-          <p class="font-semibold text-amber-800 dark:text-amber-300">Borrador encontrado</p>
-          <p class="text-amber-700 dark:text-amber-400 mt-0.5">
-            Sprint: <strong>{{ existingDraft.sprintName }}</strong> — Guardado el {{ existingDraft.lastSaved | date:'dd/MM/yyyy HH:mm' }}
-          </p>
-          <div class="flex gap-2 mt-2">
-            <button (click)="resumeDraft()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors">
-              Retomar borrador
-            </button>
-            <button (click)="discardDraft()" class="text-xs bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg font-semibold transition-colors hover:bg-slate-50 dark:hover:bg-slate-600">
-              Descartar y crear nuevo
-            </button>
-          </div>
-        </div>
+      <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <p class="text-xs text-slate-500">Total Testing</p>
+        <p class="text-xl font-bold">{{ getGlobalCategoryHours('testing') | number:'1.3-3' }}h</p>
       </div>
-
-      <div class="flex gap-3 pt-2">
-        <button
-          (click)="loadSprintData()"
-          [disabled]="!selectedSprintId || loadingItems"
-          class="import-btn"
-          style="padding: 10px 20px; font-size: 14px;">
-          <lucide-icon *ngIf="!loadingItems" [name]="RefreshCw" size="16"></lucide-icon>
-          <lucide-icon *ngIf="loadingItems" [name]="Loader2" size="16" class="spinner"></lucide-icon>
-          {{ loadingItems ? 'Cargando...' : 'Cargar US / FT del Sprint' }}
-        </button>
+      <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <p class="text-xs text-slate-500">Total Otras</p>
+        <p class="text-xl font-bold">{{ getGlobalCategoryHours('other') | number:'1.3-3' }}h</p>
+      </div>
+      <div class="rounded-lg border border-indigo-300 dark:border-indigo-700 p-3 bg-indigo-50/60 dark:bg-indigo-900/20">
+        <p class="text-xs text-slate-500">Total General</p>
+        <p class="text-xl font-bold text-indigo-700 dark:text-indigo-300">{{ getGlobalTotalHours() | number:'1.3-3' }}h</p>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ─── PASO 2: Configuración de Tareas ──────────────────────────────────────── -->
-  <div *ngIf="step === 'configure' && draft" class="space-y-5 animate-fsi" style="animation-delay:.05s">
-
-    <!-- Toolbar -->
-    <div class="glass-card p-4">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Sprint configurado</p>
-          <p class="text-lg font-bold text-slate-800 dark:text-white">{{ draft.sprintName }}</p>
-          <p class="text-xs text-slate-500 mt-0.5">{{ draft.items.length }} items • {{ totalSelectedTasks }} tareas seleccionadas • {{ totalHours | number:'1.1-1' }}h totales</p>
-        </div>
-
-        <!-- Status badge -->
-        <div class="flex items-center gap-2">
-          <div *ngIf="draft.status === 'draft'" class="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-lg">
-            <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-            <span class="text-xs font-semibold text-amber-700 dark:text-amber-400">Borrador local</span>
-          </div>
-          <div *ngIf="draft.status === 'partial'" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 rounded-lg">
-            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-            <span class="text-xs font-semibold text-blue-700 dark:text-blue-400">Parcialmente importado</span>
-          </div>
-          <div *ngIf="draft.status === 'imported'" class="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/40 rounded-lg">
-            <lucide-icon [name]="Check" size="14" class="text-green-600 dark:text-green-400"></lucide-icon>
-            <span class="text-xs font-semibold text-green-700 dark:text-green-400">Importado a Azure</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <button (click)="goBack()" class="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <lucide-icon [name]="X" size="14"></lucide-icon> Cambiar sprint
-          </button>
-          <button (click)="saveDraft()" class="save-btn" style="padding: 9px 18px; font-size: 13px;">
-            <lucide-icon [name]="Save" size="15"></lucide-icon> Guardar borrador
-          </button>
-          <button
-            (click)="confirmImport()"
-            [disabled]="importing || draft.status === 'imported'"
-            class="import-btn" style="padding: 9px 18px; font-size: 13px;">
-            <lucide-icon *ngIf="!importing" [name]="Upload" size="15"></lucide-icon>
-            <lucide-icon *ngIf="importing" [name]="Loader2" size="15" class="spinner"></lucide-icon>
-            {{ importing ? 'Importando...' : 'Importar a Azure' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Progress overall -->
-      <div class="mt-3">
-        <div class="flex justify-between text-xs text-slate-400 mb-1">
-          <span>Items importados</span>
-          <span>{{ importedCount }} / {{ draft.items.length }}</span>
-        </div>
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" [style.width.%]="(importedCount / draft.items.length) * 100"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toast notification -->
-    <div *ngIf="toastMessage" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold animate-fsi"
-      [ngClass]="toastType === 'success' ? 'bg-green-500 text-white' : toastType === 'error' ? 'bg-red-500 text-white' : 'bg-slate-800 text-white'">
-      <lucide-icon [name]="toastType === 'success' ? Check : AlertTriangle" size="16"></lucide-icon>
-      {{ toastMessage }}
-    </div>
-
-    <!-- Import result summary -->
-    <div *ngIf="importResults.length > 0" class="glass-card p-4 border-l-4" [ngClass]="allImportSuccess ? 'border-green-500' : 'border-amber-500'">
-      <h4 class="font-semibold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
-        <lucide-icon [name]="allImportSuccess ? BookCheck : AlertTriangle" size="16"
-          [ngClass]="allImportSuccess ? 'text-green-500' : 'text-amber-500'"></lucide-icon>
-        Resultado de importación
-      </h4>
-      <div *ngFor="let res of importResults" class="text-sm py-1 border-b border-slate-100 dark:border-slate-700 last:border-0">
-        <span class="font-medium" [ngClass]="res.success ? 'text-green-600 dark:text-green-400' : 'text-red-500'">
-          {{ res.success ? '✓' : '✗' }} WI #{{ res.workItemId }}
-        </span>
-        <span class="text-slate-500 ml-2">{{ res.createdTaskIds.length }} tareas creadas</span>
-        <span *ngIf="res.errors.length > 0" class="text-red-500 ml-2">— {{ res.errors.join(', ') }}</span>
-      </div>
-    </div>
-
-    <!-- WI Cards -->
-    <div *ngFor="let wi of draft.items; let i = index" class="wi-card animate-fsi" [style.animation-delay]="(i * 0.04) + 's'">
-
-      <!-- WI Header -->
-      <div class="p-4 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-        (click)="toggleWiExpanded(wi.workItemId)">
-
-        <div class="flex items-center gap-2 flex-1 min-w-0">
-          <!-- Type icon -->
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            [ngClass]="wi.workItemType === 'Feature' ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-indigo-100 dark:bg-indigo-900/30'">
-            <lucide-icon [name]="wi.workItemType === 'Feature' ? Zap : FileCode" size="14"
-              [ngClass]="wi.workItemType === 'Feature' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400'"></lucide-icon>
-          </div>
+  <section *ngIf="draft" class="space-y-4">
+    <article *ngFor="let item of draft.items" class="glass-card overflow-hidden">
+      <div class="w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer" (click)="toggleItemExpanded(item.workItemId)">
+        <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs font-bold" [ngClass]="wi.workItemType === 'Feature' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400'">
-                {{ wi.workItemType === 'Feature' ? 'FT' : 'US' }} #{{ wi.workItemId }}
+              <h4 class="font-semibold">
+                <a
+                  class="text-indigo-700 dark:text-indigo-300 hover:underline"
+                  [href]="getWorkItemUrl(item.workItemId)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="$event.stopPropagation()"
+                >
+                  {{ getPrefix(item.workItemType) }} {{ item.workItemId }}
+                </a>
+                - {{ item.title }}
+              </h4>
+              <span
+                class="text-[11px] px-2 py-0.5 rounded-full border"
+                [ngClass]="isNewState(item.workItemState) ? 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-900/20' : 'text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-300 dark:border-amber-700 dark:bg-amber-900/20'"
+              >
+                {{ item.workItemState || 'Sin estado' }}
               </span>
-              <span class="badge-size" [ngClass]="'badge-' + wi.sizeSource">
-                SIZE {{ wi.size > 0 ? wi.size : '?' }}
-                <span *ngIf="wi.sizeSource === 'discussion'"> · discussion</span>
-              </span>
-              <span *ngIf="wi.imported" class="badge-size bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                ✓ Importado
-              </span>
+              <span *ngIf="item.imported" class="text-xs font-semibold text-green-600">Importado</span>
             </div>
-            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate mt-0.5">{{ wi.title }}</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-2">
+              <div class="rounded border border-slate-200 dark:border-slate-700 px-2 py-1">Desarrollo: <strong>{{ getCategoryHours(item, 'dev') | number:'1.3-3' }}h</strong></div>
+              <div class="rounded border border-slate-200 dark:border-slate-700 px-2 py-1">Testing: <strong>{{ getCategoryHours(item, 'testing') | number:'1.3-3' }}h</strong></div>
+              <div class="rounded border border-slate-200 dark:border-slate-700 px-2 py-1">Otras: <strong>{{ getCategoryHours(item, 'other') | number:'1.3-3' }}h</strong></div>
+              <div class="rounded border border-indigo-300 dark:border-indigo-700 px-2 py-1 bg-indigo-50/60 dark:bg-indigo-900/20">Total: <strong>{{ getTotalHours(item) | number:'1.3-3' }}h</strong></div>
+            </div>
+            <div *ngIf="captureMode === 'manual'" class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Área: <strong>{{ item.areaPath || 'N/A' }}</strong> · Iteración: <strong>{{ item.iterationPath || 'N/A' }}</strong>
+            </div>
+            <div *ngIf="isItemReadOnly(item)" class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+              Item en modo lectura: solo se puede editar cuando el estado del padre es <strong>New</strong>.
+            </div>
           </div>
-        </div>
-
-        <div class="flex items-center gap-3 shrink-0">
-          <div class="text-right">
-            <p class="text-xs text-slate-400">Horas totales</p>
-            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ getTotalHours(wi) | number:'1.1-1' }}h</p>
-          </div>
-          <lucide-icon [name]="isWiExpanded(wi.workItemId) ? ChevronUp : ChevronDown" size="18" class="text-slate-400"></lucide-icon>
+          <span class="text-xs font-semibold text-slate-500 mt-1">{{ isItemExpanded(item.workItemId) ? 'Ocultar' : 'Mostrar' }}</span>
         </div>
       </div>
 
-      <!-- WI Body (expanded) -->
-      <div *ngIf="isWiExpanded(wi.workItemId)" class="px-4 pb-5 space-y-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-
-        <!-- SIZE editor -->
-        <div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-          <lucide-icon [name]="Info" size="14" class="text-slate-400 shrink-0"></lucide-icon>
-          <label class="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">Tamaño (SIZE):</label>
-          <input type="number" [(ngModel)]="wi.size" min="0" (change)="onSizeChange(wi)"
-            class="hours-input" style="width:60px" />
-          <span class="text-xs text-slate-400">· Las horas se recalculan automáticamente</span>
+      <div *ngIf="isItemExpanded(item.workItemId)" class="p-4 pt-0 space-y-4">
+        <div *ngIf="captureMode === 'manual' && item.workItemType === 'Bug'" class="p-3 border rounded-lg space-y-2">
+          <h5 class="font-semibold text-sm">Tags de BUG (obligatorio)</h5>
+          <div class="flex flex-wrap gap-2">
+            <button
+              *ngFor="let tag of bugTagOptions"
+              type="button"
+              class="px-3 py-1 rounded-full border text-xs transition-colors"
+              [ngClass]="isBugTagSelected(item, tag) ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'"
+              (click)="toggleBugTag(item, tag)"
+              [disabled]="isItemReadOnly(item)"
+            >
+              {{ tag }}
+            </button>
+          </div>
+          <p *ngIf="item.bugTags.length === 0" class="text-xs text-red-600">Selecciona al menos un tag.</p>
         </div>
 
-        <!-- Section: DEV -->
-        <div class="section-card-dev rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-          <div class="section-header-dev px-4 py-2.5 flex items-center justify-between cursor-pointer"
-            (click)="toggleSection(wi.workItemId, 'dev')">
-            <div class="flex items-center gap-2.5">
-              <lucide-icon [name]="Code2" size="15" class="text-white/90"></lucide-icon>
-              <span class="text-sm font-bold text-white">Tiempos DEV</span>
-              <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{{ getTasksBySection(wi.tasks, 'dev').length }} tareas</span>
+        <div class="p-3 border rounded-lg space-y-2">
+          <h5 class="font-semibold text-sm">Desarrollo</h5>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <select class="glass-input text-sm" [(ngModel)]="item.devAssignedTo" (ngModelChange)="onDevAssignedToChanged(item)" [disabled]="isItemReadOnly(item)">
+                  <option value="">Asignado DEV</option>
+                  <option *ngFor="let user of getAssignableUsers()" [value]="user">{{ user }}</option>
+                </select>
+                <select class="glass-input text-sm" [(ngModel)]="item.devPeerReviewAssignedTo" (ngModelChange)="applyAssignees(item)" [disabled]="isItemReadOnly(item)">
+                  <option value="">Peer Review código</option>
+                  <option *ngFor="let user of getAssignableUsers()" [value]="user">{{ user }}</option>
+                </select>
+              </div>
+              <div *ngIf="item.usesExistingTasks" class="text-xs text-indigo-600 dark:text-indigo-300">
+                Este item ya tiene tareas creadas en Azure. Se editarán directamente sus valores existentes.
+              </div>
+              <div class="space-y-2" *ngIf="!item.usesExistingTasks">
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold">Componentes</p>
+                  <button class="glass-button text-xs px-2 py-1" (click)="addComponent(item)" [disabled]="isItemReadOnly(item)">+ Componente</button>
+                </div>
+                <div *ngFor="let component of item.devComponents; let ci = index" class="flex gap-2 items-center">
+                  <span class="text-xs w-16">Comp {{ format2(component.componentNo) }}</span>
+                  <input class="glass-input w-24 text-sm" type="number" min="0" step="any" [(ngModel)]="component.hours" (ngModelChange)="onDevComponentsChanged(item)" [disabled]="isItemReadOnly(item)">
+                  <span class="text-xs">horas</span>
+                  <button *ngIf="item.devComponents.length > 1" class="text-red-600 text-xs" (click)="removeComponent(item, ci)" [disabled]="isItemReadOnly(item)">Quitar</button>
+                </div>
+              </div>
+              <div class="space-y-1" *ngIf="!item.usesExistingTasks">
+                <p class="text-xs font-semibold text-slate-500">Distribución % por tarea DEV (editable por item)</p>
+                <div *ngFor="let pct of item.devTaskPercentages; let pi=index" class="grid grid-cols-[1fr_100px] gap-2 items-center text-xs">
+                  <span>{{ format2(pct.id) }} - {{ pct.name }}</span>
+                  <input class="glass-input text-sm" type="number" min="0" step="any" [(ngModel)]="pct.percentage" (ngModelChange)="onDevPercentageChanged(item, pi)" [disabled]="isItemReadOnly(item)">
+                </div>
+              </div>
             </div>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-white/80 font-semibold">{{ getSectionHours(wi, 'dev') | number:'1.1-1' }}h</span>
-              <!-- User assignment -->
-              <select [(ngModel)]="wi.devAssignedTo" (change)="applyUserToSection(wi, 'dev')" (click)="$event.stopPropagation()"
-                class="user-select text-xs" style="max-width:160px; padding: 4px 8px;">
-                <option value="">Sin asignar</option>
-                <option *ngFor="let u of draft.sprintUsers" [value]="u">{{ u }}</option>
-              </select>
-              <lucide-icon [name]="isSectionExpanded(wi.workItemId, 'dev') ? ChevronUp : ChevronDown" size="16" class="text-white/80"></lucide-icon>
-            </div>
-          </div>
-          <div *ngIf="isSectionExpanded(wi.workItemId, 'dev')" class="p-3 space-y-1">
-            <div *ngFor="let task of getTasksBySection(wi.tasks, 'dev')" class="task-row"
-              [ngClass]="task.selected ? 'selected-dev' : ''">
-              <button (click)="toggleTask(task)" class="shrink-0 transition-transform hover:scale-110">
-                <lucide-icon [name]="task.selected ? CheckSquare : Square" size="18"
-                  [ngClass]="task.selected ? 'text-indigo-500' : 'text-slate-300 dark:text-slate-600'"></lucide-icon>
-              </button>
-              <span class="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 truncate" [ngClass]="!task.selected ? 'opacity-40 line-through' : ''" [title]="getTaskTitle(wi, task)">{{ getTaskTitle(wi, task) }}</span>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <lucide-icon [name]="Clock" size="13" class="text-slate-400"></lucide-icon>
-                <input type="number" [(ngModel)]="task.hours" min="0" step="0.5"
-                  [disabled]="!task.selected"
-                  class="hours-input" />
-                <span class="text-xs text-slate-400">h</span>
+
+            <div class="space-y-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+              <p class="text-xs font-semibold text-slate-500">Tareas de desarrollo</p>
+              <div *ngFor="let task of getTasks(item, 'dev')" class="flex gap-2 items-center">
+                <span class="flex-1">{{ getTaskTitle(item, task) }}</span>
+                <input
+                  *ngIf="item.usesExistingTasks; else calculatedDevTime"
+                  class="glass-input w-24 text-sm"
+                  type="number"
+                  min="0"
+                  step="any"
+                  [(ngModel)]="task.originalEstimate"
+                  (ngModelChange)="syncRemaining(task)"
+                  [disabled]="isTaskReadOnly(item, task)"
+                >
+                <ng-template #calculatedDevTime>
+                  <span class="font-semibold">{{ task.originalEstimate | number:'1.3-3' }}h</span>
+                </ng-template>
+                <span>h</span>
+                <span class="text-slate-500 truncate max-w-36">{{ task.assignedTo || 'Sin asignar' }}</span>
+                <span
+                  *ngIf="task.state"
+                  class="text-[10px] px-1.5 py-0.5 rounded border"
+                  [ngClass]="isNewState(task.state) ? 'text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-700' : 'text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700'"
+                >
+                  {{ task.state }}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Section: TESTING -->
-        <div class="section-card-testing rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-          <div class="section-header-testing px-4 py-2.5 flex items-center justify-between cursor-pointer"
-            (click)="toggleSection(wi.workItemId, 'testing')">
-            <div class="flex items-center gap-2.5">
-              <lucide-icon [name]="TestTube" size="15" class="text-white/90"></lucide-icon>
-              <span class="text-sm font-bold text-white">Tiempos Testing</span>
-              <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{{ getTasksBySection(wi.tasks, 'testing').length }} tareas</span>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-white/80 font-semibold">{{ getSectionHours(wi, 'testing') | number:'1.1-1' }}h</span>
-              <select [(ngModel)]="wi.testingAssignedTo" (change)="applyUserToSection(wi, 'testing')" (click)="$event.stopPropagation()"
-                class="user-select text-xs" style="max-width:160px; padding: 4px 8px;">
-                <option value="">Sin asignar</option>
-                <option *ngFor="let u of draft.sprintUsers" [value]="u">{{ u }}</option>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div class="p-3 border rounded-lg space-y-2">
+            <h5 class="font-semibold text-sm">Testing</h5>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <select class="glass-input text-sm" [(ngModel)]="item.testingAssignedTo" (ngModelChange)="applyAssignees(item)" [disabled]="isItemReadOnly(item)">
+                <option value="">Asignado Testing</option>
+                <option *ngFor="let user of getAssignableUsers()" [value]="user">{{ user }}</option>
               </select>
-              <lucide-icon [name]="isSectionExpanded(wi.workItemId, 'testing') ? ChevronUp : ChevronDown" size="16" class="text-white/80"></lucide-icon>
+              <select class="glass-input text-sm" [(ngModel)]="item.testingReviewAssignedTo" (ngModelChange)="applyAssignees(item)" [disabled]="isItemReadOnly(item)">
+                <option value="">Revisor testing (Peer Review)</option>
+                <option *ngFor="let user of getAssignableUsers()" [value]="user">{{ user }}</option>
+              </select>
+            </div>
+            <div *ngFor="let task of getTasks(item, 'testing')" class="flex gap-2 items-center text-xs">
+              <span class="flex-1">{{ getTaskTitle(item, task) }}</span>
+              <input class="glass-input w-24 text-sm" type="number" min="0" step="any" [(ngModel)]="task.originalEstimate" (ngModelChange)="syncRemaining(task)" [disabled]="isTaskReadOnly(item, task)">
+              <span>h</span>
+              <span class="text-slate-500">{{ task.assignedTo || 'Sin asignar' }}</span>
+              <span
+                *ngIf="task.state"
+                class="text-[10px] px-1.5 py-0.5 rounded border"
+                [ngClass]="isNewState(task.state) ? 'text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-700' : 'text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700'"
+              >
+                {{ task.state }}
+              </span>
             </div>
           </div>
-          <div *ngIf="isSectionExpanded(wi.workItemId, 'testing')" class="p-3 space-y-1">
-            <div *ngFor="let task of getTasksBySection(wi.tasks, 'testing')" class="task-row"
-              [ngClass]="task.selected ? 'selected-testing' : ''">
-              <button (click)="toggleTask(task)" class="shrink-0 transition-transform hover:scale-110">
-                <lucide-icon [name]="task.selected ? CheckSquare : Square" size="18"
-                  [ngClass]="task.selected ? 'text-green-500' : 'text-slate-300 dark:text-slate-600'"></lucide-icon>
+
+          <div class="p-3 border rounded-lg space-y-2">
+            <h5 class="font-semibold text-sm">Otras tareas</h5>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <select class="glass-input text-sm" [(ngModel)]="item.otherAssignedTo" (ngModelChange)="applyAssignees(item)" [disabled]="isItemReadOnly(item)">
+                <option value="">Asignado otras</option>
+                <option *ngFor="let user of getAssignableUsers()" [value]="user">{{ user }}</option>
+              </select>
+            </div>
+            <div *ngFor="let task of getTasks(item, 'other')" class="flex gap-2 items-center text-xs">
+              <span class="flex-1">{{ getTaskTitle(item, task) }}</span>
+              <input class="glass-input w-24 text-sm" type="number" min="0" step="any" [(ngModel)]="task.originalEstimate" (ngModelChange)="syncRemaining(task)" [disabled]="isTaskReadOnly(item, task)">
+              <span>h</span>
+              <span class="text-slate-500">{{ task.assignedTo || 'Sin asignar' }}</span>
+              <button
+                *ngIf="canDeleteAddedOtherTask(item, task)"
+                type="button"
+                class="text-red-600 text-xs hover:underline"
+                (click)="removeOtherTask(item, task)"
+              >
+                Eliminar
               </button>
-              <span class="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 truncate" [ngClass]="!task.selected ? 'opacity-40 line-through' : ''" [title]="getTaskTitle(wi, task)">{{ getTaskTitle(wi, task) }}</span>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <lucide-icon [name]="Clock" size="13" class="text-slate-400"></lucide-icon>
-                <input type="number" [(ngModel)]="task.hours" min="0" step="0.5"
-                  [disabled]="!task.selected"
-                  class="hours-input" />
-                <span class="text-xs text-slate-400">h</span>
+              <span
+                *ngIf="task.state"
+                class="text-[10px] px-1.5 py-0.5 rounded border"
+                [ngClass]="isNewState(task.state) ? 'text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-700' : 'text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700'"
+              >
+                {{ task.state }}
+              </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_140px_auto] gap-2 items-end" *ngIf="!isItemReadOnly(item)">
+              <div class="space-y-1 min-w-0">
+                <label class="text-xs text-slate-500">Nombre nueva tarea</label>
+                <input class="glass-input text-sm w-full" [(ngModel)]="newOtherTaskNameByItem[item.workItemId]" placeholder="Nombre de la tarea">
+              </div>
+              <div class="space-y-1 min-w-0">
+                <label class="text-xs text-slate-500">Tiempo estimado</label>
+                <input class="glass-input text-sm w-full" type="number" min="0" step="any" [(ngModel)]="newOtherTaskEstimateByItem[item.workItemId]">
+              </div>
+              <div class="md:self-end">
+                <button class="glass-button text-xs px-3 py-2 whitespace-nowrap" (click)="addOtherTask(item)">+ Agregar</button>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Section: OTRAS -->
-        <div class="section-card-otras rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-          <div class="section-header-otras px-4 py-2.5 flex items-center justify-between cursor-pointer"
-            (click)="toggleSection(wi.workItemId, 'otras')">
-            <div class="flex items-center gap-2.5">
-              <lucide-icon [name]="MoreHorizontal" size="15" class="text-white/90"></lucide-icon>
-              <span class="text-sm font-bold text-white">Otras Tareas</span>
-              <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{{ getTasksBySection(wi.tasks, 'otras').length }} tareas</span>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-white/80 font-semibold">{{ getSectionHours(wi, 'otras') | number:'1.1-1' }}h</span>
-              <select [(ngModel)]="wi.otrasAssignedTo" (change)="applyUserToSection(wi, 'otras')" (click)="$event.stopPropagation()"
-                class="user-select text-xs" style="max-width:160px; padding: 4px 8px;">
-                <option value="">Sin asignar</option>
-                <option *ngFor="let u of draft.sprintUsers" [value]="u">{{ u }}</option>
-              </select>
-              <lucide-icon [name]="isSectionExpanded(wi.workItemId, 'otras') ? ChevronUp : ChevronDown" size="16" class="text-white/80"></lucide-icon>
-            </div>
-          </div>
-          <div *ngIf="isSectionExpanded(wi.workItemId, 'otras')" class="p-3 space-y-1">
-            <div *ngFor="let task of getTasksBySection(wi.tasks, 'otras')" class="task-row"
-              [ngClass]="task.selected ? 'selected-otras' : ''">
-              <button (click)="toggleTask(task)" class="shrink-0 transition-transform hover:scale-110">
-                <lucide-icon [name]="task.selected ? CheckSquare : Square" size="18"
-                  [ngClass]="task.selected ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600'"></lucide-icon>
-              </button>
-              <span class="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 truncate" [ngClass]="!task.selected ? 'opacity-40 line-through' : ''" [title]="getTaskTitle(wi, task)">{{ getTaskTitle(wi, task) }}</span>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <lucide-icon [name]="Clock" size="13" class="text-slate-400"></lucide-icon>
-                <input type="number" [(ngModel)]="task.hours" min="0" step="0.5"
-                  [disabled]="!task.selected"
-                  class="hours-input" />
-                <span class="text-xs text-slate-400">h</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /WI Body -->
-    </div><!-- /WI Cards loop -->
-
-    <!-- Bottom actions -->
-    <div class="flex justify-end gap-3 pt-2">
-      <button (click)="saveDraft()" class="save-btn">
-        <lucide-icon [name]="Save" size="16"></lucide-icon> Guardar borrador
-      </button>
-      <button (click)="confirmImport()" [disabled]="importing || draft.status === 'imported'" class="import-btn">
-        <lucide-icon *ngIf="!importing" [name]="Upload" size="16"></lucide-icon>
-        <lucide-icon *ngIf="importing" [name]="Loader2" size="16" class="spinner"></lucide-icon>
-        {{ importing ? 'Importando a Azure...' : 'Importar a Azure DevOps' }}
-      </button>
-    </div>
-
-  </div><!-- /Step 2 -->
-
-</div><!-- /max-w -->
-
-<!-- Import Confirm Modal -->
-<div *ngIf="showImportModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" (click)="showImportModal = false">
-  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 animate-fsi" (click)="$event.stopPropagation()">
-    <div class="flex items-center gap-3 mb-4">
-      <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-        <lucide-icon [name]="Upload" size="20" class="text-indigo-600 dark:text-indigo-400"></lucide-icon>
       </div>
-      <h3 class="text-lg font-bold text-slate-800 dark:text-white">Confirmar importación</h3>
+    </article>
+  </section>
+
+  <section *ngIf="importResults.length > 0" class="glass-card">
+    <h3 class="text-lg font-semibold mb-2">Resultado de importación</h3>
+    <div *ngFor="let result of importResults" class="text-sm py-1">
+      <span [ngClass]="result.success ? 'text-green-600' : 'text-red-600'">{{ result.success ? '✓' : '✗' }} Item #{{ result.workItemId }}</span>
+      <span class="text-slate-500"> | {{ result.createdTaskIds.length }} tareas</span>
+      <span *ngIf="result.errors.length" class="text-red-600"> | {{ result.errors.join(', ') }}</span>
     </div>
-    <p class="text-sm text-slate-600 dark:text-slate-300 mb-2">
-      Se crearán <strong>{{ totalSelectedTasks }}</strong> tareas en Azure DevOps para el sprint <strong>{{ draft?.sprintName }}</strong>.
-    </p>
-    <p class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg mb-5 flex items-start gap-2">
-      <lucide-icon [name]="AlertTriangle" size="14" class="shrink-0 mt-0.5"></lucide-icon>
-      Esta acción crea las tareas en Azure DevOps. Los ítems ya importados no se duplicarán.
-    </p>
-    <div class="flex gap-3 justify-end">
-      <button (click)="showImportModal = false" class="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-        Cancelar
-      </button>
-      <button (click)="executeImport()" class="import-btn" style="padding: 9px 20px; font-size: 14px;">
-        <lucide-icon [name]="Upload" size="15"></lucide-icon> Sí, importar
-      </button>
-    </div>
-  </div>
+  </section>
 </div>
   `
 })
 export class SprintConfigComponent implements OnInit {
-  // Lucide icons
-  readonly ClipboardList = ClipboardList;
-  readonly ChevronDown = ChevronDown;
-  readonly ChevronUp = ChevronUp;
-  readonly Check = Check;
-  readonly Save = Save;
-  readonly Upload = Upload;
-  readonly AlertTriangle = AlertTriangle;
-  readonly RefreshCw = RefreshCw;
-  readonly User = User;
-  readonly Clock = Clock;
-  readonly CheckSquare = CheckSquare;
-  readonly Square = Square;
-  readonly Layers = Layers;
-  readonly Code2 = Code2;
-  readonly TestTube = TestTube;
-  readonly MoreHorizontal = MoreHorizontal;
-  readonly Loader2 = Loader2;
-  readonly X = X;
-  readonly Info = Info;
-  readonly BookCheck = BookCheck;
-  readonly Zap = Zap;
-  readonly FileCode = FileCode;
-
-  private adoService = inject(AzureDevOpsService);
+  private sprintGanttService = inject(SprintGanttService);
   private sprintTaskService = inject(SprintTaskService);
+  private configService = inject(ConfigService);
 
-  // State
-  step: StepState = 'select-sprint';
-  sprints: any[] = [];
+  organizations: AdoOrganization[] = [];
+  projects: AdoProject[] = [];
+  teams: AdoTeam[] = [];
+  sprints: AdoSprint[] = [];
+  teamUsers: string[] = [];
+
+  selectedOrganization = '';
+  selectedProjectId = '';
+  selectedTeamId = '';
   selectedSprintId = '';
-  loadingSprints = false;
+
   loadingItems = false;
+  loadingManual = false;
   importing = false;
-  showImportModal = false;
+  captureMode: 'sprint' | 'manual' = 'sprint';
 
+  manualItemId: number | null = null;
   draft: SprintTaskDraft | null = null;
-  existingDraft: SprintTaskDraft | null = null;
-  draftRestored = false;
   importResults: ImportResult[] = [];
+  message = '';
+  messageType: 'success' | 'error' = 'success';
+  private expandedItemIds = new Set<number>();
+  readonly bugTagOptions = ['noInyectado', 'inyectadoSprint', 'bugUAT', 'bugTesting'];
+  newOtherTaskNameByItem: Record<number, string> = {};
+  newOtherTaskEstimateByItem: Record<number, number> = {};
 
-  // UI expansion state
-  private expandedWis = new Set<number>();
-  private expandedSections = new Map<string, boolean>();
+  template: SprintTaskTemplate = this.configService.getConfig()?.sprintTaskTemplate || this.configService.getDefaultSprintTaskTemplate();
 
-  // Toast
-  toastMessage = '';
-  toastType: 'success' | 'error' | 'info' = 'success';
-  private toastTimer: any;
-
-  ngOnInit(): void {
-    this.loadSprints();
-    // Check for existing draft
-    const saved = this.sprintTaskService.loadDraft();
-    if (saved) {
-      this.existingDraft = saved;
-      this.draftRestored = true;
-    }
+  get canLoadSprint(): boolean {
+    return Boolean(this.selectedOrganization && this.selectedProjectId && this.selectedTeamId && this.selectedSprintId);
   }
 
-  loadSprints(): void {
-    this.loadingSprints = true;
-    this.adoService.getIterationNodes().subscribe({
-      next: nodes => {
-        this.sprints = nodes;
-        this.loadingSprints = false;
-      },
-      error: () => { this.loadingSprints = false; }
+  get canImportToAzure(): boolean {
+    if (!this.draft || this.draft.items.length === 0) {
+      return false;
+    }
+    const editableItems = this.draft.items.filter(item => !this.isItemReadOnly(item));
+    if (editableItems.length === 0) {
+      return false;
+    }
+    return editableItems.every(item =>
+      Boolean(
+        item.devAssignedTo?.trim() &&
+        item.devPeerReviewAssignedTo?.trim() &&
+        item.testingAssignedTo?.trim() &&
+        item.testingReviewAssignedTo?.trim() &&
+        item.otherAssignedTo?.trim()
+      )
+    ) && editableItems.every(item => !this.requiresBugTags(item) || item.bugTags.length > 0);
+  }
+
+  private validateImportAssignments(): boolean {
+    if (!this.draft) return false;
+    const editableItems = this.draft.items.filter(item => !this.isItemReadOnly(item));
+    if (editableItems.length === 0) {
+      this.showMessage('No hay items editables: solo se puede importar cuando el item padre está en estado New.', 'error');
+      return false;
+    }
+    const missing = editableItems
+      .filter(item =>
+        !item.devAssignedTo?.trim() ||
+        !item.devPeerReviewAssignedTo?.trim() ||
+        !item.testingAssignedTo?.trim() ||
+        !item.testingReviewAssignedTo?.trim() ||
+        !item.otherAssignedTo?.trim()
+      )
+      .map(item => item.workItemId);
+
+    if (missing.length === 0) {
+      const missingBugTags = editableItems
+        .filter(item => this.requiresBugTags(item) && item.bugTags.length === 0)
+        .map(item => item.workItemId);
+      if (missingBugTags.length === 0) {
+        return true;
+      }
+      const firstMissingTagId = missingBugTags[0];
+      if (typeof firstMissingTagId === 'number') {
+        this.expandedItemIds.add(firstMissingTagId);
+      }
+      this.showMessage(`No se puede importar: el BUG manual requiere tags en ${missingBugTags.map(id => `#${id}`).join(', ')}.`, 'error');
+      return false;
+    }
+
+    const firstMissingId = missing[0];
+    if (typeof firstMissingId === 'number') {
+      this.expandedItemIds.add(firstMissingId);
+    }
+    this.showMessage(`No se puede importar: faltan responsables en los items ${missing.map(id => `#${id}`).join(', ')}.`, 'error');
+    return false;
+  }
+
+  ngOnInit(): void {
+    const saved = this.sprintTaskService.loadDraft();
+    if (saved) {
+      this.draft = saved;
+      this.teamUsers = saved.teamUsers || [];
+      this.template = saved.template || this.template;
+      this.captureMode = saved.sprintId ? 'sprint' : 'manual';
+      this.ensureDraftCompatibility(saved);
+      this.expandFirstItem(saved);
+    }
+    this.loadOrganizations();
+  }
+
+  loadOrganizations(): void {
+    this.sprintGanttService.getOrganizations().subscribe(orgs => {
+      this.organizations = orgs;
+      const defaultOrg = this.configService.getConfig()?.azure.organization || '';
+      this.selectedOrganization = orgs.find(org => org.name.toLowerCase() === defaultOrg.toLowerCase())?.name || orgs[0]?.name || defaultOrg;
+      if (this.selectedOrganization) this.onOrganizationChange();
     });
   }
 
-  onSprintChange(): void { /* just for future hooks */ }
-
-  resumeDraft(): void {
-    if (!this.existingDraft) return;
-    this.draft = this.existingDraft;
-    this.draftRestored = false;
-    this.step = 'configure';
-    // Expand first WI by default
-    if (this.draft.items.length > 0) {
-      this.expandedWis.add(this.draft.items[0].workItemId);
-      this.expandAllSectionsFor(this.draft.items[0].workItemId);
-    }
+  onOrganizationChange(): void {
+    this.selectedProjectId = '';
+    this.selectedTeamId = '';
+    this.selectedSprintId = '';
+    this.projects = [];
+    this.teams = [];
+    this.sprints = [];
+    if (!this.selectedOrganization) return;
+    this.sprintGanttService.getProjects(this.selectedOrganization).subscribe(projects => {
+      this.projects = projects;
+      const defaultProject = this.configService.getConfig()?.azure.project || '';
+      this.selectedProjectId = projects.find(project => project.name.toLowerCase() === defaultProject.toLowerCase())?.id || projects[0]?.id || '';
+      if (this.selectedProjectId) this.onProjectChange();
+    });
   }
 
-  discardDraft(): void {
-    this.sprintTaskService.clearDraft();
-    this.existingDraft = null;
-    this.draftRestored = false;
-  }
-
-  loadSprintData(): void {
-    if (!this.selectedSprintId) return;
-    this.loadingItems = true;
-
-    const sprint = this.sprints.find(s => s.id === this.selectedSprintId);
-    const sprintName = sprint?.name || this.selectedSprintId;
-
-    this.adoService.getMetrics(this.selectedSprintId).subscribe({
-      next: metrics => {
-        this.loadingItems = false;
-        const items = metrics.developmentRate?.items || [];
-
-        if (items.length === 0) {
-          this.showToast('No se encontraron US/FT en este sprint.', 'error');
-          return;
-        }
-
-        const iterationPath = sprint?.path || this.selectedSprintId;
-        this.draft = this.sprintTaskService.buildDraftConfig(
-          this.selectedSprintId, sprintName, iterationPath, items
-        );
-
-        // Auto-expand first item with all sections
-        if (this.draft.items.length > 0) {
-          const firstId = this.draft.items[0].workItemId;
-          this.expandedWis.add(firstId);
-          this.expandAllSectionsFor(firstId);
-        }
-
-        this.sprintTaskService.saveDraft(this.draft);
-        this.step = 'configure';
-        this.showToast(`${items.length} items cargados correctamente`, 'success');
-      },
-      error: () => {
-        this.loadingItems = false;
-        this.showToast('Error al cargar el sprint. Verifica la configuración.', 'error');
+  onProjectChange(): void {
+    this.selectedTeamId = '';
+    this.selectedSprintId = '';
+    this.teams = [];
+    this.sprints = [];
+    if (!this.selectedOrganization || !this.selectedProjectId) return;
+    this.sprintGanttService.getTeams(this.selectedOrganization, this.selectedProjectId).subscribe(teams => {
+      this.teams = teams.filter(team => team.name.trim().toLowerCase() === 'mayansoft');
+      this.selectedTeamId = this.teams[0]?.id || '';
+      if (this.selectedTeamId) this.onTeamChange();
+      if (!this.selectedTeamId) {
+        this.showMessage('No se encontró el equipo Mayansoft para este proyecto.', 'error');
       }
     });
   }
 
-  goBack(): void {
-    this.step = 'select-sprint';
-    this.importResults = [];
+  onTeamChange(): void {
+    this.selectedSprintId = '';
+    this.sprints = [];
+    this.loadTeamMembers();
+    const projectName = this.getSelectedProjectName();
+    if (!this.selectedOrganization || !this.selectedTeamId || !projectName) return;
+    this.sprintGanttService.getSprints(this.selectedOrganization, projectName, this.selectedTeamId).subscribe(sprints => {
+      this.sprints = sprints;
+      this.selectedSprintId = sprints[sprints.length - 1]?.id || '';
+    });
+  }
+
+  loadTeamMembers(): void {
+    if (!this.selectedOrganization || !this.selectedProjectId || !this.selectedTeamId) {
+      this.teamUsers = [];
+      return;
+    }
+    this.sprintGanttService.getTeamMembers(this.selectedOrganization, this.selectedProjectId, this.selectedTeamId).subscribe(users => {
+      this.teamUsers = users;
+      if (this.draft) {
+        this.draft.teamUsers = users;
+      }
+    });
+  }
+
+  loadSprintItems(): void {
+    if (!this.canLoadSprint) return;
+    const projectName = this.getSelectedProjectName();
+    const sprint = this.sprints.find(s => s.id === this.selectedSprintId);
+    if (!projectName || !sprint) return;
+
+    this.loadingItems = true;
+    this.sprintGanttService.getSprintHierarchyNodes(
+      this.selectedOrganization,
+      projectName,
+      this.selectedTeamId,
+      this.selectedSprintId,
+      sprint.path || ''
+    ).pipe(
+      finalize(() => { this.loadingItems = false; })
+    ).subscribe(nodes => {
+      this.captureMode = 'sprint';
+      const items = nodes
+        .filter(node => this.isAllowedType(node.type))
+        .map(node => ({
+          id: node.id,
+          type: node.type,
+          title: node.title,
+          state: node.state || '',
+          tags: node.tags || '',
+          isManualCapture: false,
+          iterationPath: node.iterationPath || sprint.path || '',
+          areaPath: node.areaPath || projectName
+        }));
+      if (items.length === 0) {
+        this.draft = this.sprintTaskService.buildDraftConfig({
+          organization: this.selectedOrganization,
+          projectId: this.selectedProjectId,
+          projectName,
+          teamId: this.selectedTeamId,
+          teamName: this.getSelectedTeamName(),
+          sprintId: this.selectedSprintId,
+          sprintName: sprint.name,
+          iterationPath: sprint.path || '',
+          teamUsers: this.teamUsers,
+          template: this.template,
+          items
+        });
+        this.expandFirstItem(this.draft);
+        this.sprintTaskService.saveDraft(this.draft);
+        this.showMessage('No se encontraron items permitidos.', 'error');
+        return;
+      }
+      forkJoin(items.map(item =>
+        this.sprintGanttService.getChildTasks(this.selectedOrganization, projectName, item.id)
+      )).subscribe(existingTaskLists => {
+        const enrichedItems = items.map((item, index) => ({
+          ...item,
+          existingTasks: existingTaskLists[index] || []
+        }));
+        this.draft = this.sprintTaskService.buildDraftConfig({
+          organization: this.selectedOrganization,
+          projectId: this.selectedProjectId,
+          projectName,
+          teamId: this.selectedTeamId,
+          teamName: this.getSelectedTeamName(),
+          sprintId: this.selectedSprintId,
+          sprintName: sprint.name,
+          iterationPath: sprint.path || '',
+          teamUsers: this.teamUsers,
+          template: this.template,
+          items: enrichedItems
+        });
+        this.initializeNewOtherTaskInputs(this.draft);
+        this.expandFirstItem(this.draft);
+        this.sprintTaskService.saveDraft(this.draft);
+        this.showMessage(`${enrichedItems.length} items cargados.`, 'success');
+      });
+    });
+  }
+
+  addItemById(): void {
+    if (!this.manualItemId) return;
+    const fallbackConfig = this.configService.getConfig();
+    const organization = this.selectedOrganization || fallbackConfig?.azure.organization || '';
+    const projectName = this.getSelectedProjectName() || fallbackConfig?.azure.project || '';
+    if (!organization || !projectName) {
+      this.showMessage('Falta organización/proyecto para cargar el item por ID.', 'error');
+      return;
+    }
+    if (this.teamUsers.length === 0) {
+      this.tryLoadFallbackTeamUsers(organization, projectName);
+    }
+
+    this.loadingManual = true;
+    this.sprintGanttService.getWorkItemBasic(organization, projectName, this.manualItemId).pipe(
+      finalize(() => { this.loadingManual = false; })
+    ).subscribe(node => {
+      if (!node) {
+        this.showMessage('No se encontró el item.', 'error');
+        return;
+      }
+      if (!this.isAllowedType(node.type)) {
+        this.showMessage('Solo se permiten User Story, Feature o Bug.', 'error');
+        return;
+      }
+
+      this.sprintGanttService.getChildTasks(organization, projectName, node.id).subscribe(existingTasks => {
+        this.captureMode = 'manual';
+        this.draft = this.sprintTaskService.buildDraftConfig({
+          organization,
+          projectId: this.selectedProjectId,
+          projectName,
+          teamId: this.selectedTeamId,
+          teamName: this.getSelectedTeamName() || 'Mayansoft',
+          sprintId: '',
+          sprintName: 'Captura por ID',
+          iterationPath: node.iterationPath || '',
+          teamUsers: this.teamUsers,
+          template: this.template,
+          items: [{
+            id: node.id,
+            type: node.type,
+            title: node.title,
+            state: node.state || '',
+            tags: node.tags || '',
+            isManualCapture: true,
+            existingTasks,
+            iterationPath: node.iterationPath || '',
+            areaPath: node.areaPath || projectName
+          }]
+        });
+        this.initializeNewOtherTaskInputs(this.draft);
+        this.expandFirstItem(this.draft);
+        this.sprintTaskService.saveDraft(this.draft);
+        this.showMessage(`Item #${node.id} cargado en modo independiente.`, 'success');
+        this.manualItemId = null;
+      });
+    });
+  }
+
+  addComponent(item: WorkItemDraftConfig): void {
+    if (this.isItemReadOnly(item) || item.usesExistingTasks) return;
+    const next = item.devComponents.length + 1;
+    item.devComponents.push({ componentNo: next, hours: 0 });
+    this.onDevComponentsChanged(item);
+  }
+
+  removeComponent(item: WorkItemDraftConfig, index: number): void {
+    if (this.isItemReadOnly(item) || item.usesExistingTasks) return;
+    item.devComponents.splice(index, 1);
+    item.devComponents.forEach((component, idx) => { component.componentNo = idx + 1; });
+    this.onDevComponentsChanged(item);
+  }
+
+  onDevComponentsChanged(item: WorkItemDraftConfig): void {
+    if (this.isItemReadOnly(item) || item.usesExistingTasks) return;
+    this.sprintTaskService.recalculateDevTasks(item, this.template);
+    this.sprintTaskService.applyAssignees(item);
+  }
+
+  onDevPercentageChanged(item: WorkItemDraftConfig, index: number): void {
+    if (this.isItemReadOnly(item) || item.usesExistingTasks) return;
+    if (index < 0 || index >= item.devTaskPercentages.length) return;
+    const current = item.devTaskPercentages[index];
+    current.percentage = Number(current.percentage || 0);
+    this.sprintTaskService.recalculateDevTasks(item, this.template);
+    this.sprintTaskService.applyAssignees(item);
+  }
+
+  applyAssignees(item: WorkItemDraftConfig): void {
+    if (this.isItemReadOnly(item)) return;
+    this.sprintTaskService.applyAssignees(item);
+  }
+
+  onDevAssignedToChanged(item: WorkItemDraftConfig): void {
+    if (this.isItemReadOnly(item)) return;
+    const selectedDev = item.devAssignedTo?.trim() || '';
+    if (selectedDev) {
+      if (!item.testingReviewAssignedTo?.trim()) {
+        item.testingReviewAssignedTo = selectedDev;
+      }
+      if (!item.otherAssignedTo?.trim()) {
+        item.otherAssignedTo = selectedDev;
+      }
+    }
+    this.applyAssignees(item);
+  }
+
+  addOtherTask(item: WorkItemDraftConfig): void {
+    if (this.isItemReadOnly(item)) return;
+    const name = (this.newOtherTaskNameByItem[item.workItemId] || '').trim();
+    const estimateRaw = this.newOtherTaskEstimateByItem[item.workItemId];
+    const estimate = Number(estimateRaw);
+    if (!name) {
+      this.showMessage('Captura el nombre de la nueva tarea en Otras tareas.', 'error');
+      return;
+    }
+    if (!Number.isFinite(estimate) || estimate < 0) {
+      this.showMessage('Captura un tiempo estimado válido para la nueva tarea.', 'error');
+      return;
+    }
+
+    const nextTaskId = this.getNextOtherTaskId(item);
+
+    item.tasks.push({
+      templateTaskId: nextTaskId,
+      name,
+      category: 'other',
+      originalEstimate: estimate,
+      remainingWork: estimate,
+      assignedTo: item.otherAssignedTo || '',
+      state: 'New',
+      isEditable: true,
+      useCustomTitle: true
+    });
+    this.applyAssignees(item);
+    this.newOtherTaskNameByItem[item.workItemId] = this.getSuggestedOtherTaskName(item);
+    this.newOtherTaskEstimateByItem[item.workItemId] = 0;
+  }
+
+  removeOtherTask(item: WorkItemDraftConfig, task: DraftTaskItem): void {
+    if (!this.canDeleteAddedOtherTask(item, task)) return;
+    const index = item.tasks.indexOf(task);
+    if (index < 0) return;
+    item.tasks.splice(index, 1);
+    this.newOtherTaskNameByItem[item.workItemId] = this.getSuggestedOtherTaskName(item);
+  }
+
+  syncRemaining(task: DraftTaskItem): void {
+    if (task.isEditable === false) return;
+    task.remainingWork = Number(task.originalEstimate || 0);
   }
 
   saveDraft(): void {
     if (!this.draft) return;
     this.sprintTaskService.saveDraft(this.draft);
-    this.showToast('Borrador guardado correctamente', 'success');
+    this.showMessage('Borrador guardado.', 'success');
   }
 
   confirmImport(): void {
-    this.showImportModal = true;
+    if (!this.validateImportAssignments()) {
+      return;
+    }
+    this.executeImport();
   }
 
   executeImport(): void {
-    if (!this.draft) return;
-    this.showImportModal = false;
+    const draft = this.draft;
+    if (!draft) return;
     this.importing = true;
     this.importResults = [];
-
-    this.sprintTaskService.importAllToAzure(this.draft).pipe(
+    this.sprintTaskService.importAllToAzure(draft).pipe(
       finalize(() => { this.importing = false; })
-    ).subscribe({
-      next: results => {
-        this.importResults = results;
-        const allSuccess = results.every(r => r.success);
+    ).subscribe(results => {
+      this.importResults = results;
+      results.forEach(result => {
+        const target = draft.items.find(item => item.workItemId === result.workItemId);
+        if (!target) return;
+        if (result.success) {
+          target.imported = true;
+          target.importedTaskIds = result.createdTaskIds;
+        }
+      });
+      const allImported = draft.items.every(item => item.imported);
+      const someImported = draft.items.some(item => item.imported);
+      draft.status = allImported ? 'imported' : (someImported ? 'partial' : 'draft');
+      this.sprintTaskService.saveDraft(draft);
+      this.showMessage(allImported ? 'Importación completada.' : 'Importación completada con errores.', allImported ? 'success' : 'error');
+    });
+  }
 
-        // Update draft items imported status
-        results.forEach(res => {
-          const item = this.draft!.items.find(i => i.workItemId === res.workItemId);
-          if (item && res.success) {
-            item.imported = true;
-            item.importedTaskIds = res.createdTaskIds;
+  getAssignableUsers(): string[] {
+    return this.teamUsers.length > 0 ? this.teamUsers : (this.draft?.teamUsers || []);
+  }
+
+  getTasks(item: WorkItemDraftConfig, category: 'dev' | 'testing' | 'other'): DraftTaskItem[] {
+    return item.tasks.filter(task => task.category === category);
+  }
+
+  getTaskTitle(item: WorkItemDraftConfig, task: DraftTaskItem): string {
+    return this.sprintTaskService.buildTaskTitle(item, task);
+  }
+
+  isItemReadOnly(item: WorkItemDraftConfig): boolean {
+    return item.isEditable === false;
+  }
+
+  isTaskReadOnly(item: WorkItemDraftConfig, task: DraftTaskItem): boolean {
+    return this.isItemReadOnly(item) || task.isEditable === false;
+  }
+
+  canDeleteAddedOtherTask(item: WorkItemDraftConfig, task: DraftTaskItem): boolean {
+    return !this.isItemReadOnly(item)
+      && task.category === 'other'
+      && !task.existingTaskId
+      && task.useCustomTitle === true
+      && task.isEditable !== false;
+  }
+
+  isNewState(state: string | undefined): boolean {
+    return this.sprintTaskService.isNewState(state);
+  }
+
+  isBugTagSelected(item: WorkItemDraftConfig, tag: string): boolean {
+    return item.bugTags.includes(tag);
+  }
+
+  toggleBugTag(item: WorkItemDraftConfig, tag: string): void {
+    if (this.isItemReadOnly(item)) return;
+    const index = item.bugTags.findIndex(current => current === tag);
+    if (index >= 0) {
+      item.bugTags.splice(index, 1);
+      return;
+    }
+    item.bugTags.push(tag);
+  }
+
+  getWorkItemUrl(workItemId: number): string {
+    const organization = this.draft?.organization || this.selectedOrganization;
+    const projectName = this.draft?.projectName || this.getSelectedProjectName();
+    if (!organization || !projectName) {
+      return '#';
+    }
+    return `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${workItemId}`;
+  }
+
+  getCategoryHours(item: WorkItemDraftConfig, category: 'dev' | 'testing' | 'other'): number {
+    return this.sprintTaskService.getCategoryHours(item, category);
+  }
+
+  getTotalHours(item: WorkItemDraftConfig): number {
+    return this.sprintTaskService.getTotalHours(item);
+  }
+
+  getGlobalCategoryHours(category: 'dev' | 'testing' | 'other'): number {
+    if (!this.draft) return 0;
+    return Number(this.draft.items.reduce((acc, item) => acc + this.getCategoryHours(item, category), 0).toFixed(3));
+  }
+
+  getGlobalTotalHours(): number {
+    if (!this.draft) return 0;
+    return Number(this.draft.items.reduce((acc, item) => acc + this.getTotalHours(item), 0).toFixed(3));
+  }
+
+  toggleItemExpanded(itemId: number): void {
+    if (this.expandedItemIds.has(itemId)) {
+      this.expandedItemIds.delete(itemId);
+      return;
+    }
+    this.expandedItemIds.add(itemId);
+  }
+
+  isItemExpanded(itemId: number): boolean {
+    return this.expandedItemIds.has(itemId);
+  }
+
+  getPrefix(type: WorkItemDraftConfig['workItemType']): string {
+    if (type === 'Feature') return 'FT';
+    if (type === 'Bug') return 'BUG';
+    return 'US';
+  }
+
+  format2(value: number): string {
+    return String(Math.max(0, Math.floor(value))).padStart(2, '0');
+  }
+
+  private getSelectedProjectName(): string {
+    return this.projects.find(project => project.id === this.selectedProjectId)?.name || '';
+  }
+
+  private getSelectedTeamName(): string {
+    return this.teams.find(team => team.id === this.selectedTeamId)?.name || '';
+  }
+
+  private isAllowedType(type: string): boolean {
+    const normalized = type.trim().toLowerCase();
+    return normalized === 'user story' || normalized === 'feature' || normalized === 'bug';
+  }
+
+  private showMessage(message: string, type: 'success' | 'error'): void {
+    this.message = message;
+    this.messageType = type;
+    setTimeout(() => {
+      this.message = '';
+    }, 4000);
+  }
+
+  private requiresBugTags(item: WorkItemDraftConfig): boolean {
+    return this.captureMode === 'manual' && item.workItemType === 'Bug' && item.isManualCapture === true;
+  }
+
+  private tryLoadFallbackTeamUsers(organization: string, projectName: string): void {
+    if (!organization || !projectName) return;
+    this.sprintGanttService.getProjects(organization).subscribe(projects => {
+      const selectedProject = projects.find(project => project.name.toLowerCase() === projectName.toLowerCase()) || projects[0];
+      if (!selectedProject) return;
+      this.sprintGanttService.getTeams(organization, selectedProject.id).subscribe(teams => {
+        const selectedTeam = teams.find(team => team.name.trim().toLowerCase() === 'mayansoft') || teams[0];
+        if (!selectedTeam) return;
+        this.sprintGanttService.getTeamMembers(organization, selectedProject.id, selectedTeam.id).subscribe(users => {
+          this.teamUsers = users;
+          if (this.draft) {
+            this.draft.teamUsers = users;
           }
         });
+      });
+    });
+  }
 
-        // Update overall status
-        const allImported = this.draft!.items.every(i => i.imported);
-        const someImported = this.draft!.items.some(i => i.imported);
-        this.draft!.status = allImported ? 'imported' : (someImported ? 'partial' : 'draft');
-
-        this.sprintTaskService.saveDraft(this.draft!);
-
-        if (allSuccess) {
-          this.showToast('¡Todas las tareas importadas correctamente a Azure DevOps!', 'success');
-        } else {
-          this.showToast('Importación completada con algunos errores', 'error');
+  private ensureDraftCompatibility(draft: SprintTaskDraft): void {
+    draft.items.forEach(item => {
+      if (!Array.isArray(item.bugTags)) {
+        item.bugTags = [];
+      }
+      if (typeof item.isManualCapture !== 'boolean') {
+        item.isManualCapture = !draft.sprintId;
+      }
+      if (typeof item.workItemState !== 'string') {
+        item.workItemState = 'New';
+      }
+      if (typeof item.isEditable !== 'boolean') {
+        item.isEditable = this.sprintTaskService.isNewState(item.workItemState);
+      }
+      if (typeof item.usesExistingTasks !== 'boolean') {
+        item.usesExistingTasks = item.tasks.some(task => typeof task.existingTaskId === 'number');
+      }
+      if (!Array.isArray(item.devTaskPercentages) || item.devTaskPercentages.length === 0) {
+        item.devTaskPercentages = this.template.devTasks.map(task => ({
+          id: task.id,
+          name: task.name,
+          percentage: Number(task.percentage || 0)
+        }));
+      }
+      if (!item.testingReviewAssignedTo) {
+        const legacyReviewer = (item as any).testingPeerSpecAssignedTo || (item as any).testingPeerTestAssignedTo || item.testingAssignedTo || '';
+        item.testingReviewAssignedTo = legacyReviewer;
+      }
+      item.tasks.forEach(task => {
+        if (typeof task.state !== 'string') {
+          task.state = 'New';
         }
-      },
-      error: () => {
-        this.importing = false;
-        this.showToast('Error al importar a Azure DevOps', 'error');
+        if (typeof task.isEditable !== 'boolean') {
+          task.isEditable = this.sprintTaskService.isNewState(task.state) && item.isEditable !== false;
+        }
+      });
+      this.sprintTaskService.recalculateDevTasks(item, this.template);
+      this.sprintTaskService.applyAssignees(item);
+    });
+    this.initializeNewOtherTaskInputs(draft);
+  }
+
+  private expandFirstItem(draft: SprintTaskDraft): void {
+    this.expandedItemIds.clear();
+    const first = draft.items[0];
+    if (first) {
+      this.expandedItemIds.add(first.workItemId);
+    }
+  }
+
+  private initializeNewOtherTaskInputs(draft: SprintTaskDraft): void {
+    draft.items.forEach(item => {
+      this.newOtherTaskNameByItem[item.workItemId] = this.getSuggestedOtherTaskName(item);
+      if (typeof this.newOtherTaskEstimateByItem[item.workItemId] !== 'number') {
+        this.newOtherTaskEstimateByItem[item.workItemId] = 0;
       }
     });
   }
 
-  // ─── UI helpers ───────────────────────────────────────────────────────────────
-
-  toggleWiExpanded(id: number): void {
-    if (this.expandedWis.has(id)) {
-      this.expandedWis.delete(id);
-    } else {
-      this.expandedWis.add(id);
-      this.expandAllSectionsFor(id);
-    }
+  private getSuggestedOtherTaskName(item: WorkItemDraftConfig): string {
+    const nextTaskId = this.getNextOtherTaskId(item);
+    return `${this.getPrefix(item.workItemType)} ${item.workItemId} Task ${this.format2(nextTaskId)} Nueva tarea`;
   }
 
-  isWiExpanded(id: number): boolean {
-    return this.expandedWis.has(id);
-  }
-
-  private expandAllSectionsFor(wiId: number): void {
-    this.expandedSections.set(`${wiId}_dev`, true);
-    this.expandedSections.set(`${wiId}_testing`, true);
-    this.expandedSections.set(`${wiId}_otras`, true);
-  }
-
-  toggleSection(wiId: number, section: TaskSection): void {
-    const key = `${wiId}_${section}`;
-    this.expandedSections.set(key, !this.expandedSections.get(key));
-  }
-
-  isSectionExpanded(wiId: number, section: TaskSection): boolean {
-    const key = `${wiId}_${section}`;
-    return this.expandedSections.get(key) ?? true;
-  }
-
-  toggleTask(task: DraftTaskItem): void {
-    task.selected = !task.selected;
-  }
-
-  onSizeChange(wi: WorkItemDraftConfig): void {
-    this.sprintTaskService.recalculateHours(wi);
-  }
-
-  applyUserToSection(wi: WorkItemDraftConfig, section: TaskSection): void {
-    const user = section === 'dev' ? wi.devAssignedTo
-               : section === 'testing' ? wi.testingAssignedTo
-               : wi.otrasAssignedTo;
-    wi.tasks.filter(t => t.section === section).forEach(t => t.assignedTo = user);
-  }
-
-  getTasksBySection(tasks: DraftTaskItem[], section: TaskSection): DraftTaskItem[] {
-    return this.sprintTaskService.getTasksBySection(tasks, section);
-  }
-
-  getSectionHours(wi: WorkItemDraftConfig, section: TaskSection): number {
-    return this.sprintTaskService.getSectionTotalHours(wi.tasks, section);
-  }
-
-  getTotalHours(wi: WorkItemDraftConfig): number {
-    return this.sprintTaskService.getTotalSelectedHours(wi.tasks);
-  }
-
-  /** Retorna el título formateado exactamente como se importará a Azure DevOps */
-  getTaskTitle(wi: WorkItemDraftConfig, task: DraftTaskItem): string {
-    return this.sprintTaskService.buildTaskTitle(wi, task);
-  }
-
-  get totalSelectedTasks(): number {
-    if (!this.draft) return 0;
-    return this.draft.items.reduce((acc, wi) => acc + wi.tasks.filter(t => t.selected).length, 0);
-  }
-
-  get totalHours(): number {
-    if (!this.draft) return 0;
-    return this.draft.items.reduce((acc, wi) => acc + this.getTotalHours(wi), 0);
-  }
-
-  get importedCount(): number {
-    if (!this.draft) return 0;
-    return this.draft.items.filter(i => i.imported).length;
-  }
-
-  get allImportSuccess(): boolean {
-    return this.importResults.length > 0 && this.importResults.every(r => r.success);
-  }
-
-  showToast(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
-    this.toastMessage = message;
-    this.toastType = type;
-    clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => { this.toastMessage = ''; }, 4000);
+  private getNextOtherTaskId(item: WorkItemDraftConfig): number {
+    const next = item.tasks
+      .filter(task => task.category === 'other')
+      .reduce((max, task) => {
+        const taskId = Number(task.templateTaskId || 0);
+        return taskId > 0 && taskId < 100 ? Math.max(max, taskId) : max;
+      }, 0) + 1;
+    return Math.min(next, 99);
   }
 }
