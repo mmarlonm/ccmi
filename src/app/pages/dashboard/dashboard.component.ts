@@ -94,9 +94,17 @@ import { forkJoin, of } from 'rxjs';
       </div>
 
       <!-- Sprint Dates Display directly under buttons in the same container -->
-      <div *ngIf="metrics?.startDate && selectedIteration" class="animate-in fade-in duration-500 mr-1">
+      <div *ngIf="metrics?.startDate && selectedIteration" class="animate-in fade-in duration-500 mr-1 flex flex-wrap items-center justify-end gap-2">
         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
           Vigencia del Sprint: <strong class="text-indigo-600 dark:text-indigo-400">{{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}</strong>
+        </span>
+        <span *ngIf="selectedVersionNumber" class="text-[9px] font-black px-2 py-0.5 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase shadow-sm border border-purple-100 dark:border-purple-900/50 flex items-center gap-0.5">
+          <lucide-icon [name]="Check" size="10" class="text-purple-600 dark:text-purple-400"></lucide-icon>
+          Guardado BD (v{{ selectedVersionNumber }})
+        </span>
+        <span *ngIf="!selectedVersionNumber && aiAnalysis" class="text-[9px] font-black px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-0.5">
+          <lucide-icon [name]="AlertTriangle" size="10" class="text-amber-500"></lucide-icon>
+          No Guardado en BD (Local Cache)
         </span>
       </div>
     </div>
