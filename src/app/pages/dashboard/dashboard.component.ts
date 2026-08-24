@@ -2839,9 +2839,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.selectedCompareEscapedIterations = [];
     this.comparedEscapedData = [];
     this.saveSelection();
-    if (this.selectedIteration) {
-      localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
-    }
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
     this.selectedIterationName = iter ? iter.name : 'Actual';
     this.loadData();
