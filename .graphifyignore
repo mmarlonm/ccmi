@@ -1,0 +1,19 @@
+cat > .graphifyignore <<'EOF'
+.git/
+vendor/
+node_modules/
+storage/
+bootstrap/cache/
+public/build/
+dist/
+build/
+coverage/
+.env
+*.log
+*.sql
+*.dump
+*.zip
+*.tar
+*.gz
+*.bak
+EOF
