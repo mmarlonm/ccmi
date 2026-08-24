@@ -102,9 +102,9 @@ import { forkJoin, of } from 'rxjs';
           <lucide-icon [name]="Check" size="10" class="text-purple-600 dark:text-purple-400"></lucide-icon>
           Guardado BD (v{{ selectedVersionNumber }})
         </span>
-        <span *ngIf="!selectedVersionNumber && aiAnalysis" class="text-[9px] font-black px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-0.5">
+        <span *ngIf="!selectedVersionNumber" class="text-[9px] font-black px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-0.5">
           <lucide-icon [name]="AlertTriangle" size="10" class="text-amber-500"></lucide-icon>
-          No Guardado en BD (Local Cache)
+          No Guardado en BD
         </span>
       </div>
     </div>
@@ -2919,7 +2919,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
           if (dbAnalysis) {
             this.aiAnalysis = dbAnalysis.aiAnalysis;
-            this.parseAnalysis(dbAnalysis.aiAnalysis);
+            // Load per-metric analyses directly from DB if available, otherwise parse from raw text
+            if (dbAnalysis.metricAnalyses && Object.keys(dbAnalysis.metricAnalyses).length > 0) {
+              this.metricAnalyses = dbAnalysis.metricAnalyses;
+            } else {
+              this.parseAnalysis(dbAnalysis.aiAnalysis);
+            }
             this.selectedVersionNumber = dbAnalysis.version;
             this.isLoading = false;
             this.isReloading = false;
@@ -4737,12 +4742,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             this.isAnalyzing = false;
             this.notificationService.success('Análisis de IA generado exitosamente.');
 
-            // Save to Mongo DB Atlas
+            // Save to Mongo DB Atlas with individual per-metric analyses
             this.metricsApiService.saveAnalysis(
               this.selectedIteration,
               this.selectedSprintDisplayName || this.selectedIterationName,
               this.metrics!,
-              res
+              res,
+              this.metricAnalyses
             ).subscribe(dbRes => {
               if (dbRes) {
                 this.selectedVersionNumber = dbRes.version;
@@ -4769,12 +4775,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             this.isAnalyzing = false;
             this.notificationService.success('Análisis de IA generado sin historial.');
 
-            // Save to Mongo DB Atlas
+            // Save to Mongo DB Atlas with individual per-metric analyses
             this.metricsApiService.saveAnalysis(
               this.selectedIteration,
               this.selectedSprintDisplayName || this.selectedIterationName,
               this.metrics!,
-              res
+              res,
+              this.metricAnalyses
             ).subscribe(dbRes => {
               if (dbRes) {
                 this.selectedVersionNumber = dbRes.version;
@@ -4933,7 +4940,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metricsApiService.getSpecificVersion(this.selectedIteration, this.selectedVersionNumber).subscribe(dbRes => {
       if (dbRes) {
         this.aiAnalysis = dbRes.aiAnalysis;
-        this.parseAnalysis(dbRes.aiAnalysis);
+        if (dbRes.metricAnalyses && Object.keys(dbRes.metricAnalyses).length > 0) {
+          this.metricAnalyses = dbRes.metricAnalyses;
+        } else {
+          this.parseAnalysis(dbRes.aiAnalysis);
+        }
         localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
         this.notificationService.success(`Versión v${dbRes.version} cargada del historial.`);
       }
@@ -4947,7 +4958,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metricsApiService.restoreVersion(versionId).subscribe(dbRes => {
       if (dbRes) {
         this.aiAnalysis = dbRes.aiAnalysis;
-        this.parseAnalysis(dbRes.aiAnalysis);
+        if (dbRes.metricAnalyses && Object.keys(dbRes.metricAnalyses).length > 0) {
+          this.metricAnalyses = dbRes.metricAnalyses;
+        } else {
+          this.parseAnalysis(dbRes.aiAnalysis);
+        }
         this.selectedVersionNumber = dbRes.version;
         localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
         this.loadVersionsHistory();
