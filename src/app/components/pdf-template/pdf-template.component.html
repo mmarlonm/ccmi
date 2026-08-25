@@ -637,43 +637,43 @@
       <div class="grid grid-cols-8 gap-1.5 mb-4">
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">Total Points</div>
-          <div class="text-[10pt] font-bold text-slate-800">{{ satisfactoryTestsStats?.total ?? metrics?.satisfactoryTests?.total }}</div>
+          <div class="text-[10pt] font-bold text-slate-800">{{ satisfactoryTestsStats?.total ?? metrics.satisfactoryTests?.total }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55 text-emerald-700">Passed Tiempo</div>
-          <div class="text-[10pt] font-bold text-emerald-700">{{ satisfactoryTestsStats?.passedEnTiempo ?? metrics?.satisfactoryTests?.passedEnTiempo }}</div>
+          <div class="text-[10pt] font-bold text-emerald-700">{{ satisfactoryTestsStats?.passedEnTiempo ?? metrics.satisfactoryTests?.passedEnTiempo }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55 text-rose-700">Passed Fuera</div>
-          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.passedFueraDeTiempo ?? metrics?.satisfactoryTests?.passedFueraDeTiempo }}</div>
+          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.passedFueraDeTiempo ?? metrics.satisfactoryTests?.passedFueraDeTiempo }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">Failed</div>
-          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.failed ?? metrics?.satisfactoryTests?.failed }}</div>
+          <div class="text-[10pt] font-bold text-rose-700">{{ satisfactoryTestsStats?.failed ?? metrics.satisfactoryTests?.failed }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">Blocked</div>
-          <div class="text-[10pt] font-bold text-amber-700">{{ satisfactoryTestsStats?.blocked ?? metrics?.satisfactoryTests?.blocked }}</div>
+          <div class="text-[10pt] font-bold text-amber-700">{{ satisfactoryTestsStats?.blocked ?? metrics.satisfactoryTests?.blocked }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">N/A</div>
-          <div class="text-[10pt] font-bold text-purple-700">{{ satisfactoryTestsStats?.notApplicable ?? metrics?.satisfactoryTests?.notApplicable }}</div>
+          <div class="text-[10pt] font-bold text-purple-700">{{ satisfactoryTestsStats?.notApplicable ?? metrics.satisfactoryTests?.notApplicable }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">None/Exec</div>
-          <div class="text-[10pt] font-bold text-slate-550">{{ satisfactoryTestsStats?.notExecuted ?? metrics?.satisfactoryTests?.notExecuted }}</div>
+          <div class="text-[10pt] font-bold text-slate-550">{{ satisfactoryTestsStats?.notExecuted ?? metrics.satisfactoryTests?.notExecuted }}</div>
         </div>
         <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
-          'bg-green-50 border-green-200 text-green-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'green',
-          'bg-yellow-50 border-yellow-200 text-yellow-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'yellow',
-          'bg-red-50 border-red-200 text-red-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'red'
+          'bg-green-50 border-green-200 text-green-800': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'green',
+          'bg-yellow-50 border-yellow-200 text-yellow-800': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'yellow',
+          'bg-red-50 border-red-200 text-red-800': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'red'
         }">
           <div class="text-[5.5pt] uppercase font-bold" [ngClass]="{
-            'text-green-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'green',
-            'text-yellow-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'yellow',
-            'text-red-600': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'red'
+            'text-green-600': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'green',
+            'text-yellow-600': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'yellow',
+            'text-red-600': (satisfactoryTestsStats?.status ?? metrics.satisfactoryTests?.status) === 'red'
           }">KPI Pass Rate</div>
-          <div class="text-[12pt] font-black text-emerald-800">{{ (satisfactoryTestsStats?.rate ?? metrics?.satisfactoryTests?.rate || 0).toFixed(2) }}%</div>
+          <div class="text-[12pt] font-black text-emerald-800">{{ (satisfactoryTestsStats?.rate ?? metrics.satisfactoryTests?.rate || 0).toFixed(2) }}%</div>
         </div>
       </div>
 
@@ -695,7 +695,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let pt of (satisfactoryTestsPoints ?? metrics?.testExecution?.testPoints)">
+          <tr *ngFor="let pt of (satisfactoryTestsPoints ?? metrics.testExecution?.testPoints)">
             <td class="p-1 border font-mono">#{{ pt.testPointId }}</td>
             <td class="p-1 border text-blue-650 font-bold">#{{ pt.testCaseId }}</td>
             <td class="p-1 border truncate max-w-[200px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
@@ -711,7 +711,7 @@
                 {{ pt.outcome }}
               </span>
             </td>
-            <td class="p-1 border text-center">{{ pt.planEndDate ? (pt.planEndDate | date:'dd/MM/yyyy':'UTC') : (metrics?.endDate | date:'dd/MM/yyyy':'UTC') }}</td>
+            <td class="p-1 border text-center">{{ pt.planEndDate ? (pt.planEndDate | date:'dd/MM/yyyy':'UTC') : (metrics.endDate | date:'dd/MM/yyyy':'UTC') }}</td>
             <td class="p-1 border text-center">
               {{ (pt.outcome.toLowerCase() !== 'none' && pt.outcome.toLowerCase() !== 'active') ? (pt.lastUpdatedDate | date:'dd/MM/yyyy':'UTC') : '' }}
             </td>
@@ -725,7 +725,7 @@
               </span>
             </td>
           </tr>
-          <tr *ngIf="(satisfactoryTestsPoints ?? metrics?.testExecution?.testPoints || []).length === 0">
+          <tr *ngIf="(satisfactoryTestsPoints ?? metrics.testExecution?.testPoints || []).length === 0">
             <td colspan="7" class="text-center py-4 text-slate-400 italic">No hay datos de pruebas.</td>
           </tr>
         </tbody>

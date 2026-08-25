@@ -1955,47 +1955,47 @@ import { forkJoin, of } from 'rxjs';
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Test Points</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.totalTestPoints || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.totalTestPoints || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed en Tiempo</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedEnTiempo || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.passedEnTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed fuera de Tiempo</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.passedFueraDeTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Failed</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.failed || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.failed || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Blocked</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.blocked || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.blocked || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Not Executed</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.notExecuted || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.notExecuted || 0 }}</div>
           </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
-            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics?.testExecution?.status === 'green',
-            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics?.testExecution?.status === 'yellow',
-            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics?.testExecution?.status === 'red'
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.testExecution?.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.testExecution?.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.testExecution?.status === 'red'
           }">
             <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
-              'text-emerald-600 dark:text-emerald-400': metrics?.testExecution?.status === 'green',
-              'text-amber-600 dark:text-amber-400': metrics?.testExecution?.status === 'yellow',
-              'text-rose-600 dark:text-rose-400': metrics?.testExecution?.status === 'red'
+              'text-emerald-600 dark:text-emerald-400': metrics.testExecution?.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.testExecution?.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.testExecution?.status === 'red'
             }">KPI Run Rate</div>
             <div class="text-3xl font-black" [ngClass]="{
-              'text-emerald-700 dark:text-emerald-300': metrics?.testExecution?.status === 'green',
-              'text-amber-700 dark:text-amber-300': metrics?.testExecution?.status === 'yellow',
-              'text-rose-700 dark:text-rose-300': metrics?.testExecution?.status === 'red'
-            }">{{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%</div>
+              'text-emerald-700 dark:text-emerald-300': metrics.testExecution?.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.testExecution?.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.testExecution?.status === 'red'
+            }">{{ metrics.testExecution?.rate?.toFixed(2) || '0.00' }}%</div>
             <div class="text-[8pt] opacity-85" [ngClass]="{
-              'text-emerald-600/85 dark:text-emerald-400/85': metrics?.testExecution?.status === 'green',
-              'text-amber-600/85 dark:text-amber-400/85': metrics?.testExecution?.status === 'yellow',
-              'text-rose-600/85 dark:text-rose-400/85': metrics?.testExecution?.status === 'red'
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.testExecution?.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.testExecution?.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.testExecution?.status === 'red'
             }">Umbrales: 90%, 80%</div>
           </div>
         </div>
@@ -2077,12 +2077,12 @@ import { forkJoin, of } from 'rxjs';
             </div>
             <!-- Mini legend totals -->
             <div class="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">En Tiempo: <strong>{{ metrics?.testExecution?.passedEnTiempo || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Fuera Tiempo: <strong>{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics?.testExecution?.failed || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics?.testExecution?.blocked || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics?.testExecution?.notExecuted || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-350 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics?.testExecution?.notApplicable || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">En Tiempo: <strong>{{ metrics.testExecution?.passedEnTiempo || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Fuera Tiempo: <strong>{{ metrics.testExecution?.passedFueraDeTiempo || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics.testExecution?.failed || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics.testExecution?.blocked || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics.testExecution?.notExecuted || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-350 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics.testExecution?.notApplicable || 0 }}</strong></span></div>
             </div>
           </div>
         </div>

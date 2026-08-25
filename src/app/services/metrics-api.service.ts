@@ -81,4 +81,14 @@ export class MetricsApiService {
       })
     );
   }
+
+  /** Get active analysis for ALL sprints stored in DB (for trend/comparison view) */
+  getAllSprintsAnalysis(): Observable<MetricAnalysisSaveResponse[]> {
+    return this.http.get<MetricAnalysisSaveResponse[]>(`${this.apiUrl}/all-sprints`).pipe(
+      catchError(err => {
+        console.error('API Service: failed to fetch all sprints analysis', err);
+        return of([]);
+      })
+    );
+  }
 }
