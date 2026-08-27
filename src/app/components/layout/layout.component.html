@@ -88,11 +88,18 @@
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Seguimiento - Gantt</span>
       </a>
 
+      <a routerLink="/task-compliance" routerLinkActive="!bg-indigo-500/10 !text-indigo-500"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
+        [class.justify-center]="isMenuCollapsed" [title]="isMenuCollapsed ? 'Cumplimiento de tareas' : ''">
+        <lucide-icon [name]="ListChecks" size="20" class="shrink-0"></lucide-icon>
+        <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Cumplimiento de tareas</span>
+      </a>
+
       <!-- Sprint Config -->
       <a routerLink="/sprint-config" routerLinkActive="!bg-indigo-500/10 !text-indigo-500"
         class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300"
         [class.justify-center]="isMenuCollapsed" [title]="isMenuCollapsed ? 'Sprint Config' : ''">
-        <lucide-icon [name]="ClipboardList" size="20" class="shrink-0"></lucide-icon>
+        <lucide-icon [name]="CalendarCog" size="20" class="shrink-0"></lucide-icon>
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Configurar Sprint</span>
       </a>
 
@@ -146,6 +153,9 @@
     </a>
     <a routerLink="/sprint-gantt" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <lucide-icon [name]="BarChart3" size="20"></lucide-icon><span>Gantt</span>
+    </a>
+    <a routerLink="/task-compliance" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+      <lucide-icon [name]="ListChecks" size="20"></lucide-icon><span>Cumpl.</span>
     </a>
     <a routerLink="/config" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <lucide-icon [name]="Settings" size="20"></lucide-icon><span>Config</span>

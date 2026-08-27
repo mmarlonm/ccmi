@@ -31,6 +31,7 @@ export interface SprintHierarchyNode {
   type: string;
   title: string;
   state?: string;
+  activity?: string;
   tags?: string;
   parentId: number | null;
   missingParent: boolean;
@@ -60,6 +61,16 @@ export interface SprintAssignmentEvent {
   workItemId: number;
   changedDate: string;
   assignedToName: string;
+}
+
+export interface SprintTaskStateUpdate {
+  workItemId: number;
+  revisedDate: string;
+  oldState: string | null;
+  newState: string | null;
+  oldAssignedToName: string | null;
+  newAssignedToName: string | null;
+  changedByName: string | null;
 }
 
 interface WorkItemWithRelations {
@@ -375,6 +386,73 @@ export class SprintGanttService {
     );
   }
 
+  getWorkItemStateUpdates(
+    organization: string,
+    projectName: string,
+    workItemIds: number[]
+  ): Observable<Record<number, SprintTaskStateUpdate[]>> {
+    if (!organization || !projectName || workItemIds.length === 0) {
+      return of({});
+    }
+
+    const uniqueIds = Array.from(new Set(workItemIds.filter(id => id > 0)));
+    if (uniqueIds.length === 0) {
+      return of({});
+    }
+
+    const requests = uniqueIds.map(workItemId => {
+      const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_apis/wit/workItems/${workItemId}/updates?api-version=7.0`;
+      return this.http.get<{ value?: Array<{ revisedDate?: string; revisedBy?: unknown; fields?: Record<string, { oldValue?: unknown; newValue?: unknown }> }> }>(
+        url,
+        { headers: this.getHeaders() }
+      ).pipe(
+        map(res => {
+          const updates: SprintTaskStateUpdate[] = [];
+          (res.value || []).forEach(update => {
+            const revisedDateRaw = update.revisedDate || '';
+            const revisedDate = new Date(revisedDateRaw);
+            if (Number.isNaN(revisedDate.getTime())) {
+              return;
+            }
+            const stateUpdate = update.fields?.['System.State'];
+            const assignedToUpdate = update.fields?.['System.AssignedTo'];
+            const oldState = typeof stateUpdate?.oldValue === 'string' ? stateUpdate.oldValue : null;
+            const newState = typeof stateUpdate?.newValue === 'string' ? stateUpdate.newValue : null;
+            const oldAssignedToName = this.extractAssignedToName(assignedToUpdate?.oldValue) || null;
+            const newAssignedToName = this.extractAssignedToName(assignedToUpdate?.newValue) || null;
+            const changedByName = this.extractAssignedToName(update.revisedBy) || null;
+
+            if (!oldState && !newState && !oldAssignedToName && !newAssignedToName && !changedByName) {
+              return;
+            }
+            updates.push({
+              workItemId,
+              revisedDate: revisedDate.toISOString(),
+              oldState,
+              newState,
+              oldAssignedToName,
+              newAssignedToName,
+              changedByName
+            });
+          });
+          updates.sort((a, b) => new Date(a.revisedDate).getTime() - new Date(b.revisedDate).getTime());
+          return { workItemId, updates };
+        }),
+        catchError(() => of({ workItemId, updates: [] as SprintTaskStateUpdate[] }))
+      );
+    });
+
+    return forkJoin(requests).pipe(
+      map(results => {
+        const byWorkItemId: Record<number, SprintTaskStateUpdate[]> = {};
+        results.forEach(result => {
+          byWorkItemId[result.workItemId] = result.updates;
+        });
+        return byWorkItemId;
+      })
+    );
+  }
+
   getSprintHierarchyNodes(organization: string, projectName: string, teamId: string, sprintId: string, sprintPath: string): Observable<SprintHierarchyNode[]> {
     if (!organization || !projectName || !teamId || !sprintId) {
       return of([]);
@@ -425,6 +503,7 @@ export class SprintGanttService {
           'System.WorkItemType',
           'System.Title',
           'System.State',
+          'Microsoft.VSTS.Common.Activity',
           'System.Tags',
           'System.Parent',
           'System.AssignedTo',
@@ -730,6 +809,7 @@ export class SprintGanttService {
         type: String(item.fields['System.WorkItemType'] || 'Unknown'),
         title: String(item.fields['System.Title'] || ''),
         state: String(item.fields['System.State'] || ''),
+        activity: String(item.fields['Microsoft.VSTS.Common.Activity'] || ''),
         tags: String(item.fields['System.Tags'] || ''),
         parentId: null,
         missingParent: false,
