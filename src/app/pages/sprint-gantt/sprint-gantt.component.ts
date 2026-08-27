@@ -11,12 +11,14 @@ import {
   SprintAssignmentEvent
 } from '../../services/sprint-gantt.service';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
+import { LucideAngularModule, DownloadCloud, FileSpreadsheet, Sparkles, RefreshCw } from 'lucide-angular';
 import { SprintGanttBaselineService } from '../../services/sprint-gantt-baseline.service';
 import { AIService, GanttAiInput } from '../../services/ai.service';
 import {
   SprintBaselineParseResult,
   SprintPersonComparisonSummary
 } from '../../models/sprint-gantt-baseline.model';
+import { ModuleViewStateService } from '../../services/module-view-state.service';
 
 interface SprintDay {
   date: Date;
@@ -76,7 +78,7 @@ interface TaskStageAggregate {
 @Component({
   selector: 'app-sprint-gantt',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   template: `
 <div class="max-w-[1800px] mx-auto space-y-6 pt-4 md:pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
   <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-4 -mx-2 md:-mx-2.5 px-2 md:px-2.5 shadow-md transition-all duration-300">
@@ -106,16 +108,18 @@ interface TaskStageAggregate {
 
         <div class="flex items-center gap-2 shrink-0 bg-slate-200/50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/40 dark:border-slate-700/50 h-[38px] box-border">
           <button (click)="loadGanttData()" [disabled]="!canLoadGantt || loadingData"
-            class="glass-button flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px]">
-            {{ loadingData ? 'Cargando...' : 'Cargar' }}
+            class="glass-button flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg"
+            title="Cargar Gantt">
+            <lucide-icon [name]="loadingData ? RefreshCw : DownloadCloud" size="13" [class.animate-spin]="loadingData"></lucide-icon>
           </button>
-          <label class="glass-button cursor-pointer flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px]" [class.opacity-60]="loadingData">
-            Excel
+          <label class="glass-button cursor-pointer flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg" [class.opacity-60]="loadingData" title="Importar Excel">
+            <lucide-icon [name]="FileSpreadsheet" size="13"></lucide-icon>
             <input type="file" accept=".xlsx,.xls" class="hidden" (change)="onBaselineFileSelected($event)" [disabled]="loadingData">
           </label>
           <button (click)="runComparisonAnalysis()" [disabled]="!canGenerateComparisonAnalysis"
-            class="glass-button flex items-center justify-center h-[30px] px-2 rounded-lg text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white">
-            {{ isAnalyzingComparison ? 'Analizando...' : 'Analizar IA' }}
+            class="glass-button flex items-center justify-center h-[30px] w-[30px] p-0 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+            title="Analizar con IA">
+            <lucide-icon [name]="Sparkles" size="13" [class.animate-spin]="isAnalyzingComparison"></lucide-icon>
           </button>
         </div>
       </div>
@@ -280,7 +284,19 @@ interface TaskStageAggregate {
                   <img *ngIf="row.node.assignedToAvatarUrl" [src]="row.node.assignedToAvatarUrl" alt="avatar" class="w-5 h-5 rounded-full shrink-0">
                   <div *ngIf="!row.node.assignedToAvatarUrl" class="w-5 h-5 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0"></div>
                   <div class="min-w-0">
-                    <div class="truncate text-slate-800 dark:text-slate-100">{{ row.node.title }}</div>
+                    <div class="truncate flex items-center gap-1.5">
+                      <span
+                        class="truncate"
+                        [ngClass]="isChildBugNode(row.node) ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-800 dark:text-slate-100'">
+                        {{ row.node.title }}
+                      </span>
+                      <span
+                        *ngIf="getDirectChildBugCount(row.node) > 0"
+                        class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                        title="Defectos hijos directos">
+                        🐞 {{ getDirectChildBugCount(row.node) }}
+                      </span>
+                    </div>
                     <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ row.node.assignedToName }}</div>
                   </div>
                 </div>
@@ -331,6 +347,11 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
   private sprintGanttService = inject(SprintGanttService);
   private baselineService = inject(SprintGanttBaselineService);
   private aiService = inject(AIService);
+  private moduleViewStateService = inject(ModuleViewStateService);
+  readonly DownloadCloud = DownloadCloud;
+  readonly FileSpreadsheet = FileSpreadsheet;
+  readonly Sparkles = Sparkles;
+  readonly RefreshCw = RefreshCw;
 
   hasPatConfigured = false;
   loadingCatalogs = false;
@@ -415,6 +436,10 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     if (!this.hasPatConfigured) {
       return;
     }
+    const hasRestoredState = this.restoreFromViewState();
+    if (hasRestoredState) {
+      return;
+    }
     this.loadOrganizations();
   }
 
@@ -431,9 +456,11 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.sprints = [];
     this.clearData();
     if (!this.selectedOrganization) {
+      this.persistViewState();
       return;
     }
     this.loadProjects();
+    this.persistViewState();
   }
 
   onProjectChange(): void {
@@ -443,9 +470,11 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.sprints = [];
     this.clearData();
     if (!this.selectedProjectId) {
+      this.persistViewState();
       return;
     }
     this.loadTeams();
+    this.persistViewState();
   }
 
   onTeamChange(): void {
@@ -453,13 +482,16 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.sprints = [];
     this.clearData();
     if (!this.selectedTeamId) {
+      this.persistViewState();
       return;
     }
     this.loadSprints();
+    this.persistViewState();
   }
 
   onSprintChange(): void {
     this.clearData();
+    this.persistViewState();
     if (!this.selectedSprintId || this.loadingCatalogs || this.loadingData) {
       return;
     }
@@ -519,6 +551,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
           this.rebuildVisibleRows();
           this.buildSprintTimeline();
           this.rebuildBaselineComparison();
+          this.persistViewState();
           if (this.allNodes.length === 0) {
             this.errorMessage = 'No se encontraron work items en el sprint seleccionado.';
           }
@@ -583,6 +616,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
         this.rawBaselineResult = this.baselineService.parseTimelineWorkbook(buffer);
         this.baselineWarnings = this.rawBaselineResult.warnings;
         this.rebuildBaselineComparison();
+        this.persistViewState();
       })
       .catch(() => {
         this.rawBaselineResult = null;
@@ -598,6 +632,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
         this.personComparison = [];
         this.resetComparisonAnalysisState();
         this.errorMessage = 'No fue posible importar el baseline de Excel.';
+        this.persistViewState();
       })
       .finally(() => {
         input.value = '';
@@ -628,6 +663,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
 
   toggleBaselinePanel(): void {
     this.isBaselinePanelCollapsed = !this.isBaselinePanelCollapsed;
+    this.persistViewState();
   }
 
   runComparisonAnalysis(): void {
@@ -665,6 +701,7 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
         this.comparisonAnalysisText = response;
         this.isAnalyzingComparison = false;
         this.saveComparisonAnalysisCache(response);
+        this.persistViewState();
       },
       error: () => {
         this.isAnalyzingComparison = false;
@@ -760,18 +797,44 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     return 16;
   }
 
+  getDirectChildBugCount(node: SprintHierarchyNode): number {
+    if (!node?.childIds?.length) {
+      return 0;
+    }
+    let count = 0;
+    node.childIds.forEach(childId => {
+      const childNode = this.allNodesMap.get(childId);
+      if (childNode && this.isBugType(childNode.type)) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  isChildBugNode(node: SprintHierarchyNode): boolean {
+    if (!node || !this.isBugType(node.type) || !node.parentId) {
+      return false;
+    }
+    const parentNode = this.allNodesMap.get(node.parentId);
+    return Boolean(parentNode && this.isParentItemType(parentNode.type));
+  }
+
   private loadOrganizations(): void {
     this.loadingCatalogs = true;
     this.sprintGanttService.getOrganizations().subscribe({
       next: orgs => {
         this.organizations = orgs;
         const defaultOrganization = this.sprintGanttService.getDefaultOrganization();
-        const selected = orgs.find(org => org.name.toLowerCase() === defaultOrganization.toLowerCase()) || orgs[0];
+        const selected =
+          orgs.find(org => org.name === this.selectedOrganization) ||
+          orgs.find(org => org.name.toLowerCase() === defaultOrganization.toLowerCase()) ||
+          orgs[0];
         this.selectedOrganization = selected?.name || '';
         this.loadingCatalogs = false;
         if (this.selectedOrganization) {
           this.loadProjects();
         }
+        this.persistViewState();
       },
       error: () => {
         this.loadingCatalogs = false;
@@ -786,12 +849,16 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
       next: projects => {
         this.projects = projects;
         const defaultProject = this.sprintGanttService.getDefaultProject();
-        const selected = projects.find(project => project.name.toLowerCase() === defaultProject.toLowerCase()) || projects[0];
+        const selected =
+          projects.find(project => project.id === this.selectedProjectId) ||
+          projects.find(project => project.name.toLowerCase() === defaultProject.toLowerCase()) ||
+          projects[0];
         this.selectedProjectId = selected?.id || '';
         this.loadingCatalogs = false;
         if (this.selectedProjectId) {
           this.loadTeams();
         }
+        this.persistViewState();
       },
       error: () => {
         this.loadingCatalogs = false;
@@ -808,13 +875,15 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.sprintGanttService.getTeams(this.selectedOrganization, this.selectedProjectId).subscribe({
       next: teams => {
         this.teams = teams.filter(team => team.name.trim().toLowerCase() === 'mayansoft');
-        this.selectedTeamId = this.teams[0]?.id || '';
+        const selected = this.teams.find(team => team.id === this.selectedTeamId) || this.teams[0];
+        this.selectedTeamId = selected?.id || '';
         this.loadingCatalogs = false;
         if (this.selectedTeamId) {
           this.loadSprints();
         } else {
           this.errorMessage = 'No se encontró el team Mayansoft para este proyecto.';
         }
+        this.persistViewState();
       },
       error: () => {
         this.loadingCatalogs = false;
@@ -837,8 +906,13 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.sprintGanttService.getSprints(this.selectedOrganization, selectedProject.name, this.selectedTeamId).subscribe({
       next: sprints => {
         this.sprints = sprints;
-        this.selectedSprintId = sprints[sprints.length - 1]?.id || '';
+        const selected = sprints.find(sprint => sprint.id === this.selectedSprintId) || sprints[sprints.length - 1];
+        this.selectedSprintId = selected?.id || '';
         this.loadingCatalogs = false;
+        this.persistViewState();
+        if (this.selectedSprintId && !this.loadingData) {
+          this.loadGanttData();
+        }
       },
       error: () => {
         this.loadingCatalogs = false;
@@ -1790,6 +1864,100 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
       .join(' ');
   }
 
+  private persistViewState(): void {
+    this.moduleViewStateService.setSprintGanttState({
+      organizations: this.organizations,
+      projects: this.projects,
+      teams: this.teams,
+      sprints: this.sprints,
+      selectedOrganization: this.selectedOrganization,
+      selectedProjectId: this.selectedProjectId,
+      selectedTeamId: this.selectedTeamId,
+      selectedSprintId: this.selectedSprintId,
+      loadedSprintStartDate: this.loadedSprintStartDate,
+      loadedSprintFinishDate: this.loadedSprintFinishDate,
+      allNodes: this.allNodes,
+      visibleRows: this.visibleRows,
+      collapsedRows: Array.from(this.collapsedRows),
+      realHoursByNode: Array.from(this.realHoursByNode.entries()),
+      plannedHoursByNode: Array.from(this.plannedHoursByNode.entries()),
+      plannedStartHoursByNode: Array.from(this.plannedStartHoursByNode.entries()),
+      sprintDays: this.sprintDays,
+      sprintStartFullDate: this.sprintStartFullDate,
+      sprintEndFullDate: this.sprintEndFullDate,
+      delayedEndFullDate: this.delayedEndFullDate,
+      sprintStartLinePct: this.sprintStartLinePct,
+      sprintEndLinePct: this.sprintEndLinePct,
+      delayedEndLinePct: this.delayedEndLinePct,
+      hasDelayedEndLine: this.hasDelayedEndLine,
+      sprintStartKey: this.sprintStartKey,
+      sprintEndKey: this.sprintEndKey,
+      sprintWindowStartKey: this.sprintWindowStartKey,
+      sprintWindowEndKey: this.sprintWindowEndKey,
+      baselineFileName: this.baselineFileName,
+      baselineWarnings: this.baselineWarnings,
+      baselineSummary: this.baselineSummary,
+      personComparison: this.personComparison,
+      baselineByNode: Array.from(this.baselineByNode.entries()),
+      assignmentEvents: this.assignmentEvents,
+      rawBaselineResult: this.rawBaselineResult,
+      isBaselinePanelCollapsed: this.isBaselinePanelCollapsed,
+      showCompletedTime: this.showCompletedTime,
+      showBaselineTime: this.showBaselineTime,
+      comparisonAnalysisText: this.comparisonAnalysisText,
+      comparisonAnalysisCopied: this.comparisonAnalysisCopied
+    });
+  }
+
+  private restoreFromViewState(): boolean {
+    const state = this.moduleViewStateService.getSprintGanttState();
+    if (!state) {
+      return false;
+    }
+    this.organizations = state.organizations || [];
+    this.projects = state.projects || [];
+    this.teams = state.teams || [];
+    this.sprints = state.sprints || [];
+    this.selectedOrganization = state.selectedOrganization || '';
+    this.selectedProjectId = state.selectedProjectId || '';
+    this.selectedTeamId = state.selectedTeamId || '';
+    this.selectedSprintId = state.selectedSprintId || '';
+    this.loadedSprintStartDate = state.loadedSprintStartDate;
+    this.loadedSprintFinishDate = state.loadedSprintFinishDate;
+    this.allNodes = state.allNodes || [];
+    this.allNodesMap = new Map<number, SprintHierarchyNode>(this.allNodes.map(node => [node.id, node]));
+    this.visibleRows = state.visibleRows || [];
+    this.collapsedRows = new Set<number>(state.collapsedRows || []);
+    this.realHoursByNode = new Map<number, number | null>(state.realHoursByNode || []);
+    this.plannedHoursByNode = new Map<number, number>(state.plannedHoursByNode || []);
+    this.plannedStartHoursByNode = new Map<number, number>(state.plannedStartHoursByNode || []);
+    this.sprintDays = state.sprintDays || [];
+    this.sprintStartFullDate = state.sprintStartFullDate || '';
+    this.sprintEndFullDate = state.sprintEndFullDate || '';
+    this.delayedEndFullDate = state.delayedEndFullDate || '';
+    this.sprintStartLinePct = state.sprintStartLinePct ?? 0;
+    this.sprintEndLinePct = state.sprintEndLinePct ?? 100;
+    this.delayedEndLinePct = state.delayedEndLinePct ?? 100;
+    this.hasDelayedEndLine = state.hasDelayedEndLine || false;
+    this.sprintStartKey = state.sprintStartKey || '';
+    this.sprintEndKey = state.sprintEndKey || '';
+    this.sprintWindowStartKey = state.sprintWindowStartKey || '';
+    this.sprintWindowEndKey = state.sprintWindowEndKey || '';
+    this.baselineFileName = state.baselineFileName || '';
+    this.baselineWarnings = state.baselineWarnings || [];
+    this.baselineSummary = state.baselineSummary || this.baselineSummary;
+    this.personComparison = state.personComparison || [];
+    this.baselineByNode = new Map(state.baselineByNode || []);
+    this.assignmentEvents = state.assignmentEvents || [];
+    this.rawBaselineResult = state.rawBaselineResult as SprintBaselineParseResult | null;
+    this.isBaselinePanelCollapsed = state.isBaselinePanelCollapsed ?? true;
+    this.showCompletedTime = state.showCompletedTime ?? true;
+    this.showBaselineTime = state.showBaselineTime ?? true;
+    this.comparisonAnalysisText = state.comparisonAnalysisText || '';
+    this.comparisonAnalysisCopied = state.comparisonAnalysisCopied || false;
+    return Boolean(this.organizations.length > 0 || this.visibleRows.length > 0 || this.allNodes.length > 0);
+  }
+
   private clearData(): void {
     this.allNodes = [];
     this.allNodesMap.clear();
@@ -1822,6 +1990,10 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
 
   private isTaskType(type: string): boolean {
     return type.trim().toLowerCase() === 'task';
+  }
+
+  private isBugType(type: string): boolean {
+    return type.trim().toLowerCase() === 'bug';
   }
 
   private isParentItemType(type: string): boolean {
