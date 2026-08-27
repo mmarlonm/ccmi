@@ -1,10 +1,8 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, inject } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, TrendingUp, TrendingDown, Minus, GitCompare, Activity, Loader2, Database } from 'lucide-angular';
+import { LucideAngularModule, TrendingUp, TrendingDown, Minus, Activity, Loader2, Database } from 'lucide-angular';
 import { MetricsApiService, MetricAnalysisSaveResponse } from '../../services/metrics-api.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
-import { forkJoin } from 'rxjs';
 
 Chart.register(...registerables);
 
@@ -18,11 +16,10 @@ interface SprintKpi {
 @Component({
   selector: 'app-sprint-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, DecimalPipe],
+  imports: [CommonModule, LucideAngularModule, DecimalPipe],
   templateUrl: './sprint-analytics.component.html',
 })
 export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('radarCanvas') radarCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('lineQualityCanvas') lineQualityCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('barDevCanvas') barDevCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('lineTestCanvas') lineTestCanvas!: ElementRef<HTMLCanvasElement>;
@@ -30,17 +27,12 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
   private apiService = inject(MetricsApiService);
 
   readonly TrendingUp = TrendingUp; readonly TrendingDown = TrendingDown;
-  readonly Minus = Minus; readonly GitCompare = GitCompare;
-  readonly Activity = Activity; readonly Loader2 = Loader2; readonly Database = Database;
+  readonly Minus = Minus; readonly Activity = Activity;
+  readonly Loader2 = Loader2; readonly Database = Database;
 
-  activeTab: 'version' | 'trends' = 'trends';
-  isLoading = true; isLoadingVersions = false;
+  isLoading = true;
   allSprints: MetricAnalysisSaveResponse[] = [];
   sprintKpis: SprintKpi[] = [];
-  selectedSprintId = '';
-  versionsList: MetricAnalysisSaveResponse[] = [];
-  kpiHealthList: { label: string; current: number | null; delta: number | null; improved: boolean; unit: string }[] = [];
-  deltaRows: { label: string; unit: string; higherIsBetter: boolean; cells: { value: number | null; delta: number | null }[] }[] = [];
   summaryCards: { label: string; value: string; sub: string }[] = [];
   heatmapCols = [
     { key: 'tasaDev', short: 'T.Dev', unit: '%', higherIsBetter: true, thresholds: [80, 60] },
@@ -54,8 +46,9 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
   ];
   heatmapRows: { sprintName: string; cells: { value: number | null; rag: 'green' | 'amber' | 'red'; unit: string }[] }[] = [];
 
-  private radarChart?: Chart; private lineQualityChart?: Chart;
-  private barDevChart?: Chart; private lineTestChart?: Chart;
+  private lineQualityChart?: Chart;
+  private barDevChart?: Chart;
+  private lineTestChart?: Chart;
   private chartsReady = false; private pendingChartRender = false;
 
   ngOnInit() { this.loadData(); }
@@ -67,14 +60,11 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
   loadData() {
     this.isLoading = true;
     this.apiService.getAllSprintsAnalysis().subscribe(data => {
-      // Sort sprints ascending by their numeric value in sprintName (e.g. S37, S38, S39)
       const getSprintNumber = (name: string): number => {
         const match = name.match(/\d+/);
         return match ? parseInt(match[0], 10) : 0;
       };
-      
       const sortedData = [...data].sort((a, b) => getSprintNumber(a.sprintName) - getSprintNumber(b.sprintName));
-      
       this.allSprints = sortedData;
       this.sprintKpis = sortedData.map(s => this.extractKpis(s));
       this.buildSummaryCards(); this.buildHeatmap();
@@ -82,31 +72,6 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
       if (this.chartsReady) { setTimeout(() => this.renderTrendCharts(), 60); }
       else { this.pendingChartRender = true; }
     });
-  }
-
-  selectSprintForVersions(sprintId: string) {
-    this.selectedSprintId = sprintId;
-    this.isLoadingVersions = true;
-    this.versionsList = []; this.kpiHealthList = []; this.deltaRows = [];
-    this.radarChart?.destroy();
-    this.apiService.getVersionsList(sprintId).subscribe(versions => {
-      if (!versions.length) { this.isLoadingVersions = false; return; }
-      const calls = versions.map(v => this.apiService.getSpecificVersion(sprintId, v.version));
-      forkJoin(calls).subscribe(results => {
-        // Sort versions ascending by version number
-        const validResults = results.filter(r => r !== null) as MetricAnalysisSaveResponse[];
-        validResults.sort((a, b) => a.version - b.version);
-        
-        this.versionsList = validResults;
-        this.buildVersionComparison(); this.isLoadingVersions = false;
-        setTimeout(() => this.renderRadarChart(), 80);
-      });
-    });
-  }
-
-  onTabChange(tab: 'version' | 'trends') {
-    this.activeTab = tab;
-    if (tab === 'trends') { setTimeout(() => this.renderTrendCharts(), 60); }
   }
 
   private extractKpis(s: MetricAnalysisSaveResponse): SprintKpi {
@@ -132,36 +97,6 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
   private safeDensity(obj: any): number | null {
     if (!obj) return null;
     return obj.density ?? obj.value ?? null;
-  }
-
-  private buildVersionComparison() {
-    const kpis = this.versionsList.map(v => this.extractKpis(v));
-    const defs = [
-      { key: 'tasaDev', label: 'Tasa de Desarrollo', unit: '%', higherIsBetter: true },
-      { key: 'tasaDesviacion', label: 'Tasa de Desviacion', unit: '%', higherIsBetter: false },
-      { key: 'densidadDefectos', label: 'Densidad Defectos', unit: '', higherIsBetter: false },
-      { key: 'eed', label: 'EED', unit: '%', higherIsBetter: true },
-      { key: 'bugsEscapados', label: 'Bugs Escapados', unit: '%', higherIsBetter: false },
-      { key: 'runRate', label: 'Run Rate', unit: '%', higherIsBetter: true },
-      { key: 'passRate', label: 'Pass Rate', unit: '%', higherIsBetter: true },
-      { key: 'retrabajo', label: 'Retrabajo', unit: '%', higherIsBetter: false },
-    ] as const;
-    this.deltaRows = defs.map(def => ({
-      label: def.label, unit: def.unit, higherIsBetter: def.higherIsBetter,
-      cells: kpis.map((k, i) => {
-        const val = k[def.key as keyof SprintKpi] as number | null;
-        const prev = i > 0 ? (kpis[i-1][def.key as keyof SprintKpi] as number | null) : null;
-        return { value: val, delta: val !== null && prev !== null ? Math.round((val-prev)*10)/10 : null };
-      })
-    }));
-    const last = kpis[kpis.length-1];
-    const prev = kpis.length >= 2 ? kpis[kpis.length-2] : null;
-    this.kpiHealthList = defs.map(def => {
-      const current = last[def.key as keyof SprintKpi] as number | null;
-      const pv = prev ? (prev[def.key as keyof SprintKpi] as number | null) : null;
-      const delta = current !== null && pv !== null ? Math.round((current-pv)*10)/10 : null;
-      return { label: def.label, current, delta, improved: delta !== null ? (def.higherIsBetter ? delta>0 : delta<0) : false, unit: def.unit };
-    });
   }
 
   private buildSummaryCards() {
@@ -195,25 +130,6 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
     if (val === null) return 'green';
     return higher ? (val >= thr[0] ? 'green' : val >= thr[1] ? 'amber' : 'red')
                   : (val <= thr[0] ? 'green' : val <= thr[1] ? 'amber' : 'red');
-  }
-
-  private renderRadarChart() {
-    if (!this.radarCanvas) return;
-    this.radarChart?.destroy();
-    const labels = ['T.Dev', 'EED', 'Run Rate', 'Pass Rate', 'Retrabajo', 'Bugs Esc.'];
-    const palette = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
-    const datasets = this.versionsList.map((v, i) => {
-      const k = this.extractKpis(v);
-      return { label: 'v'+v.version, data: [k.tasaDev,k.eed,k.runRate,k.passRate,k.retrabajo,k.bugsEscapados].map(n=>n??0),
-        backgroundColor: palette[i%palette.length]+'22', borderColor: palette[i%palette.length],
-        pointBackgroundColor: palette[i%palette.length], borderWidth: 2 };
-    });
-    this.radarChart = new Chart(this.radarCanvas.nativeElement, {
-      type:'radar', data:{ labels, datasets },
-      options:{ responsive:true, maintainAspectRatio:false,
-        scales:{ r:{ min:0, max:100, ticks:{ stepSize:25, font:{size:10} }, pointLabels:{ font:{size:11, weight:'bold'} } } },
-        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{size:11} } } } }
-    } as ChartConfiguration);
   }
 
   private renderTrendCharts() {
@@ -253,7 +169,6 @@ export class SprintAnalyticsComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   ngOnDestroy() {
-    this.radarChart?.destroy(); this.lineQualityChart?.destroy();
-    this.barDevChart?.destroy(); this.lineTestChart?.destroy();
+    this.lineQualityChart?.destroy(); this.barDevChart?.destroy(); this.lineTestChart?.destroy();
   }
 }

@@ -48,16 +48,16 @@ import { forkJoin, of } from 'rxjs';
           <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
         </select>
 
-        <!-- Version History Selector (Mongo DB Atlas integration) -->
-        <select *ngIf="selectedIteration && analysisVersions.length > 0" 
-                [(ngModel)]="selectedVersionNumber" 
-                (change)="onVersionChange()" 
-                class="glass-input text-xs font-medium w-28 md:w-32 border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-300 shrink-0">
-          <option [ngValue]="null">Análisis Actual</option>
-          <option *ngFor="let ver of analysisVersions" [ngValue]="ver.version">
-            v{{ ver.version }} {{ ver.isActive ? '(Activo)' : '' }}
-          </option>
-        </select>
+        <!-- Status Indicator (Mongo DB Atlas integration) -->
+        <div *ngIf="selectedIteration" 
+             class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border h-[38px] box-border shrink-0 select-none"
+             [ngClass]="analysisVersions.length > 0 
+               ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-400' 
+               : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800/40 dark:border-slate-700/50 dark:text-slate-400'">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" 
+                [ngClass]="analysisVersions.length > 0 ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+          {{ analysisVersions.length > 0 ? 'Guardado en BD' : 'No Guardado en BD' }}
+        </div>
 
         <!-- Action Buttons Tray -->
         <div class="flex items-center gap-2 shrink-0 bg-slate-200/50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/40 dark:border-slate-700/50 h-[38px] box-border">
@@ -4751,9 +4751,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               this.metricAnalyses
             ).subscribe(dbRes => {
               if (dbRes) {
-                this.selectedVersionNumber = dbRes.version;
                 this.loadVersionsHistory();
-                this.notificationService.success(`Análisis guardado en BD Atlas como v${dbRes.version}`);
+                this.notificationService.success('Análisis guardado exitosamente en BD Atlas');
               }
             });
           },
@@ -4784,9 +4783,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               this.metricAnalyses
             ).subscribe(dbRes => {
               if (dbRes) {
-                this.selectedVersionNumber = dbRes.version;
                 this.loadVersionsHistory();
-                this.notificationService.success(`Análisis guardado en BD Atlas como v${dbRes.version}`);
+                this.notificationService.success('Análisis guardado exitosamente en BD Atlas');
               }
             });
           },
