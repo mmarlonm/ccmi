@@ -2862,6 +2862,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.metricComments[this.activeCommentMetricKey] = this.activeCommentText;
     this.metricComments = { ...this.metricComments };
     
+    // Sync into existing metricAnalyses object to bypass cloud DB schema limitations
+    this.metricAnalyses[this.activeCommentMetricKey + '_comment'] = this.activeCommentText;
+    
     // Persist to DB
     this.saveCommentsOnly(this.activeCommentMetricKey);
     this.closeCommentModal();
@@ -2869,11 +2872,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   saveCommentsOnly(metricKey?: string) {
     if (!this.selectedIteration || !this.metrics) return;
+    
+    // Sync all comments to metricAnalyses before saving
+    Object.keys(this.metricComments).forEach(key => {
+      this.metricAnalyses[key + '_comment'] = this.metricComments[key];
+    });
+
     this.metricsApiService.saveAnalysis(
       this.selectedIteration,
       this.selectedSprintDisplayName || this.selectedIterationName,
       this.metrics!,
-      this.aiAnalysis,
+      this.aiAnalysis || " ", // Enforce non-empty string to avoid API 400 validator issues in Render
       this.metricAnalyses,
       this.metricComments
     ).subscribe(dbRes => {
@@ -3162,6 +3171,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           if (dbAnalysis) {
             this.aiAnalysis = dbAnalysis.aiAnalysis;
             this.metricComments = dbAnalysis.metricComments || {};
+            // Extract comments from metricAnalyses for cloud schema fallback compatibility
+            if (dbAnalysis.metricAnalyses) {
+              Object.keys(dbAnalysis.metricAnalyses).forEach(key => {
+                if (key.endsWith('_comment')) {
+                  const metricKey = key.replace('_comment', '');
+                  this.metricComments[metricKey] = dbAnalysis.metricAnalyses[key];
+                }
+              });
+              this.metricComments = { ...this.metricComments };
+            }
             // Load per-metric analyses directly from DB if available, otherwise parse from raw text
             if (dbAnalysis.metricAnalyses && Object.keys(dbAnalysis.metricAnalyses).length > 0) {
               this.metricAnalyses = dbAnalysis.metricAnalyses;
