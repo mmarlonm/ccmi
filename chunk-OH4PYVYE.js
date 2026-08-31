@@ -1,17 +1,22 @@
-import{a as M}from"./chunk-EYHTWIUQ.js";import{D as h,L as O,R as C,dc as N,i as m,m as v,n as x,v as P}from"./chunk-TJU5QLH6.js";var k=class I{http=C(N);configService=C(M);analyzeMetrics(e,i=[]){let l=this.configService.getConfig();if(!l||!l.ai.apiKey)return m("AI Configuration missing.");let r=(e.developmentRate.items||[]).map(t=>{let o=(t.tasks||[]).reduce((f,E)=>f+(E.originalEstimate||0),0),s=t.effort,p=o>0?((s-o)/o*100).toFixed(1):"0";return`  - ${t.type==="Feature"?"FT":"US"} #${t.id} | Size: ${t.size} | Est. Original: ${o.toFixed(1)}h | Real: ${s.toFixed(1)}h | Var: ${p}% | ISW: ${t.isw}`}).join(`
-`),a={};(e.developmentRate.items||[]).forEach(t=>{let o=t.isw||"Sin Asignar";a[o]||(a[o]={name:o,effort:0,planned:0,size:0}),a[o].effort+=t.effort,a[o].planned+=(t.tasks||[]).reduce((s,p)=>s+(p.originalEstimate||0),0),a[o].size+=t.sizeEdited!==void 0?t.sizeEdited:t.size});let u=Object.values(a).map(t=>{let o=t.size>0?(t.effort/t.size).toFixed(2):"N/A",s=t.planned>0?((t.effort-t.planned)/t.planned*100).toFixed(1):"0";return`  * ${t.name}: Tasa ${o} | Desviaci\xF3n ${s}% | Esfuerzo Real ${t.effort.toFixed(1)}h`}).join(`
-`),d="Sin historial de sprints anteriores disponible.";i&&i.length>0&&(d=i.map(t=>`  - ${t.iterationName||"Sprint previo"}:
-            * Tasa de Desarrollo: ${t.developmentRate.rate.toFixed(2)} (Esfuerzo: ${t.developmentRate.totalEffort.toFixed(1)}h, Size: ${t.developmentRate.totalSize})
-            * Desviaci\xF3n Esfuerzo: ${Math.abs(t.effortVariance.rate*100).toFixed(1)}% (Planeado: ${t.effortVariance.planned?.toFixed(1)}h, Real: ${t.effortVariance.actual?.toFixed(1)}h)
-            * Tasa de Retrabajo: ${t.rework.rate.toFixed(1)}% (Req: ${t.rework.reqEffort.toFixed(1)}h, Retrabajo: ${t.rework.totalRework.toFixed(1)}h)
-            * Densidad Defectos: ${t.defectDensity.density.toFixed(3)} (Bugs: ${t.defectDensity.bugs}, Size: ${t.defectDensity.size})
-            * EED: ${t.defectRemovalEfficiency.rate.toFixed(2)}% (Bugs: ${t.defectRemovalEfficiency.totalBugs}, Cerrados a Tiempo: ${t.defectRemovalEfficiency.closedOnTime})
-            * Bugs Escapados: ${t.escapedBugs?.rate.toFixed(2)??"0.00"}% (Total: ${t.escapedBugs?.totalBugs??0}, Prod: ${t.escapedBugs?.bugsProd??0})
-            * Ejecuci\xF3n Pruebas (Run Rate): ${t.testExecution?.rate.toFixed(2)??"0.00"}% (Total: ${t.testExecution?.totalTestPoints??0}, Ej: ${t.testExecution?.executed??0})
-            * Pruebas Satisfactorias (Pass Rate): ${t.satisfactoryTests?.rate.toFixed(2)??"0.00"}% (Total: ${t.satisfactoryTests?.total??0}, Pasados: ${t.satisfactoryTests?.passedEnTiempo??0})`).join(`
-`));let c=`
-      Act\xFAa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas m\xE9tricas y devuelve el resultado en ESPA\xD1OL. 
+import{a as k}from"./chunk-EYHTWIUQ.js";import{D as h,L as M,R as C,dc as L,i as f,m as P,n as x,v as D}from"./chunk-TJU5QLH6.js";var j=class y{http=C(L);configService=C(k);analyzeMetrics(e,r=[],p={}){let n=this.configService.getConfig();if(!n||!n.ai.apiKey)return f("AI Configuration missing.");let a="",u=Object.keys(p);u.length>0&&(a=`
+COMENTARIOS Y CONTEXTO DEL AUDITOR/SOCIOS PARA ESTE SPRINT (JUSTIFICACIONES DE NEGOCIO):
+`,u.forEach(o=>{p[o]&&(a+=`- M\xE9trica o Secci\xF3n "${o}": "${p[o]}"
+`)}),a+=`-> REGLA: Incorpora estas notas/comentarios especiales de forma destacada en el an\xE1lisis de la m\xE9trica correspondiente para dar explicaci\xF3n o justificar las desviaciones detectadas ante la direcci\xF3n.
 
+`);let d=(e.developmentRate.items||[]).map(o=>{let c=(o.tasks||[]).reduce(($,g)=>$+(g.originalEstimate||0),0),m=o.effort,A=c>0?((m-c)/c*100).toFixed(1):"0";return`  - ${o.type==="Feature"?"FT":"US"} #${o.id} | Size: ${o.size} | Est. Original: ${c.toFixed(1)}h | Real: ${m.toFixed(1)}h | Var: ${A}% | ISW: ${o.isw}`}).join(`
+`),l={};(e.developmentRate.items||[]).forEach(o=>{let c=o.isw||"Sin Asignar";l[c]||(l[c]={name:c,effort:0,planned:0,size:0}),l[c].effort+=o.effort,l[c].planned+=(o.tasks||[]).reduce((m,A)=>m+(A.originalEstimate||0),0),l[c].size+=o.sizeEdited!==void 0?o.sizeEdited:o.size});let E=Object.values(l).map(o=>{let c=o.size>0?(o.effort/o.size).toFixed(2):"N/A",m=o.planned>0?((o.effort-o.planned)/o.planned*100).toFixed(1):"0";return`  * ${o.name}: Tasa ${c} | Desviaci\xF3n ${m}% | Esfuerzo Real ${o.effort.toFixed(1)}h`}).join(`
+`),s="Sin historial de sprints anteriores disponible.";r&&r.length>0&&(s=r.map(o=>`  - ${o.iterationName||"Sprint previo"}:
+            * Tasa de Desarrollo: ${o.developmentRate.rate.toFixed(2)} (Esfuerzo: ${o.developmentRate.totalEffort.toFixed(1)}h, Size: ${o.developmentRate.totalSize})
+            * Desviaci\xF3n Esfuerzo: ${Math.abs(o.effortVariance.rate*100).toFixed(1)}% (Planeado: ${o.effortVariance.planned?.toFixed(1)}h, Real: ${o.effortVariance.actual?.toFixed(1)}h)
+            * Tasa de Retrabajo: ${o.rework.rate.toFixed(1)}% (Req: ${o.rework.reqEffort.toFixed(1)}h, Retrabajo: ${o.rework.totalRework.toFixed(1)}h)
+            * Densidad Defectos: ${o.defectDensity.density.toFixed(3)} (Bugs: ${o.defectDensity.bugs}, Size: ${o.defectDensity.size})
+            * EED: ${o.defectRemovalEfficiency.rate.toFixed(2)}% (Bugs: ${o.defectRemovalEfficiency.totalBugs}, Cerrados a Tiempo: ${o.defectRemovalEfficiency.closedOnTime})
+            * Bugs Escapados: ${o.escapedBugs?.rate.toFixed(2)??"0.00"}% (Total: ${o.escapedBugs?.totalBugs??0}, Prod: ${o.escapedBugs?.bugsProd??0})
+            * Ejecuci\xF3n Pruebas (Run Rate): ${o.testExecution?.rate.toFixed(2)??"0.00"}% (Total: ${o.testExecution?.totalTestPoints??0}, Ej: ${o.testExecution?.executed??0})
+            * Pruebas Satisfactorias (Pass Rate): ${o.satisfactoryTests?.rate.toFixed(2)??"0.00"}% (Total: ${o.satisfactoryTests?.total??0}, Pasados: ${o.satisfactoryTests?.passedEnTiempo??0})`).join(`
+`));let t=`
+      Act\xFAa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas m\xE9tricas y devuelve el resultado en ESPA\xD1OL. 
+      ${a}
       CONTEXTO DEL EQUIPO:
       - Todos los integrantes del equipo de desarrollo son ISW nivel MID (nivel intermedio).
       - No hay ISW SR (Senior) en el equipo. No menciones ISW SR en el an\xE1lisis.
@@ -19,24 +24,24 @@ import{a as M}from"./chunk-EYHTWIUQ.js";import{D as h,L as O,R as C,dc as N,i as
 
       M\xC9TRICAS DEL SPRINT ACTUAL:
       0. Cumplimiento y L\xEDnea de Tiempo del Sprint:
-      ${(()=>{let t=e.developmentRate?.items||[],o=e.endDate?new Date(e.endDate).getTime():0,s=0,p=0,f=0,E=0,R=[],$=[];t.forEach(n=>{let B=["Closed","Resolved","Done","Completed"].includes(n.status),y=n.closedDate?new Date(n.closedDate).getTime():n.changedDate?new Date(n.changedDate).getTime():0,b="Abierto",T=0;B?!y||y<=o?(s++,b="A tiempo"):(p++,T=Math.max(1,Math.round((y-o)/(1e3*60*60*24))),T>E&&(E=T),b="Fase Extendida ("+T+"d retraso)",R.push("  - "+(n.type==="Feature"?"FT":"US")+" #"+n.id+" | ISW: "+n.isw+" | Cerrado: "+(n.closedDate?n.closedDate.substring(0,10):"?")+" | ~"+T+"d tarde")):f++;let z=(n.tasks||[]).map(S=>"Tarea #"+S.id+': "'+S.title+'" (Est: '+(S.originalEstimate||0)+"h, Real: "+(S.completedWork||0)+"h, Estado: "+S.status+")").join("; ");$.push("  * ["+(n.type==="Feature"?"FT":"US")+" #"+n.id+'] "'+n.title+'" - ISW: '+n.isw+" | Estado: "+n.status+" | Entrega: "+b+" | Size: "+n.size+" | Tareas: ["+z+"]")});let A=e.defectRemovalEfficiency?.bugsList||[],g=e.escapedBugs?.bugsList||[],D=new Map;[...A,...g].forEach(n=>{D.set(n.bugId||n.id,n)});let L=Array.from(D.values()).map(n=>"  * [Bug #"+(n.bugId||n.id)+'] "'+n.title+'" - ISW: '+(n.isw||"Sin asignar")+" | Estado: "+n.status+" | Clasificaci\xF3n: "+(n.classification||"N/A")).join(`
-`),F=s+p,j=F>0?(s/F*100).toFixed(0):"\u2014";return"         Total entregables: "+t.length+" | A tiempo: "+s+" | En Fase Extendida: "+p+" | Abiertos: "+f+`
-         % Cumplimiento: `+j+"% | M\xE1x. d\xEDas de retraso: "+E+`d
+      ${(()=>{let o=e.developmentRate?.items||[],c=e.endDate?new Date(e.endDate).getTime():0,m=0,A=0,$=0,g=0,T=[],O=[];o.forEach(i=>{let G=["Closed","Resolved","Done","Completed"].includes(i.status),v=i.closedDate?new Date(i.closedDate).getTime():i.changedDate?new Date(i.changedDate).getTime():0,b="Abierto",R=0;G?!v||v<=c?(m++,b="A tiempo"):(A++,R=Math.max(1,Math.round((v-c)/(1e3*60*60*24))),R>g&&(g=R),b="Fase Extendida ("+R+"d retraso)",T.push("  - "+(i.type==="Feature"?"FT":"US")+" #"+i.id+" | ISW: "+i.isw+" | Cerrado: "+(i.closedDate?i.closedDate.substring(0,10):"?")+" | ~"+R+"d tarde")):$++;let q=(i.tasks||[]).map(S=>{let I=(S.completedWork||0)-(S.originalEstimate||0),V=I>0?" (Desviaci\xF3n: +"+I.toFixed(1)+"h)":I<0?" (Sub-ejecutada: "+I.toFixed(1)+"h)":" (A tiempo)";return"Tarea #"+S.id+': "'+S.title+'" (Responsable: '+(S.assignedTo||"Sin asignar")+", Est: "+(S.originalEstimate||0)+"h, Real: "+(S.completedWork||0)+"h, Estado: "+S.status+V+")"}).join("; ");O.push("  * ["+(i.type==="Feature"?"FT":"US")+" #"+i.id+'] "'+i.title+'" - ISW: '+i.isw+" | Estado: "+i.status+" | Entrega: "+b+" | Size: "+i.size+" | Tareas: ["+q+"]")});let B=e.defectRemovalEfficiency?.bugsList||[],z=e.escapedBugs?.bugsList||[],F=new Map;[...B,...z].forEach(i=>{F.set(i.bugId||i.id,i)});let U=Array.from(F.values()).map(i=>"  * [Bug #"+(i.bugId||i.id)+'] "'+i.title+'" - ISW: '+(i.isw||"Sin asignar")+" | Estado: "+i.status+" | Clasificaci\xF3n: "+(i.classification||"N/A")).join(`
+`),N=m+A,w=N>0?(m/N*100).toFixed(0):"\u2014";return"         Total entregables: "+o.length+" | A tiempo: "+m+" | En Fase Extendida: "+A+" | Abiertos: "+$+`
+         % Cumplimiento: `+w+"% | M\xE1x. d\xEDas de retraso: "+g+`d
          Detalle de Deliverables (Historias de Usuario / Features) y sus Tareas:
-`+$.join(`
+`+O.join(`
 `)+`
          Detalle de Todos los Bugs de la Iteraci\xF3n:
-`+(L||"Sin bugs detectados en este periodo.")})()}
+`+(U||"Sin bugs detectados en este periodo.")})()}
 
       1. Tasa de Desarrollo: ${e.developmentRate.rate.toFixed(2)} 
          (Sem\xE1foro: Verde \u2264 1.70 | Amarillo 1.71\u20132.00 | Rojo > 2.00)
          Esfuerzo total: ${e.developmentRate.totalEffort?.toFixed(1)??"\u2014"} h | Size total: ${e.developmentRate.totalSize??"\u2014"}
          
          Items del sprint:
-${r}
+${d}
 
          Resumen por ISW:
-${u}
+${E}
 
       2. Tasa de Desviaci\xF3n de Esfuerzo: ${Math.abs(e.effortVariance.rate*100).toFixed(1)}%
          (Sem\xE1foro: Verde \u2264 15% | Amarillo 15\u201330% | Rojo > 30%)
@@ -65,11 +70,11 @@ ${u}
          Total Test Points: ${e.satisfactoryTests?.total??0} | Pasados a Tiempo (Satisfactorios): ${e.satisfactoryTests?.passedEnTiempo??0} | Pasados Fuera de Tiempo: ${e.satisfactoryTests?.passedFueraDeTiempo??0} | Fallidos: ${e.satisfactoryTests?.failed??0} | Bloqueados: ${e.satisfactoryTests?.blocked??0} | N/A: ${e.satisfactoryTests?.notApplicable??0}
 
       HISTORIAL DE SPRINTS ANTERIORES PARA C\xC1LCULO ACUMULADO REAL:
-${d}
+${s}
 
       ESTRUCTURA REQUERIDA \u2014 para CADA m\xE9trica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
-      (NOTA IMPORTANTE PARA LA PRIMERA M\xC9TRICA "Cumplimiento y L\xEDnea de Tiempo del Sprint" o "Cumplimiento": Para esta primera m\xE9trica, NO generes vi\xF1etas de metas, resultados, acciones correctivas ni an\xE1lisis acumulado. En su lugar, genera \xFAnicamente un an\xE1lisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Para el resto de las m\xE9tricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
+      (NOTA IMPORTANTE PARA LA PRIMERA M\xC9TRICA "Cumplimiento y L\xEDnea de Tiempo del Sprint" o "Cumplimiento": Para esta primera m\xE9trica, NO generes vi\xF1etas de metas, resultados, acciones correctivas ni an\xE1lisis acumulado. En su lugar, genera \xFAnicamente un an\xE1lisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Analiza OBLIGATORIAMENTE a nivel de tareas secundarias para ver por qu\xE9 se desviaron las User Stories (US) o Features (FT), identificando qu\xE9 tareas espec\xEDficas del sprint sufrieron la mayor desviaci\xF3n de esfuerzo en horas (Trabajo Real vs Estimaci\xF3n original) y explica la causa ra\xEDz t\xE9cnica/operativa bas\xE1ndote en la informaci\xF3n provista. Para el resto de las m\xE9tricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
       - Meta establecida para el periodo: (valor)
       - Resultado del periodo: (valor real con sem\xE1foro: Verde/Amarillo/Rojo)
       - An\xE1lisis de resultados: (Explica el resultado con un tono CR\xCDTICO y CONSTRUCTIVO. 
@@ -89,12 +94,14 @@ ${d}
       REGLAS IMPORTANTES:
       - S\xC9 EXIGENTE: Como auditor CMMI5, tu objetivo es la perfecci\xF3n estad\xEDstica. Si un \xEDtem se desv\xEDa, se\xF1\xE1lalo aunque el promedio global sea bueno.
       - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
+      - NO UTILICES NINGUNA UNIDAD COMO "/PT" O "/SP": Para la m\xE9trica "4. Densidad de Defectos", no utilices jam\xE1s ninguna unidad ni sufijo como "/PT", "/pt", "/SP" o "/sp" en los resultados o an\xE1lisis. Muestra siempre los valores de las metas y resultados \xFAnicamente como n\xFAmeros decimales directos (ej: \u2264 0.18, 0.026), omitiendo cualquier menci\xF3n a PT o SP.
+      - ANALIZA RESPONSABILIDADES DE TAREAS: Ten en cuenta que existe un responsable principal de la historia (ISW), pero debes identificar a las personas involucradas en las tareas secundarias (Responsable de la tarea). Por ejemplo, si la historia pertenece a Marlon pero la desviaci\xF3n de esfuerzo ocurri\xF3 en tareas secundarias asignadas a Yair, atribuye el an\xE1lisis de esa desviaci\xF3n a Yair e incl\xFAyelo en la explicaci\xF3n.
       - Para la m\xE9trica "2. Tasa de Desviaci\xF3n de Esfuerzo", el "Resultado del periodo" debe presentarse en valor absoluto (sin signo negativo, p. ej., 11.23% en lugar de -11.23%).
       - Usa nombres reales de los ISW del equipo cuando est\xE9n disponibles en la lista de items.
       - Tono profesional, anal\xEDtico y enfocado en identificar brechas de proceso.
       - Devuelve solo el texto estructurado, sin introducciones ni conclusiones generales.
-    `;return l.ai.provider==="openai"?this.callOpenAI(l.ai.apiKey,l.ai.model,c):this.callGemini(l.ai.apiKey,l.ai.model,c)}generateCompletionReport(e){let i=this.configService.getConfig();if(!i||!i.ai.apiKey)return m("AI Configuration missing.");let l=[],r=0,a=0;(e.developmentRate.items||[]).forEach(f=>{let E=(f.tasks||[]).filter(A=>{let g=(A.title||"").toLowerCase();return g.includes("01.01")||g.includes("01.03")||g.includes("01.04")||g.includes("01.05")}),R=E.reduce((A,g)=>A+(g.originalEstimate||0),0),$=E.reduce((A,g)=>A+(g.completedWork||0),0);l.push(`${f.type==="Feature"?"FT":"US"} | ${f.id} | ${R.toFixed(2)} | ${$.toFixed(2)}`),r+=R,a+=$});let u=l.join(`
-`),d=r,c=a,t=(d-c).toFixed(2),o=d>0?((d-c)/d*100).toFixed(2):"0.00",p=`
+    `;return n.ai.provider==="openai"?this.callOpenAI(n.ai.apiKey,n.ai.model,t):this.callGemini(n.ai.apiKey,n.ai.model,t)}generateCompletionReport(e){let r=this.configService.getConfig();if(!r||!r.ai.apiKey)return f("AI Configuration missing.");let p=[],n=0,a=0;(e.developmentRate.items||[]).forEach(c=>{let m=(c.tasks||[]).filter(g=>{let T=(g.title||"").toLowerCase();return T.includes("01.01")||T.includes("01.03")||T.includes("01.04")||T.includes("01.05")}),A=m.reduce((g,T)=>g+(T.originalEstimate||0),0),$=m.reduce((g,T)=>g+(T.completedWork||0),0);p.push(`${c.type==="Feature"?"FT":"US"} | ${c.id} | ${A.toFixed(2)} | ${$.toFixed(2)}`),n+=A,a+=$});let u=p.join(`
+`),d=n,l=a,E=(d-l).toFixed(2),s=d>0?((d-l)/d*100).toFixed(2):"0.00",o=`
       Act\xFAa como el Responsable de Calidad y Planeaci\xF3n. Genera un REPORTE DE FINALIZACI\xD3N DE CONSTRUCCI\xD3N para el correo de David.
       El formato debe ser EXACTAMENTE el siguiente, llenando los datos con la informaci\xF3n proporcionada:
 
@@ -105,9 +112,9 @@ ${d}
       Tipo | Item | Tiempo planeado | Tiempo completado
       --- | --- | --- | ---
       ${u}
-      Total | | ${d.toFixed(2)} | ${c.toFixed(2)}
+      Total | | ${d.toFixed(2)} | ${l.toFixed(2)}
 
-      La construcci\xF3n de las historias de usuario finaliz\xF3 con una diferencia de ${Math.abs(parseFloat(t))} horas ${parseFloat(t)>0?"menos":"m\xE1s"}, lo que representa una desviaci\xF3n del ${Math.abs(parseFloat(o))}% respecto al tiempo planeado. 
+      La construcci\xF3n de las historias de usuario finaliz\xF3 con una diferencia de ${Math.abs(parseFloat(E))} horas ${parseFloat(E)>0?"menos":"m\xE1s"}, lo que representa una desviaci\xF3n del ${Math.abs(parseFloat(s))}% respecto al tiempo planeado. 
       [A\xF1ade aqu\xED 2 o 3 oraciones justificando la desviaci\xF3n bas\xE1ndote en los \xEDtems analizados. Menciona los IDs espec\xEDficos de US/FT que se excedieron del tiempo planeado como causa de la desviaci\xF3n, y menciona si hubo bugs. S\xE9 anal\xEDtico y profesional.]
 
       Adjunto la gr\xE1fica del sprint burndown. Sin embargo, a\xFAn quedan tareas administrativas que no se han cerrado.
@@ -116,13 +123,13 @@ ${d}
       - Idioma: Espa\xF1ol.
       - Mant\xE9n el formato de la tabla en Markdown para que se vea claramente.
       - La justificaci\xF3n debe ser coherente con los datos (ej: si la US 46900 tiene m\xE1s horas reales que planeadas, menci\xF3nala como causa).
-    `;return i.ai.provider==="openai"?this.callOpenAI(i.ai.apiKey,i.ai.model,p):this.callGemini(i.ai.apiKey,i.ai.model,p)}analyzeGanttComparison(e){let i=this.configService.getConfig();if(!i||!i.ai.apiKey)return m("AI Configuration missing.");let l=e.items.filter(o=>o.late).slice(0,20).map(o=>`- #${o.workItemId}: Planeado ${o.plannedStart}\u2192${o.plannedEnd} | Real ${o.realStart||"N/A"}\u2192${o.realEnd||"N/A"}`).join(`
-`),r=e.items.slice(0,30).map(o=>`- #${o.workItemId} | Planeado ${o.plannedStart}\u2192${o.plannedEnd} | Real ${o.realStart||"N/A"}\u2192${o.realEnd||"N/A"} | ${o.late?"Atrasado":"En tiempo"}`).join(`
-`),a=e.people.slice(0,30).map(o=>`- ${o.person}: Planeado marcas=${o.plannedMarks}, Planeado items=${o.plannedItems}, Real asignaciones=${o.realAssignments}, Real items=${o.realItems}`).join(`
-`),u=e.taskLayer.stageBreakdown.slice(0,20).map(o=>`- ${o.stage}: tareas=${o.taskCount}, planeado=${o.plannedHours.toFixed(1)}h, real=${o.realHours.toFixed(1)}h`).join(`
+    `;return r.ai.provider==="openai"?this.callOpenAI(r.ai.apiKey,r.ai.model,o):this.callGemini(r.ai.apiKey,r.ai.model,o)}analyzeGanttComparison(e){let r=this.configService.getConfig();if(!r||!r.ai.apiKey)return f("AI Configuration missing.");let p=e.items.filter(s=>s.late).slice(0,20).map(s=>`- #${s.workItemId}: Planeado ${s.plannedStart}\u2192${s.plannedEnd} | Real ${s.realStart||"N/A"}\u2192${s.realEnd||"N/A"}`).join(`
+`),n=e.items.slice(0,30).map(s=>`- #${s.workItemId} | Planeado ${s.plannedStart}\u2192${s.plannedEnd} | Real ${s.realStart||"N/A"}\u2192${s.realEnd||"N/A"} | ${s.late?"Atrasado":"En tiempo"}`).join(`
+`),a=e.people.slice(0,30).map(s=>`- ${s.person}: Planeado marcas=${s.plannedMarks}, Planeado items=${s.plannedItems}, Real asignaciones=${s.realAssignments}, Real items=${s.realItems}`).join(`
+`),u=e.taskLayer.stageBreakdown.slice(0,20).map(s=>`- ${s.stage}: tareas=${s.taskCount}, planeado=${s.plannedHours.toFixed(1)}h, real=${s.realHours.toFixed(1)}h`).join(`
 `),d=e.taskLayer.relatedItemTaskContext.slice(0,40).join(`
-`),c=e.taskLayer.relatedBugTaskContext.slice(0,40).join(`
-`),t=`
+`),l=e.taskLayer.relatedBugTaskContext.slice(0,40).join(`
+`),E=`
 Act\xFAa como un analista senior de gesti\xF3n de sprints en un contexto CMMI.
 Tu tarea es analizar la comparaci\xF3n REAL vs PLANEADO (Excel timeline) y redactar un an\xE1lisis ejecutivo en ESPA\xD1OL.
 
@@ -147,10 +154,10 @@ RESUMEN GENERAL
 - Atrasadas: ${e.summary.matchedLate}
 
 ITEMS REPRESENTATIVOS
-${r||"- Sin datos de \xEDtems"}
+${n||"- Sin datos de \xEDtems"}
 
 TOP ITEMS ATRASADOS
-${l||"- Sin atrasos detectados"}
+${p||"- Sin atrasos detectados"}
 
 COMPARACI\xD3N POR PERSONA
 ${a||"- Sin datos por persona"}
@@ -169,7 +176,7 @@ CONTEXTO AMPLIADO POR ITEM PADRE (TAREAS RELACIONADAS)
 ${d||"- Sin tareas adicionales relacionadas por padre"}
 
 BUGS RELACIONADOS Y SUS TAREAS HIJAS
-${c||"- Sin bugs/tareas hijas relacionadas"}
+${l||"- Sin bugs/tareas hijas relacionadas"}
 
 ENTREGABLE REQUERIDO (texto \xFAnico, no tablas):
 1) Paso 1 (obligatorio): Diagn\xF3stico general de cumplimiento por ITEM (cierre vs planeado Excel).
@@ -191,7 +198,7 @@ REGLAS
   c) Pruebas ISW dependen de peer review.
   d) Ejecuci\xF3n de pruebas depende de pruebas ISW.
   e) Existen tareas administrativas al inicio, durante y cierre de sprint que pueden impactar capacidad.
-`;return i.ai.provider==="openai"?this.callOpenAI(i.ai.apiKey,i.ai.model,t):this.callGemini(i.ai.apiKey,i.ai.model,t)}askAboutMetrics(e,i,l){let r=this.configService.getConfig();if(!r||!r.ai.apiKey)return m("Configuraci\xF3n de IA no encontrada. Por favor configure su API Key en la pantalla de Configuraci\xF3n.");let a=`INFORMACI\xD3N DEL SPRINT ACTUAL:
+`;return r.ai.provider==="openai"?this.callOpenAI(r.ai.apiKey,r.ai.model,E):this.callGemini(r.ai.apiKey,r.ai.model,E)}askAboutMetrics(e,r,p){let n=this.configService.getConfig();if(!n||!n.ai.apiKey)return f("Configuraci\xF3n de IA no encontrada. Por favor configure su API Key en la pantalla de Configuraci\xF3n.");let a=`INFORMACI\xD3N DEL SPRINT ACTUAL:
 `;a+=`- Iteraci\xF3n/Sprint: ${e.iterationName||"No especificada"}
 `,e.startDate&&e.endDate&&(a+=`- Periodo: ${e.startDate} a ${e.endDate}
 `),a+=`
@@ -201,7 +208,7 @@ REGLAS
 `,a+=`- Puntos de Historia (Size) Total: ${e.developmentRate.totalSize??0}
 `,a+=`- Cantidad de Items: ${e.developmentRate.totalItems??0}
 `,e.developmentRate.items&&e.developmentRate.items.length>0&&(a+=`Items de Trabajo:
-`,e.developmentRate.items.forEach(s=>{let p=(s.tasks||[]).reduce((f,E)=>f+(E.originalEstimate||0),0);a+=`  * [${s.type==="Feature"?"FT":"US"} #${s.id}] ${s.title} - ISW: ${s.isw} | Estado: ${s.status} | Estimado: ${p.toFixed(1)}h | Real: ${s.effort.toFixed(1)}h | Size: ${s.size}
+`,e.developmentRate.items.forEach(t=>{let o=(t.tasks||[]).reduce((c,m)=>c+(m.originalEstimate||0),0);a+=`  * [${t.type==="Feature"?"FT":"US"} #${t.id}] ${t.title} - ISW: ${t.isw} | Estado: ${t.status} | Estimado: ${o.toFixed(1)}h | Real: ${t.effort.toFixed(1)}h | Size: ${t.size}
 `})),a+=`
 2. DESVIACI\xD3N DE ESFUERZO:
 `,a+=`- Tasa Desviaci\xF3n: ${(e.effortVariance.rate*100).toFixed(1)}% (Sem\xE1foro: ${e.effortVariance.status})
@@ -223,7 +230,7 @@ REGLAS
 `,a+=`- Bugs Cerrados a Tiempo: ${e.defectRemovalEfficiency.closedOnTime??0}
 `,a+=`- Bugs Cerrados Fuera de Tiempo: ${e.defectRemovalEfficiency.closedLate??0}
 `,e.defectRemovalEfficiency.bugsList&&e.defectRemovalEfficiency.bugsList.length>0&&(a+=`Lista de Bugs EED:
-`,e.defectRemovalEfficiency.bugsList.forEach(s=>{a+=`  * [Bug #${s.bugId}] ${s.title} - Asignado: ${s.isw||"Sin asignar"} | Estado: ${s.status} | Alineaci\xF3n: ${s.alignment} | Clasificaci\xF3n: ${s.classification||"N/A"}
+`,e.defectRemovalEfficiency.bugsList.forEach(t=>{a+=`  * [Bug #${t.bugId}] ${t.title} - Asignado: ${t.isw||"Sin asignar"} | Estado: ${t.status} | Alineaci\xF3n: ${t.alignment} | Clasificaci\xF3n: ${t.classification||"N/A"}
 `}));let u=e.escapedBugs;u&&(a+=`
 6. BUGS ESCAPADOS:
 `,a+=`- Tasa Escape: ${u.rate.toFixed(2)}% (Sem\xE1foro: ${u.status})
@@ -231,7 +238,7 @@ REGLAS
 `,a+=`- Bugs UAT: ${u.bugsUat??0}
 `,a+=`- Bugs Producci\xF3n: ${u.bugsProd??0}
 `,u.bugsList&&u.bugsList.length>0&&(a+=`Lista de Bugs Escapados:
-`,u.bugsList.forEach(s=>{a+=`  * [Bug #${s.bugId}] ${s.title} - Asignado: ${s.isw||"Sin asignar"} | Estado: ${s.status} | Clasificaci\xF3n: ${s.classification}
+`,u.bugsList.forEach(t=>{a+=`  * [Bug #${t.bugId}] ${t.title} - Asignado: ${t.isw||"Sin asignar"} | Estado: ${t.status} | Clasificaci\xF3n: ${t.classification}
 `})));let d=e.testExecution;d&&(a+=`
 7. EJECUCI\xD3N DE PRUEBAS:
 `,a+=`- Tasa Ejecuci\xF3n: ${d.rate.toFixed(2)}% (Sem\xE1foro: ${d.status})
@@ -242,28 +249,28 @@ REGLAS
 `,a+=`- Fallidos: ${d.failed??0}
 `,a+=`- Bloqueados: ${d.blocked??0}
 `,d.testPoints&&d.testPoints.length>0&&(a+=`Detalle de Puntos de Prueba:
-`,d.testPoints.forEach(s=>{a+=`  * [Plan: ${s.planName}] Suite: ${s.suiteName} | Test Case: [#${s.testCaseId}] ${s.testCaseTitle} - Probador: ${s.tester} | Resultado: ${s.outcome} | En Tiempo: ${s.onTime?"S\xED":"No"}
-`})));let c=e.satisfactoryTests;c&&(a+=`
+`,d.testPoints.forEach(t=>{a+=`  * [Plan: ${t.planName}] Suite: ${t.suiteName} | Test Case: [#${t.testCaseId}] ${t.testCaseTitle} - Probador: ${t.tester} | Resultado: ${t.outcome} | En Tiempo: ${t.onTime?"S\xED":"No"}
+`})));let l=e.satisfactoryTests;l&&(a+=`
 8. PORCENTAJE DE PRUEBAS SATISFACTORIAS (KPI Pass Rate):
-`,a+=`- Tasa Pruebas Satisfactorias (Pass Rate): ${c.rate.toFixed(2)}% (Sem\xE1foro: ${c.status})
-`,a+=`- Total Test Points: ${c.total??0}
-`,a+=`- Pasados a Tiempo (Satisfactorios): ${c.passedEnTiempo??0}
-`,a+=`- Pasados Fuera de Tiempo: ${c.passedFueraDeTiempo??0}
-`,a+=`- Fallidos: ${c.failed??0}
-`,a+=`- Bloqueados: ${c.blocked??0}
-`,a+=`- N/A: ${c.notApplicable??0}
-`);let t="";l&&l.length>0&&(t=`HISTORIAL DE LA CONVERSACI\xD3N:
-`,l.forEach(s=>{t+=`${s.role==="user"?"Usuario":"Asistente"}: ${s.content}
-`}));let o=`
+`,a+=`- Tasa Pruebas Satisfactorias (Pass Rate): ${l.rate.toFixed(2)}% (Sem\xE1foro: ${l.status})
+`,a+=`- Total Test Points: ${l.total??0}
+`,a+=`- Pasados a Tiempo (Satisfactorios): ${l.passedEnTiempo??0}
+`,a+=`- Pasados Fuera de Tiempo: ${l.passedFueraDeTiempo??0}
+`,a+=`- Fallidos: ${l.failed??0}
+`,a+=`- Bloqueados: ${l.blocked??0}
+`,a+=`- N/A: ${l.notApplicable??0}
+`);let E="";p&&p.length>0&&(E=`HISTORIAL DE LA CONVERSACI\xD3N:
+`,p.forEach(t=>{E+=`${t.role==="user"?"Usuario":"Asistente"}: ${t.content}
+`}));let s=`
       Act\xFAa como un Asistente Virtual Experto en M\xE9tricas CMMI Nivel 5 para el proyecto OPE20 Bepensa.
       Tu objetivo es responder de manera clara, concisa y precisa a las preguntas del usuario sobre los datos y m\xE9tricas que se muestran en el dashboard actual.
 
       ${a}
 
-      ${t}
+      ${E}
 
       PREGUNTA DEL USUARIO:
-      ${i}
+      ${r}
 
       REGLAS PARA RESPONDER:
       1. Responde en ESPA\xD1OL.
@@ -271,4 +278,4 @@ REGLAS
       3. Mant\xE9n un tono profesional, anal\xEDtico y constructivo, pero amigable.
       4. Si la pregunta no tiene relaci\xF3n con las m\xE9tricas o no se puede responder con la informaci\xF3n proporcionada, ind\xEDcalo amablemente y ofrece ayuda sobre lo que s\xED puedes responder bas\xE1ndote en los datos.
       5. Puedes estructurar tu respuesta con vi\xF1etas o tablas markdown sencillas para mejorar la legibilidad.
-    `;return r.ai.provider==="openai"?this.callOpenAI(r.ai.apiKey,r.ai.model,o):this.callGemini(r.ai.apiKey,r.ai.model,o)}callOpenAI(e,i,l){return this.http.post("https://api.openai.com/v1/chat/completions",{model:i||"gpt-4",messages:[{role:"user",content:l}]},{headers:{Authorization:`Bearer ${e}`}}).pipe(v(14e4),h({count:1,delay:2e3}),x(r=>r?.choices?.[0]?.message?.content||"Respuesta vac\xEDa de OpenAI"),P(r=>{console.error("OpenAI Error/Timeout:",r);let a=r?.name==="TimeoutError"||r?.message?.includes("timeout"),u=r?.status===401||r?.status===403;return a?m("El an\xE1lisis tard\xF3 demasiado (>90s). Intenta de nuevo; el servidor de IA puede estar ocupado."):u?m("API Key de OpenAI inv\xE1lida o sin permisos. Verifica la clave en Configuraci\xF3n."):m(`Error al contactar OpenAI (${r?.status??"sin conexi\xF3n"}). Intenta de nuevo.`)}))}callGemini(e,i,l){let r=i||"gemini-1.5-flash";return this.http.post(`https://generativelanguage.googleapis.com/v1beta/models/${r}:generateContent?key=${e}`,{contents:[{parts:[{text:l}]}]}).pipe(v(9e4),h({count:1,delay:2e3}),x(a=>a?.candidates?.[0]?.content?.parts?.[0]?.text||"Respuesta vac\xEDa de Gemini"),P(a=>{console.error("Gemini Error/Timeout:",a);let u=a?.name==="TimeoutError"||a?.message?.includes("timeout"),d=a?.status===400||a?.status===401||a?.status===403,c=a?.status===429;return u?m("El an\xE1lisis tard\xF3 demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado."):c?m("Cuota de Gemini agotada. Espera un momento e intenta de nuevo."):d?m("API Key de Gemini inv\xE1lida. Verifica la clave en Configuraci\xF3n."):m(`Error al contactar Gemini (${a?.status??"sin conexi\xF3n"}). Intenta de nuevo.`)}))}static \u0275fac=function(i){return new(i||I)};static \u0275prov=O({token:I,factory:I.\u0275fac,providedIn:"root"})};export{k as a};
+    `;return n.ai.provider==="openai"?this.callOpenAI(n.ai.apiKey,n.ai.model,s):this.callGemini(n.ai.apiKey,n.ai.model,s)}callOpenAI(e,r,p){return this.http.post("https://api.openai.com/v1/chat/completions",{model:r||"gpt-4",messages:[{role:"user",content:p}]},{headers:{Authorization:`Bearer ${e}`}}).pipe(P(14e4),h({count:1,delay:2e3}),x(n=>n?.choices?.[0]?.message?.content||"Respuesta vac\xEDa de OpenAI"),D(n=>{console.error("OpenAI Error/Timeout:",n);let a=n?.name==="TimeoutError"||n?.message?.includes("timeout"),u=n?.status===401||n?.status===403;return a?f("El an\xE1lisis tard\xF3 demasiado (>90s). Intenta de nuevo; el servidor de IA puede estar ocupado."):u?f("API Key de OpenAI inv\xE1lida o sin permisos. Verifica la clave en Configuraci\xF3n."):f(`Error al contactar OpenAI (${n?.status??"sin conexi\xF3n"}). Intenta de nuevo.`)}))}callGemini(e,r,p){let n=r||"gemini-1.5-flash";return this.http.post(`https://generativelanguage.googleapis.com/v1beta/models/${n}:generateContent?key=${e}`,{contents:[{parts:[{text:p}]}]}).pipe(P(9e4),h({count:1,delay:2e3}),x(a=>a?.candidates?.[0]?.content?.parts?.[0]?.text||"Respuesta vac\xEDa de Gemini"),D(a=>{console.error("Gemini Error/Timeout:",a);let u=a?.name==="TimeoutError"||a?.message?.includes("timeout"),d=a?.status===400||a?.status===401||a?.status===403,l=a?.status===429;return u?f("El an\xE1lisis tard\xF3 demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado."):l?f("Cuota de Gemini agotada. Espera un momento e intenta de nuevo."):d?f("API Key de Gemini inv\xE1lida. Verifica la clave en Configuraci\xF3n."):f(`Error al contactar Gemini (${a?.status??"sin conexi\xF3n"}). Intenta de nuevo.`)}))}static \u0275fac=function(r){return new(r||y)};static \u0275prov=M({token:y,factory:y.\u0275fac,providedIn:"root"})};export{j as a};
