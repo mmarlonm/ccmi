@@ -1,0 +1,202 @@
+<div class="max-w-[1800px] mx-auto space-y-6 pt-4 md:pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+  <header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 pt-3 md:pt-4 -mx-2 md:-mx-2.5 px-2 md:px-2.5 shadow-md transition-all duration-300">
+    <div class="shrink-0">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Cumplimiento de tareas</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1 text-xs">Validación de orden de ejecución y cierre correcto por ítem padre.</p>
+    </div>
+
+    <div class="flex flex-col items-end gap-1.5 w-full md:w-auto shrink-0">
+      <div class="flex flex-row items-center gap-2 md:gap-3 justify-end w-full shrink-0 flex-wrap">
+        <select class="glass-input text-xs font-medium w-36 md:w-40 shrink-0" [(ngModel)]="selectedOrganization" (ngModelChange)="onOrganizationChange()">
+          <option value="">Organización</option>
+          <option *ngFor="let org of organizations" [value]="org.name">{{ org.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-40 shrink-0" [(ngModel)]="selectedProjectId" (ngModelChange)="onProjectChange()" [disabled]="!selectedOrganization">
+          <option value="">Proyecto</option>
+          <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-36 shrink-0" [(ngModel)]="selectedTeamId" (ngModelChange)="onTeamChange()" [disabled]="!selectedProjectId">
+          <option value="">Equipo</option>
+          <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
+        </select>
+        <select class="glass-input text-xs font-medium w-32 md:w-36 shrink-0" [(ngModel)]="selectedSprintId" (ngModelChange)="onSprintChange()" [disabled]="!selectedTeamId">
+          <option value="">Sprint</option>
+          <option *ngFor="let sprint of sprints" [value]="sprint.id">{{ sprint.name }}</option>
+        </select>
+        <button (click)="loadData()" [disabled]="!canLoad || loadingData" class="glass-button h-[38px] w-[38px] p-0 flex items-center justify-center" title="Evaluar cumplimiento">
+          <lucide-icon [name]="Search" size="14" [class.animate-spin]="loadingData"></lucide-icon>
+        </button>
+      </div>
+      <div class="text-[11px] mr-1 flex items-center gap-3">
+        <span *ngIf="loadingCatalogs" class="text-slate-500 dark:text-slate-400">Actualizando catálogos...</span>
+        <span *ngIf="errorMessage" class="text-red-600 dark:text-red-400">{{ errorMessage }}</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="glass-card space-y-4" *ngIf="hasPatConfigured">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-white/70 dark:bg-slate-900/60 p-3">
+        <div class="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Tareas evaluadas</div>
+        <div class="text-2xl font-black text-slate-800 dark:text-slate-100">{{ evaluatedTasks }}</div>
+      </div>
+      <div class="rounded-xl border border-amber-200/70 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-900/20 p-3">
+        <div class="text-[11px] uppercase tracking-wider text-amber-700 dark:text-amber-300">Incumplimientos de orden</div>
+        <div class="text-2xl font-black text-amber-700 dark:text-amber-300">{{ orderViolations.length }}</div>
+      </div>
+      <div class="rounded-xl border border-rose-200/70 dark:border-rose-700/60 bg-rose-50/70 dark:bg-rose-900/20 p-3">
+        <div class="text-[11px] uppercase tracking-wider text-rose-700 dark:text-rose-300">Cierres incorrectos</div>
+        <div class="text-2xl font-black text-rose-700 dark:text-rose-300">{{ incorrectClosures.length }}</div>
+      </div>
+      <div class="rounded-xl border border-amber-200/70 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-900/20 p-3">
+        <div class="text-[11px] uppercase tracking-wider text-amber-700 dark:text-amber-300">Orden por responsable</div>
+        <div *ngIf="orderViolationAssigneeCounts.length > 0; else noOrderSummary" class="mt-1 space-y-1 max-h-[110px] overflow-y-auto">
+          <div *ngFor="let row of orderViolationAssigneeCounts" class="text-[11px] text-amber-800 dark:text-amber-200">
+            <strong>{{ row.assignee }}</strong>: {{ row.affectedTasks }}
+          </div>
+        </div>
+        <ng-template #noOrderSummary>
+          <div class="text-[11px] text-amber-800 dark:text-amber-200 mt-1">Sin afectaciones.</div>
+        </ng-template>
+      </div>
+      <div class="rounded-xl border border-rose-200/70 dark:border-rose-700/60 bg-rose-50/70 dark:bg-rose-900/20 p-3">
+        <div class="text-[11px] uppercase tracking-wider text-rose-700 dark:text-rose-300">Cierre por responsable</div>
+        <div *ngIf="incorrectClosureAssigneeCounts.length > 0; else noClosureSummary" class="mt-1 space-y-1 max-h-[110px] overflow-y-auto">
+          <div *ngFor="let row of incorrectClosureAssigneeCounts" class="text-[11px] text-rose-800 dark:text-rose-200">
+            <strong>{{ row.assignee }}</strong>: {{ row.affectedTasks }}
+          </div>
+        </div>
+        <ng-template #noClosureSummary>
+          <div class="text-[11px] text-rose-800 dark:text-rose-200 mt-1">Sin afectaciones.</div>
+        </ng-template>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 overflow-hidden">
+      <div class="px-4 py-2.5 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200/70 dark:border-slate-700/70">
+        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">1) Incumplimiento de orden de ejecución (Flujo / Stepper)</h3>
+      </div>
+      <div *ngIf="orderViolations.length === 0" class="p-4 text-sm text-slate-500 dark:text-slate-400">
+        Sin incumplimientos detectados para el criterio seleccionado.
+      </div>
+      <div *ngIf="orderViolations.length > 0 && stepperGroups.length > 0" class="p-3 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div class="text-[11px] text-slate-500 dark:text-slate-350">
+          Visualización por defecto mostrando solo secuencias incumplidas. Agrupación: Item padre -> Persona -> Activity.
+        </div>
+
+        <div *ngFor="let group of stepperGroups" class="rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50">
+          <div class="px-3 py-2 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <a class="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" [href]="group.parentWebUrl" target="_blank" rel="noopener noreferrer">#{{ group.parentId }}</a>
+              <span class="ml-1 text-slate-500 dark:text-slate-400">({{ group.parentType }})</span>
+              <div class="text-slate-700 dark:text-slate-250 truncate" [title]="group.parentTitle">{{ group.parentTitle }}</div>
+            </div>
+            <span class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wide" [ngClass]="getGroupStatusBadgeClass(group.hasInconsistency)">
+              {{ getGroupStatusText(group.hasInconsistency) }}
+            </span>
+          </div>
+
+          <div class="p-3 space-y-3">
+            <div *ngFor="let person of group.persons" class="rounded-md border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40">
+              <div class="px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                <div class="text-xs font-bold text-slate-700 dark:text-slate-250">{{ person.assignee }}</div>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold" [ngClass]="getGroupStatusBadgeClass(person.hasInconsistency)">
+                  {{ getGroupStatusText(person.hasInconsistency) }}
+                </span>
+              </div>
+
+              <div class="p-3 space-y-4">
+                <div *ngFor="let flow of person.activities" class="space-y-2">
+                  <div class="text-[11px] font-bold text-slate-600 dark:text-slate-350 uppercase tracking-wide">
+                    Activity: {{ flow.activity }}
+                  </div>
+                  <div class="lg:flex lg:items-start lg:gap-4">
+                    <div class="overflow-x-auto lg:flex-1">
+                      <div class="flex items-start min-w-max pr-2">
+                        <ng-container *ngFor="let step of flow.steps; let i = index">
+                          <div class="relative flex flex-col items-center min-w-[132px]">
+                            <div
+                              class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-[11px] font-black transition-all"
+                              [ngClass]="getNodeClass(step)">
+                              {{ step.templateTaskId }}
+                            </div>
+                            <div class="mt-1 text-[10px] font-bold text-slate-700 dark:text-slate-250 max-w-[120px] truncate text-center" [title]="step.taskTitle">{{ step.taskTitle }}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400" *ngIf="step.startedAt">Inicio: {{ formatMexicoDateTime(step.startedAt) }}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400" *ngIf="step.closedAt">Cierre: {{ formatMexicoDateTime(step.closedAt) }}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400" *ngIf="!step.startedAt && !step.closedAt">{{ step.stateLabel }}</div>
+                            <div class="mt-1 text-[10px] text-slate-600 dark:text-slate-350 max-w-[120px] truncate text-center" [title]="'#' + step.taskId + ': ' + step.taskTitle">
+                              <a class="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" [href]="step.taskWebUrl" target="_blank" rel="noopener noreferrer">#{{ step.taskId }}</a>
+                            </div>
+                            <div *ngIf="step.hasError && step.errorMessage" class="absolute -top-7 px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 text-[10px] font-bold whitespace-nowrap">
+                              ⚠ {{ step.errorMessage }}
+                            </div>
+                          </div>
+                          <div *ngIf="i < flow.steps.length - 1" class="w-14 mt-4 border-t-2" [ngClass]="getConnectorClass(step, flow.steps[i + 1])"></div>
+                        </ng-container>
+                      </div>
+                    </div>
+                    <div *ngIf="flow.errorDescriptions.length > 0" class="mt-3 lg:mt-0 lg:w-[360px] rounded-md border border-rose-200/70 dark:border-rose-800/70 bg-rose-50/60 dark:bg-rose-950/20 p-2.5">
+                      <div class="text-[10px] font-black uppercase tracking-wide text-rose-700 dark:text-rose-300 mb-1.5">Detalle de incumplimientos</div>
+                      <ul class="space-y-1.5">
+                        <li *ngFor="let detail of flow.errorDescriptions" class="text-[11px] text-rose-700 dark:text-rose-250 leading-snug">
+                          {{ detail }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 overflow-hidden">
+      <div class="px-4 py-2.5 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200/70 dark:border-slate-700/70">
+        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">2) Tareas cerradas incorrectamente</h3>
+      </div>
+      <div *ngIf="incorrectClosures.length === 0" class="p-4 text-sm text-slate-500 dark:text-slate-400">
+        Sin cierres incorrectos detectados para el criterio seleccionado.
+      </div>
+      <div *ngIf="incorrectClosures.length > 0" class="overflow-auto">
+        <table class="min-w-[1000px] w-full text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-350">
+            <tr>
+              <th class="px-3 py-2 text-left">Item padre</th>
+              <th class="px-3 py-2 text-left">Tarea</th>
+              <th class="px-3 py-2 text-left">Persona asignada</th>
+              <th class="px-3 py-2 text-left">Completed Work</th>
+              <th class="px-3 py-2 text-left">Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of incorrectClosures" class="border-t border-slate-200/60 dark:border-slate-700/60 hover:bg-white/70 dark:hover:bg-slate-800/40 transition-colors">
+              <td class="px-3 py-2">
+                <a class="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" [href]="row.parentWebUrl" target="_blank" rel="noopener noreferrer">#{{ row.parentId }}</a>
+                <span class="ml-1 text-slate-500 dark:text-slate-400">({{ row.parentType }})</span>
+                <div class="text-slate-650 dark:text-slate-300 max-w-[280px] truncate" [title]="row.parentTitle">{{ row.parentTitle }}</div>
+              </td>
+              <td class="px-3 py-2 text-slate-700 dark:text-slate-250 max-w-[300px] truncate" [title]="row.taskTitle">
+                <a class="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" [href]="row.taskWebUrl" target="_blank" rel="noopener noreferrer">#{{ row.taskId }}</a>
+                <span class="ml-1">{{ row.taskTitle }}</span>
+              </td>
+              <td class="px-3 py-2 text-slate-700 dark:text-slate-250">{{ row.assignee }}</td>
+              <td class="px-3 py-2 font-bold" [ngClass]="row.completedWork > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'">{{ row.completedWork | number:'1.0-2' }}</td>
+              <td class="px-3 py-2 text-slate-700 dark:text-slate-250">
+                <span *ngIf="row.closureCase === 'new-close-with-work'">New → Closed con tiempo en Completed Work.</span>
+                <span *ngIf="row.closureCase === 'new-active-close-without-work'">New → Active → Closed sin tiempo en Completed Work.</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section *ngIf="!hasPatConfigured" class="glass-card">
+    <div class="rounded-lg border border-amber-300 bg-amber-100/70 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 p-3 text-sm">
+      Configura un PAT en la sección de Configuración para cargar datos de Azure DevOps.
+    </div>
+  </section>
+</div>

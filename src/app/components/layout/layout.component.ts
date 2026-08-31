@@ -1,7 +1,7 @@
 ﻿import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud, FileSpreadsheet, BarChart3, FolderOpen, TrendingUp, ChevronDown, ChevronUp } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Settings, FileText, Moon, Sun, ChevronLeft, ChevronRight, ClipboardList, DownloadCloud, FileSpreadsheet, BarChart3, FolderOpen, TrendingUp, ChevronDown, ChevronUp, ListChecks, CalendarCog } from 'lucide-angular';
 import { UpdateService } from '../../services/update.service';
 import { NotificationComponent } from '../notification/notification.component';
 
@@ -20,6 +20,8 @@ export class LayoutComponent {
   readonly ChevronLeft = ChevronLeft;
   readonly ChevronRight = ChevronRight;
   readonly ClipboardList = ClipboardList;
+  readonly ListChecks = ListChecks;
+  readonly CalendarCog = CalendarCog;
   readonly DownloadCloud = DownloadCloud;
   readonly FileSpreadsheet = FileSpreadsheet;
   readonly BarChart3 = BarChart3;
