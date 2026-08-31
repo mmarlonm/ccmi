@@ -783,21 +783,35 @@ REGLAS
   }
 
   private callGemini(key: string, model: string, prompt: string): Observable<string> {
-    const modelName = model || 'gemini-1.5-flash';
+    const cleanModel = (model || 'gemini-1.5-flash').trim();
+    let modelName = cleanModel;
+    if (cleanModel.startsWith('models/')) {
+      modelName = cleanModel.replace('models/', '');
+    }
+
     return this.http.post<any>(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
       contents: [{ parts: [{ text: prompt }] }]
     }).pipe(
       timeout(90000),
-      retry({ count: 1, delay: 2000 }),
+      retry({
+        count: 3,
+        delay: (error, retryCount) => {
+          if (error?.status === 429) {
+            console.warn(`Gemini API 429 Rate Limit (Cuota/Límite excedido). Reintentando en ${retryCount * 2}.5s (Intento ${retryCount}/3)...`);
+            return timer(retryCount * 2500);
+          }
+          return timer(2000);
+        }
+      }),
       map(res => res?.candidates?.[0]?.content?.parts?.[0]?.text || 'Respuesta vacía de Gemini'),
       catchError(err => {
         console.error('Gemini Error/Timeout:', err);
         const isTimeout = err?.name === 'TimeoutError' || err?.message?.includes('timeout');
         const isAuth = err?.status === 400 || err?.status === 401 || err?.status === 403;
         const isQuota = err?.status === 429;
+        if (isQuota) return of('Cuota/Límite de Gemini agotado (Error 429: Too Many Requests). Espera 30 segundos o cambia de modelo/proveedor en Configuración.');
         if (isTimeout) return of('El análisis tardó demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado.');
-        if (isQuota) return of('Cuota de Gemini agotada. Espera un momento e intenta de nuevo.');
-        if (isAuth) return of('API Key de Gemini inválida. Verifica la clave en Configuración.');
+        if (isAuth) return of(`Error en Gemini (${err?.error?.error?.message || 'API Key o Modelo no válido'}). Verifica la clave y modelo en Configuración.`);
         return of(`Error al contactar Gemini (${err?.status ?? 'sin conexión'}). Intenta de nuevo.`);
       })
     );

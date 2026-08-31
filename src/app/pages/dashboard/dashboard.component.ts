@@ -5400,28 +5400,57 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     ];
 
     try {
-      for (const key of sequentialKeys) {
+      for (let i = 0; i < sequentialKeys.length; i++) {
+        const key = sequentialKeys[i];
         this.setMetricAnalyzing(key, true);
-        try {
-          const res = await firstValueFrom(this.aiService.analyzeSingleMetric(key, this.metrics!, cleanHistory, this.metricComments));
-          const isErrorResponse = res && (
-            res.startsWith('Error al') ||
-            res.startsWith('El análisis tardó') ||
-            res.startsWith('Cuota de') ||
-            res.startsWith('API Key de') ||
-            res.startsWith('AI Configuration') ||
-            res.startsWith('Configuración de IA')
-          );
-          if (isErrorResponse) {
-            this.notificationService.error(`Error en métrica "${key}": ${res}`);
-          } else {
-            this.parseSingleAnalysisResponse(key, res);
+        
+        let attempts = 0;
+        const maxAttempts = 3;
+        let res = '';
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            res = await firstValueFrom(this.aiService.analyzeSingleMetric(key, this.metrics!, cleanHistory, this.metricComments));
+            const isQuotaError = res && (res.includes('Error 429') || res.includes('Cuota/Límite') || res.includes('Too Many Requests'));
+            
+            if (isQuotaError && attempts < maxAttempts) {
+              this.notificationService.warning(`Cuota de Gemini ocupada. Pausando 10s para auto-reintentar "${key}" (${attempts}/${maxAttempts})...`);
+              await new Promise(r => setTimeout(r, 10000));
+              continue;
+            }
+            break;
+          } catch (singleErr: any) {
+            if (attempts >= maxAttempts) {
+              console.error(`Error analyzing metric ${key}:`, singleErr);
+              this.notificationService.error(`Error al analizar métrica "${key}"`);
+            } else {
+              await new Promise(r => setTimeout(r, 5000));
+            }
           }
-        } catch (singleErr: any) {
-          console.error(`Error analyzing metric ${key}:`, singleErr);
-          this.notificationService.error(`Error al analizar métrica "${key}"`);
-        } finally {
-          this.setMetricAnalyzing(key, false);
+        }
+
+        const isErrorResponse = res && (
+          res.startsWith('Error al') ||
+          res.startsWith('El análisis tardó') ||
+          res.startsWith('Cuota de') ||
+          res.startsWith('Cuota/Límite de') ||
+          res.startsWith('API Key de') ||
+          res.startsWith('AI Configuration') ||
+          res.startsWith('Configuración de IA')
+        );
+
+        if (isErrorResponse) {
+          this.notificationService.error(`Métrica "${key}": ${res}`);
+        } else {
+          this.parseSingleAnalysisResponse(key, res);
+        }
+
+        this.setMetricAnalyzing(key, false);
+
+        // Pausa de 2.0s entre métricas para cuidar la cuota RPM de Gemini/OpenAI
+        if (i < sequentialKeys.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
