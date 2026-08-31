@@ -72,63 +72,11 @@ export class AIService {
     const config = this.configService.getConfig();
     if (!config || !config.ai.apiKey) return of('AI Configuration missing.');
 
-    // Format user-provided metric comments
-    let commentsSummary = '';
-    const commentKeys = Object.keys(metricComments);
-    if (commentKeys.length > 0) {
-      commentsSummary = '\nCOMENTARIOS Y CONTEXTO DEL AUDITOR/SOCIOS PARA ESTE SPRINT (JUSTIFICACIONES DE NEGOCIO):\n';
-      commentKeys.forEach(k => {
-        if (metricComments[k]) {
-          commentsSummary += `- Métrica o Sección "${k}": "${metricComments[k]}"\n`;
-        }
-      });
-      commentsSummary += '-> REGLA: Incorpora estas notas/comentarios especiales de forma destacada en el análisis de la métrica correspondiente para dar explicación o justificar las desviaciones detectadas ante la dirección.\n\n';
-    }
-
-    // Build per-item summary for the AI
-    const itemSummary = (metrics.developmentRate.items || [])
-      .map(i => {
-        const planned = (i.tasks || []).reduce((s, t) => s + (t.originalEstimate || 0), 0);
-        const actual = i.effort;
-        const variance = planned > 0 ? ((actual - planned) / planned * 100).toFixed(1) : '0';
-        return `  - ${i.type === 'Feature' ? 'FT' : 'US'} #${i.id} | Size: ${i.size} | Est. Original: ${planned.toFixed(1)}h | Real: ${actual.toFixed(1)}h | Var: ${variance}% | ISW: ${i.isw}`;
-      })
-      .join('\n');
-
-    // Build per-ISW summary for the AI
-    const iswGroups: { [key: string]: any } = {};
-    (metrics.developmentRate.items || []).forEach(item => {
-      const isw = item.isw || 'Sin Asignar';
-      if (!iswGroups[isw]) iswGroups[isw] = { name: isw, effort: 0, planned: 0, size: 0 };
-      iswGroups[isw].effort += item.effort;
-      iswGroups[isw].planned += (item.tasks || []).reduce((s: number, t: any) => s + (t.originalEstimate || 0), 0);
-      iswGroups[isw].size += (item.sizeEdited !== undefined ? item.sizeEdited : item.size);
-    });
-    const iswSummary = Object.values(iswGroups).map((g: any) => {
-      const rate = g.size > 0 ? (g.effort / g.size).toFixed(2) : 'N/A';
-      const variance = g.planned > 0 ? ((g.effort - g.planned) / g.planned * 100).toFixed(1) : '0';
-      return `  * ${g.name}: Tasa ${rate} | Desviación ${variance}% | Esfuerzo Real ${g.effort.toFixed(1)}h`;
-    }).join('\n');
-
-    // Build historical summaries for cumulative calculations context
-    let historySummary = 'Sin historial de sprints anteriores disponible.';
-    if (historicalMetrics && historicalMetrics.length > 0) {
-      historySummary = historicalMetrics.map(m => {
-        return `  - ${m.iterationName || 'Sprint previo'}:
-            * Tasa de Desarrollo: ${m.developmentRate.rate.toFixed(2)} (Esfuerzo: ${m.developmentRate.totalEffort.toFixed(1)}h, Size: ${m.developmentRate.totalSize})
-            * Desviación Esfuerzo: ${Math.abs(m.effortVariance.rate * 100).toFixed(1)}% (Planeado: ${m.effortVariance.planned?.toFixed(1)}h, Real: ${m.effortVariance.actual?.toFixed(1)}h)
-            * Tasa de Retrabajo: ${m.rework.rate.toFixed(1)}% (Req: ${m.rework.reqEffort.toFixed(1)}h, Retrabajo: ${m.rework.totalRework.toFixed(1)}h)
-            * Densidad Defectos: ${m.defectDensity.density.toFixed(3)} (Bugs: ${m.defectDensity.bugs}, Size: ${m.defectDensity.size})
-            * EED: ${m.defectRemovalEfficiency.rate.toFixed(2)}% (Bugs: ${m.defectRemovalEfficiency.totalBugs}, Cerrados a Tiempo: ${m.defectRemovalEfficiency.closedOnTime})
-            * Bugs Escapados: ${m.escapedBugs?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.escapedBugs?.totalBugs ?? 0}, Prod: ${m.escapedBugs?.bugsProd ?? 0})
-            * Ejecución Pruebas (Run Rate): ${m.testExecution?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.testExecution?.totalTestPoints ?? 0}, Ej: ${m.testExecution?.executed ?? 0})
-            * Pruebas Satisfactorias (Pass Rate): ${m.satisfactoryTests?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.satisfactoryTests?.total ?? 0}, Pasados: ${m.satisfactoryTests?.passedEnTiempo ?? 0})`;
-      }).join('\n');
-    }
+    const helpers = this.buildPromptContext(metrics, historicalMetrics, metricComments);
 
     const prompt = `
       Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas métricas y devuelve el resultado en ESPAÑOL. 
-      ${commentsSummary}
+      ${helpers.commentsSummary}
       CONTEXTO DEL EQUIPO:
       - Todos los integrantes del equipo de desarrollo son ISW nivel MID (nivel intermedio).
       - No hay ISW SR (Senior) en el equipo. No menciones ISW SR en el análisis.
@@ -136,64 +84,17 @@ export class AIService {
 
       MÉTRICAS DEL SPRINT ACTUAL:
       0. Cumplimiento y Línea de Tiempo del Sprint:
-      ${(() => {
-        const items = metrics.developmentRate?.items || [];
-        const endMs = metrics.endDate ? new Date(metrics.endDate).getTime() : 0;
-        let onTime = 0, late = 0, open = 0, maxDays = 0;
-        const lateItems: string[] = [];
-        const detailedItemsList: string[] = [];
-        items.forEach((item: any) => {
-          const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
-          const closedMs = item.closedDate ? new Date(item.closedDate).getTime() : (item.changedDate ? new Date(item.changedDate).getTime() : 0);
-          let deliveryStatus = 'Abierto';
-          let diffDays = 0;
-          if (isClosed) {
-            if (!closedMs || closedMs <= endMs) {
-              onTime++;
-              deliveryStatus = 'A tiempo';
-            } else {
-              late++;
-              diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
-              if (diffDays > maxDays) maxDays = diffDays;
-              deliveryStatus = 'Fase Extendida (' + diffDays + 'd retraso)';
-              lateItems.push('  - ' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + ' | ISW: ' + item.isw + ' | Cerrado: ' + (item.closedDate ? item.closedDate.substring(0, 10) : '?') + ' | ~' + diffDays + 'd tarde');
-            }
-          } else {
-            open++;
-          }
-          
-          const tasksInfo = (item.tasks || []).map((t: any) => {
-            const devia = (t.completedWork || 0) - (t.originalEstimate || 0);
-            const deviaStr = devia > 0 ? ' (Desviación: +' + devia.toFixed(1) + 'h)' : devia < 0 ? ' (Sub-ejecutada: ' + devia.toFixed(1) + 'h)' : ' (A tiempo)';
-            return 'Tarea #' + t.id + ': "' + t.title + '" (Responsable: ' + (t.assignedTo || 'Sin asignar') + ', Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + deviaStr + ')';
-          }).join('; ');
-          detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
-        });
-
-        const eedBugs = metrics.defectRemovalEfficiency?.bugsList || [];
-        const escapedBugs = metrics.escapedBugs?.bugsList || [];
-        const uniqueBugsMap = new Map<number, any>();
-        [...eedBugs, ...escapedBugs].forEach((b: any) => {
-          uniqueBugsMap.set(b.bugId || b.id, b);
-        });
-        const bugsDetail = Array.from(uniqueBugsMap.values()).map((b: any) => {
-          return '  * [Bug #' + (b.bugId || b.id) + '] "' + b.title + '" - ISW: ' + (b.isw || 'Sin asignar') + ' | Estado: ' + b.status + ' | Clasificación: ' + (b.classification || 'N/A') + '';
-        }).join('\n');
-
-        const total = onTime + late;
-        const pct = total > 0 ? ((onTime / total) * 100).toFixed(0) : '—';
-        return '         Total entregables: ' + items.length + ' | A tiempo: ' + onTime + ' | En Fase Extendida: ' + late + ' | Abiertos: ' + open + '\n         % Cumplimiento: ' + pct + '% | Máx. días de retraso: ' + maxDays + 'd\n         Detalle de Deliverables (Historias de Usuario / Features) y sus Tareas:\n' + detailedItemsList.join('\n') + '\n         Detalle de Todos los Bugs de la Iteración:\n' + (bugsDetail || 'Sin bugs detectados en este periodo.');
-      })()}
+      ${helpers.complianceSummary}
 
       1. Tasa de Desarrollo: ${metrics.developmentRate.rate.toFixed(2)} 
          (Semáforo: Verde ≤ 1.70 | Amarillo 1.71–2.00 | Rojo > 2.00)
          Esfuerzo total: ${metrics.developmentRate.totalEffort?.toFixed(1) ?? '—'} h | Size total: ${metrics.developmentRate.totalSize ?? '—'}
          
          Items del sprint:
-${itemSummary}
+${helpers.itemSummary}
 
          Resumen por ISW:
-${iswSummary}
+${helpers.iswSummary}
 
       2. Tasa de Desviación de Esfuerzo: ${Math.abs(metrics.effortVariance.rate * 100).toFixed(1)}%
          (Semáforo: Verde ≤ 15% | Amarillo 15–30% | Rojo > 30%)
@@ -222,7 +123,7 @@ ${iswSummary}
          Total Test Points: ${metrics.satisfactoryTests?.total ?? 0} | Pasados a Tiempo (Satisfactorios): ${metrics.satisfactoryTests?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.satisfactoryTests?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.satisfactoryTests?.failed ?? 0} | Bloqueados: ${metrics.satisfactoryTests?.blocked ?? 0} | N/A: ${metrics.satisfactoryTests?.notApplicable ?? 0}
 
       HISTORIAL DE SPRINTS ANTERIORES PARA CÁLCULO ACUMULADO REAL:
-${historySummary}
+${helpers.historySummary}
 
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
@@ -259,6 +160,294 @@ ${historySummary}
     } else {
       return this.callGemini(config.ai.apiKey, config.ai.model, prompt);
     }
+  }
+
+  analyzeSingleMetric(metricKey: string, metrics: CMMIMetrics, historicalMetrics: CMMIMetrics[] = [], metricComments: { [key: string]: string } = {}): Observable<string> {
+    const config = this.configService.getConfig();
+    if (!config || !config.ai.apiKey) return of('AI Configuration missing.');
+
+    const helpers = this.buildPromptContext(metrics, historicalMetrics, metricComments);
+
+    let specificMetricSection = '';
+    let metricTitle = '';
+    let metricInstruction = '';
+
+    switch (metricKey) {
+      case 'cumplimiento':
+        metricTitle = 'Cumplimiento y Línea de Tiempo del Sprint';
+        specificMetricSection = `0. Cumplimiento y Línea de Tiempo del Sprint:\n${helpers.complianceSummary}`;
+        metricInstruction = `
+      ESTRUCTURA REQUERIDA PARA ESTA MÉTRICA ("Cumplimiento y Línea de Tiempo del Sprint" o "Cumplimiento"):
+      [METRICA_INICIO: Cumplimiento y Línea de Tiempo del Sprint]
+      (NO generes viñetas de metas, resultados, acciones correctivas ni análisis acumulado. En su lugar, genera únicamente un análisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Analiza OBLIGATORIAMENTE a nivel de tareas secundarias para ver por qué se desviaron las User Stories (US) o Features (FT), identificando qué tareas específicas del sprint sufrieron la mayor desviación de esfuerzo en horas (Trabajo Real vs Estimación original) y explica la causa raíz técnica/operativa basándote en la información provista.)
+      [METRICA_FIN]
+        `;
+        break;
+
+      case 'tasa de desarrollo':
+      case 'tasaDev':
+        metricTitle = '1. Tasa de Desarrollo';
+        specificMetricSection = `
+      1. Tasa de Desarrollo: ${metrics.developmentRate.rate.toFixed(2)} 
+         (Semáforo: Verde ≤ 1.70 | Amarillo 1.71–2.00 | Rojo > 2.00)
+         Esfuerzo total: ${metrics.developmentRate.totalEffort?.toFixed(1) ?? '—'} h | Size total: ${metrics.developmentRate.totalSize ?? '—'}
+         
+         Items del sprint:
+${helpers.itemSummary}
+
+         Resumen por ISW:
+${helpers.iswSummary}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('1. Tasa de Desarrollo');
+        break;
+
+      case 'tasa de desviación':
+      case 'desviacion':
+        metricTitle = '2. Tasa de Desviación de Esfuerzo';
+        specificMetricSection = `
+      2. Tasa de Desviación de Esfuerzo: ${Math.abs(metrics.effortVariance.rate * 100).toFixed(1)}%
+         (Semáforo: Verde ≤ 15% | Amarillo 15–30% | Rojo > 30%)
+         Esfuerzo Planeado: ${metrics.effortVariance.planned?.toFixed(1) ?? '—'} h | Esfuerzo Real: ${metrics.effortVariance.actual?.toFixed(1) ?? '—'} h
+
+         Items y Tareas del Sprint:
+${helpers.itemSummary}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('2. Tasa de Desviación de Esfuerzo');
+        break;
+
+      case 'retrabajo':
+      case 'tasa de retrabajo':
+        metricTitle = '3. Tasa de Retrabajo';
+        specificMetricSection = `
+      3. Tasa de Retrabajo: ${metrics.rework.rate.toFixed(1)}%
+         (Semáforo: Verde ≤ 22% | Amarillo 22–30% | Rojo > 30%)
+         Esfuerzo Requerimiento: ${metrics.rework.reqEffort.toFixed(1)}h | Retrabajo Total: ${metrics.rework.totalRework.toFixed(1)}h
+        `;
+        metricInstruction = this.getStandardMetricInstruction('3. Tasa de Retrabajo');
+        break;
+
+      case 'densidad de defectos':
+      case 'densidad':
+        metricTitle = '4. Densidad de Defectos';
+        specificMetricSection = `
+      4. Densidad de Defectos: ${metrics.defectDensity.density.toFixed(3)}
+         (Semáforo: Verde ≤ 0.18 | Amarillo 0.18–0.23 | Rojo > 0.23)
+         Bugs Totales: ${metrics.defectDensity.bugs} | Size Total: ${metrics.defectDensity.size}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('4. Densidad de Defectos');
+        break;
+
+      case 'eed':
+      case 'eficiencia de eliminación de defectos':
+        metricTitle = '5. Eficiencia en la Eliminación de Defectos (EED)';
+        specificMetricSection = `
+      5. Eficiencia en la Eliminación de Defectos (EED): ${metrics.defectRemovalEfficiency.rate.toFixed(2)}%
+         (Semáforo: Verde ≥ 81% | Amarillo 71%–80% | Rojo < 71%)
+         Total Bugs: ${metrics.defectRemovalEfficiency.totalBugs} | Closed en Tiempo: ${metrics.defectRemovalEfficiency.closedOnTime} | Closed fuera de Tiempo: ${metrics.defectRemovalEfficiency.closedLate}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('5. Eficiencia en la Eliminación de Defectos (EED)');
+        break;
+
+      case 'escaped':
+      case 'bugs escapados':
+        metricTitle = '6. Porcentaje de Bugs Escapados';
+        specificMetricSection = `
+      6. Porcentaje de Bugs Escapados: ${metrics.escapedBugs?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≤ 33% | Amarillo 33%–40% | Rojo > 40%)
+         Bugs Testing: ${metrics.escapedBugs?.bugsTesting ?? 0} | Bugs UAT: ${metrics.escapedBugs?.bugsUat ?? 0} | Bugs Producción: ${metrics.escapedBugs?.bugsProd ?? 0} | Total Bugs: ${metrics.escapedBugs?.totalBugs ?? 0}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('6. Porcentaje de Bugs Escapados');
+        break;
+
+      case 'testExecution':
+      case 'ejecución de pruebas':
+      case 'runRate':
+        metricTitle = '7. Porcentaje de Ejecución de Pruebas (Run Rate)';
+        specificMetricSection = `
+      7. Porcentaje de Ejecución de Pruebas (Run Rate): ${metrics.testExecution?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≥ 90% | Amarillo 80%–89% | Rojo < 80%)
+         Total Test Points: ${metrics.testExecution?.totalTestPoints ?? 0} | Ejecutados: ${metrics.testExecution?.executed ?? 0} | Pasados a Tiempo: ${metrics.testExecution?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.testExecution?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.testExecution?.failed ?? 0} | Bloqueados: ${metrics.testExecution?.blocked ?? 0} | N/A: ${metrics.testExecution?.notApplicable ?? 0}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('7. Porcentaje de Ejecución de Pruebas (Run Rate)');
+        break;
+
+      case 'satisfactoryTests':
+      case 'pruebas satisfactorias':
+      case 'passRate':
+        metricTitle = '8. Porcentaje de Pruebas Satisfactorias (Pass Rate)';
+        specificMetricSection = `
+      8. Porcentaje de Pruebas Satisfactorias (Pass Rate): ${metrics.satisfactoryTests?.rate.toFixed(2) ?? '0.00'}%
+         (Semáforo: Verde ≥ 90% | Amarillo 80%–89% | Rojo < 80%)
+         Total Test Points: ${metrics.satisfactoryTests?.total ?? 0} | Pasados a Tiempo (Satisfactorios): ${metrics.satisfactoryTests?.passedEnTiempo ?? 0} | Pasados Fuera de Tiempo: ${metrics.satisfactoryTests?.passedFueraDeTiempo ?? 0} | Fallidos: ${metrics.satisfactoryTests?.failed ?? 0} | Bloqueados: ${metrics.satisfactoryTests?.blocked ?? 0} | N/A: ${metrics.satisfactoryTests?.notApplicable ?? 0}
+        `;
+        metricInstruction = this.getStandardMetricInstruction('8. Porcentaje de Pruebas Satisfactorias (Pass Rate)');
+        break;
+
+      default:
+        return this.analyzeMetrics(metrics, historicalMetrics, metricComments);
+    }
+
+    const prompt = `
+      Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza ÚNICAMENTE la métrica "${metricTitle}" y devuelve el resultado en ESPAÑOL. 
+      ${helpers.commentsSummary}
+      CONTEXTO DEL EQUIPO:
+      - Todos los integrantes del equipo de desarrollo son ISW nivel MID (nivel intermedio).
+      - No hay ISW SR (Senior) en el equipo. No menciones ISW SR en el análisis.
+      - El equipo trabaja bajo metodología SCRUM con sprints.
+
+      DATOS DE LA MÉTRICA:
+      ${specificMetricSection}
+
+      HISTORIAL DE SPRINTS ANTERIORES PARA CÁLCULO ACUMULADO REAL:
+      ${helpers.historySummary}
+
+      ${metricInstruction}
+
+      REGLAS IMPORTANTES:
+      - SÉ EXIGENTE: Como auditor CMMI5, tu objetivo es la perfección estadística.
+      - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
+      - NO UTILICES NINGUNA UNIDAD COMO "/PT" O "/SP": Para la métrica "4. Densidad de Defectos", no utilices jamás ninguna unidad ni sufijo como "/PT", "/pt", "/SP" o "/sp" en los resultados o análisis. Muestra siempre los valores de las metas y resultados únicamente como números decimales directos (ej: ≤ 0.18, 0.026), omitiendo cualquier mención a PT o SP.
+      - ANALIZA RESPONSABILIDADES DE TAREAS: Ten en cuenta que existe un responsable principal de la historia (ISW), pero debes identificar a las personas involucradas en las tareas secundarias (Responsable de la tarea).
+      - Para la métrica "2. Tasa de Desviación de Esfuerzo", el "Resultado del periodo" debe presentarse en valor absoluto (sin signo negativo, p. ej., 11.23% en lugar de -11.23%).
+      - Usa nombres reales de los ISW del equipo cuando estén disponibles en la lista de items.
+      - Tono profesional, analítico y enfocado en identificar brechas de proceso.
+      - Devuelve SOLO el bloque de la métrica formateado con [METRICA_INICIO: ...] y [METRICA_FIN], sin introducciones ni conclusiones generales.
+    `;
+
+    if (config.ai.provider === 'openai') {
+      return this.callOpenAI(config.ai.apiKey, config.ai.model, prompt);
+    } else {
+      return this.callGemini(config.ai.apiKey, config.ai.model, prompt);
+    }
+  }
+
+  private getStandardMetricInstruction(title: string): string {
+    return `
+      ESTRUCTURA REQUERIDA — genera EXACTAMENTE estas secciones delimitadas:
+      [METRICA_INICIO: ${title}]
+      - Meta establecida para el periodo: (valor)
+      - Resultado del periodo: (valor real con semáforo: Verde/Amarillo/Rojo)
+      - Análisis de resultados: (Explica el resultado con un tono CRÍTICO y CONSTRUCTIVO. 
+        Identifica áreas de mejora específicas basándote en los datos de los ítems. 
+        Considera: ¿Hubo subestimación en tareas específicas? ¿La granularidad de las tareas fue suficiente? 
+        ¿El esfuerzo se concentró en un solo ISW MID? 
+        Incluso en resultados VERDE, busca micro-desviaciones o patrones de riesgo que podrían optimizarse.)
+      - Acciones correctivas: (Define acciones concretas de mejora. 
+        No te limites a "mantener", sugiere ajustes en la planeación, mentoría entre pares ISW MID, 
+        o refinamiento de criterios de aceptación para reducir la incertidumbre técnica.)
+      - Análisis acumulado del periodo:
+        o Meta acumulada: (valor meta acumulada de la fase actual)
+        o Resultado acumulado: (Calcula el valor real acumulado de toda la FASE, sumando o promediando matemáticamente los valores del SPRINT ACTUAL con los de todos los SPRINTS ANTERIORES listados en el HISTORIAL. Muestra el resultado acumulado real obtenido hasta ahora en la Fase 1.)
+        (párrafo breve sobre cómo estas acciones impulsan la madurez CMMI Nivel 5 del equipo.)
+      [METRICA_FIN]
+    `;
+  }
+
+  private buildPromptContext(metrics: CMMIMetrics, historicalMetrics: CMMIMetrics[] = [], metricComments: { [key: string]: string } = {}) {
+    let commentsSummary = '';
+    const commentKeys = Object.keys(metricComments);
+    if (commentKeys.length > 0) {
+      commentsSummary = '\nCOMENTARIOS Y CONTEXTO DEL AUDITOR/SOCIOS PARA ESTE SPRINT (JUSTIFICACIONES DE NEGOCIO):\n';
+      commentKeys.forEach(k => {
+        if (metricComments[k]) {
+          commentsSummary += `- Métrica o Sección "${k}": "${metricComments[k]}"\n`;
+        }
+      });
+      commentsSummary += '-> REGLA: Incorpora estas notas/comentarios especiales de forma destacada en el análisis de la métrica correspondiente para dar explicación o justificar las desviaciones detectadas ante la dirección.\n\n';
+    }
+
+    const itemSummary = (metrics.developmentRate?.items || [])
+      .map(i => {
+        const planned = (i.tasks || []).reduce((s, t) => s + (t.originalEstimate || 0), 0);
+        const actual = i.effort;
+        const variance = planned > 0 ? ((actual - planned) / planned * 100).toFixed(1) : '0';
+        return `  - ${i.type === 'Feature' ? 'FT' : 'US'} #${i.id} | Size: ${i.size} | Est. Original: ${planned.toFixed(1)}h | Real: ${actual.toFixed(1)}h | Var: ${variance}% | ISW: ${i.isw}`;
+      })
+      .join('\n');
+
+    const iswGroups: { [key: string]: any } = {};
+    (metrics.developmentRate?.items || []).forEach(item => {
+      const isw = item.isw || 'Sin Asignar';
+      if (!iswGroups[isw]) iswGroups[isw] = { name: isw, effort: 0, planned: 0, size: 0 };
+      iswGroups[isw].effort += item.effort;
+      iswGroups[isw].planned += (item.tasks || []).reduce((s: number, t: any) => s + (t.originalEstimate || 0), 0);
+      iswGroups[isw].size += (item.sizeEdited !== undefined ? item.sizeEdited : item.size);
+    });
+    const iswSummary = Object.values(iswGroups).map((g: any) => {
+      const rate = g.size > 0 ? (g.effort / g.size).toFixed(2) : 'N/A';
+      const variance = g.planned > 0 ? ((g.effort - g.planned) / g.planned * 100).toFixed(1) : '0';
+      return `  * ${g.name}: Tasa ${rate} | Desviación ${variance}% | Esfuerzo Real ${g.effort.toFixed(1)}h`;
+    }).join('\n');
+
+    let historySummary = 'Sin historial de sprints anteriores disponible.';
+    if (historicalMetrics && historicalMetrics.length > 0) {
+      historySummary = historicalMetrics.map(m => {
+        return `  - ${m.iterationName || 'Sprint previo'}:
+            * Tasa de Desarrollo: ${m.developmentRate.rate.toFixed(2)} (Esfuerzo: ${m.developmentRate.totalEffort.toFixed(1)}h, Size: ${m.developmentRate.totalSize})
+            * Desviación Esfuerzo: ${Math.abs(m.effortVariance.rate * 100).toFixed(1)}% (Planeado: ${m.effortVariance.planned?.toFixed(1)}h, Real: ${m.effortVariance.actual?.toFixed(1)}h)
+            * Tasa de Retrabajo: ${m.rework.rate.toFixed(1)}% (Req: ${m.rework.reqEffort.toFixed(1)}h, Retrabajo: ${m.rework.totalRework.toFixed(1)}h)
+            * Densidad Defectos: ${m.defectDensity.density.toFixed(3)} (Bugs: ${m.defectDensity.bugs}, Size: ${m.defectDensity.size})
+            * EED: ${m.defectRemovalEfficiency.rate.toFixed(2)}% (Bugs: ${m.defectRemovalEfficiency.totalBugs}, Cerrados a Tiempo: ${m.defectRemovalEfficiency.closedOnTime})
+            * Bugs Escapados: ${m.escapedBugs?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.escapedBugs?.totalBugs ?? 0}, Prod: ${m.escapedBugs?.bugsProd ?? 0})
+            * Ejecución Pruebas (Run Rate): ${m.testExecution?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.testExecution?.totalTestPoints ?? 0}, Ej: ${m.testExecution?.executed ?? 0})
+            * Pruebas Satisfactorias (Pass Rate): ${m.satisfactoryTests?.rate.toFixed(2) ?? '0.00'}% (Total: ${m.satisfactoryTests?.total ?? 0}, Pasados: ${m.satisfactoryTests?.passedEnTiempo ?? 0})`;
+      }).join('\n');
+    }
+
+    const items = metrics.developmentRate?.items || [];
+    const endMs = metrics.endDate ? new Date(metrics.endDate).getTime() : 0;
+    let onTime = 0, late = 0, open = 0, maxDays = 0;
+    const lateItems: string[] = [];
+    const detailedItemsList: string[] = [];
+    items.forEach((item: any) => {
+      const isClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(item.status);
+      const closedMs = item.closedDate ? new Date(item.closedDate).getTime() : (item.changedDate ? new Date(item.changedDate).getTime() : 0);
+      let deliveryStatus = 'Abierto';
+      let diffDays = 0;
+      if (isClosed) {
+        if (!closedMs || closedMs <= endMs) {
+          onTime++;
+          deliveryStatus = 'A tiempo';
+        } else {
+          late++;
+          diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
+          if (diffDays > maxDays) maxDays = diffDays;
+          deliveryStatus = 'Fase Extendida (' + diffDays + 'd retraso)';
+          lateItems.push('  - ' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + ' | ISW: ' + item.isw + ' | Cerrado: ' + (item.closedDate ? item.closedDate.substring(0, 10) : '?') + ' | ~' + diffDays + 'd tarde');
+        }
+      } else {
+        open++;
+      }
+      
+      const tasksInfo = (item.tasks || []).map((t: any) => {
+        const devia = (t.completedWork || 0) - (t.originalEstimate || 0);
+        const deviaStr = devia > 0 ? ' (Desviación: +' + devia.toFixed(1) + 'h)' : devia < 0 ? ' (Sub-ejecutada: ' + devia.toFixed(1) + 'h)' : ' (A tiempo)';
+        return 'Tarea #' + t.id + ': "' + t.title + '" (Responsable: ' + (t.assignedTo || 'Sin asignar') + ', Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + deviaStr + ')';
+      }).join('; ');
+      detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
+    });
+
+    const eedBugs = metrics.defectRemovalEfficiency?.bugsList || [];
+    const escapedBugs = metrics.escapedBugs?.bugsList || [];
+    const uniqueBugsMap = new Map<number, any>();
+    [...eedBugs, ...escapedBugs].forEach((b: any) => {
+      uniqueBugsMap.set(b.bugId || b.id, b);
+    });
+    const bugsDetail = Array.from(uniqueBugsMap.values()).map((b: any) => {
+      return '  * [Bug #' + (b.bugId || b.id) + '] "' + b.title + '" - ISW: ' + (b.isw || 'Sin asignar') + ' | Estado: ' + b.status + ' | Clasificación: ' + (b.classification || 'N/A') + '';
+    }).join('\n');
+
+    const total = onTime + late;
+    const pct = total > 0 ? ((onTime / total) * 100).toFixed(0) : '—';
+    const complianceSummary = '         Total entregables: ' + items.length + ' | A tiempo: ' + onTime + ' | En Fase Extendida: ' + late + ' | Abiertos: ' + open + '\n         % Cumplimiento: ' + pct + '% | Máx. días de retraso: ' + maxDays + 'd\n         Detalle de Deliverables (Historias de Usuario / Features) y sus Tareas:\n' + detailedItemsList.join('\n') + '\n         Detalle de Todos los Bugs de la Iteración:\n' + (bugsDetail || 'Sin bugs detectados en este periodo.');
+
+    return {
+      commentsSummary,
+      itemSummary,
+      iswSummary,
+      historySummary,
+      complianceSummary
+    };
   }
 
   generateCompletionReport(metrics: CMMIMetrics): Observable<string> {
