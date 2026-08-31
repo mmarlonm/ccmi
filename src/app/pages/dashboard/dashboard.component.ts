@@ -394,34 +394,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('tasaDev')"
+                (click)="openCommentModal('tasaDev', '3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['tasaDev'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['tasaDev']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['tasaDev'] && metricComments['tasaDev'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['tasaDev'] || !metricComments['tasaDev'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['tasaDev']"></lucide-icon>
-                <span>{{ metricComments['tasaDev'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['tasaDev'] && metricComments['tasaDev'].trim()"></lucide-icon>
+                <span>{{ metricComments['tasaDev'] && metricComments['tasaDev'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['tasaDev'] && metricComments['tasaDev'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('tasaDev')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['tasaDev']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -739,34 +721,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('desviacion')"
+                (click)="openCommentModal('desviacion', '3.2 Métrica: Desviación de estimación de desarrollo')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['desviacion'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['desviacion']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['desviacion'] && metricComments['desviacion'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['desviacion'] || !metricComments['desviacion'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['desviacion']"></lucide-icon>
-                <span>{{ metricComments['desviacion'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['desviacion'] && metricComments['desviacion'].trim()"></lucide-icon>
+                <span>{{ metricComments['desviacion'] && metricComments['desviacion'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['desviacion'] && metricComments['desviacion'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('desviacion')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['desviacion']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
             <!-- Validation Warning -->
@@ -1000,34 +964,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('retrabajo')"
+                (click)="openCommentModal('retrabajo', '3.3 Métrica: Tasa de Retrabajo en Procesos de Software')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['retrabajo'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['retrabajo']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['retrabajo'] && metricComments['retrabajo'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['retrabajo'] || !metricComments['retrabajo'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['retrabajo']"></lucide-icon>
-                <span>{{ metricComments['retrabajo'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['retrabajo'] && metricComments['retrabajo'].trim()"></lucide-icon>
+                <span>{{ metricComments['retrabajo'] && metricComments['retrabajo'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['retrabajo'] && metricComments['retrabajo'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('retrabajo')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['retrabajo']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -1231,34 +1177,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('densidad')"
+                (click)="openCommentModal('densidad', '3.4 Métrica: Densidad de Defectos')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['densidad'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['densidad']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['densidad'] && metricComments['densidad'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['densidad'] || !metricComments['densidad'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['densidad']"></lucide-icon>
-                <span>{{ metricComments['densidad'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['densidad'] && metricComments['densidad'].trim()"></lucide-icon>
+                <span>{{ metricComments['densidad'] && metricComments['densidad'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['densidad'] && metricComments['densidad'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('densidad')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['densidad']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -1383,34 +1311,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('eed')"
+                (click)="openCommentModal('eed', '3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['eed'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['eed']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['eed'] && metricComments['eed'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['eed'] || !metricComments['eed'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['eed']"></lucide-icon>
-                <span>{{ metricComments['eed'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['eed'] && metricComments['eed'].trim()"></lucide-icon>
+                <span>{{ metricComments['eed'] && metricComments['eed'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['eed'] && metricComments['eed'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('eed')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['eed']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -1887,34 +1797,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('escaped')"
+                (click)="openCommentModal('escaped', '3.6 Métrica: Porcentaje de Bugs Escapados')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['escaped'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['escaped']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['escaped'] && metricComments['escaped'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['escaped'] || !metricComments['escaped'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['escaped']"></lucide-icon>
-                <span>{{ metricComments['escaped'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['escaped'] && metricComments['escaped'].trim()"></lucide-icon>
+                <span>{{ metricComments['escaped'] && metricComments['escaped'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['escaped'] && metricComments['escaped'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('escaped')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['escaped']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -2145,34 +2037,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('runRate')"
+                (click)="openCommentModal('runRate', '3.7 Métrica: % Ejecución de Pruebas')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['runRate'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['runRate']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['runRate'] && metricComments['runRate'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['runRate'] || !metricComments['runRate'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['runRate']"></lucide-icon>
-                <span>{{ metricComments['runRate'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['runRate'] && metricComments['runRate'].trim()"></lucide-icon>
+                <span>{{ metricComments['runRate'] && metricComments['runRate'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['runRate'] && metricComments['runRate'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('runRate')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['runRate']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
 
@@ -2351,34 +2225,16 @@ import { forkJoin, of } from 'rxjs';
             <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
               <button 
-                (click)="toggleComment('passRate')"
+                (click)="openCommentModal('passRate', '3.8 Métrica: % Pruebas Satisfactorias')"
                 [ngClass]="{
-                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['passRate'],
-                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['passRate']
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['passRate'] && metricComments['passRate'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['passRate'] || !metricComments['passRate'].trim()
                 }"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
-                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['passRate']"></lucide-icon>
-                <span>{{ metricComments['passRate'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['passRate'] && metricComments['passRate'].trim()"></lucide-icon>
+                <span>{{ metricComments['passRate'] && metricComments['passRate'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['passRate'] && metricComments['passRate'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               </button>
-            </div>
-            
-            <!-- Context Comment Textarea -->
-            <div *ngIf="expandedComments.has('passRate')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
-                  Notas Especiales y Contexto de Negocio
-                </span>
-                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
-                  Guardar Nota
-                </button>
-              </div>
-              <textarea 
-                [(ngModel)]="metricComments['passRate']" 
-                rows="3" 
-                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
-                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
-              </textarea>
             </div>
     
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
@@ -2836,7 +2692,60 @@ import { forkJoin, of } from 'rxjs';
     </form>
   </div>
 </div>
-  `
+  
+    <!-- Dialog / Modal de Comentarios -->
+    <div *ngIf="activeCommentMetricKey" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" (click)="closeCommentModal()"></div>
+      
+      <!-- Modal Content Card -->
+      <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl">
+              <lucide-icon [name]="MessageSquare" size="20"></lucide-icon>
+            </div>
+            <div>
+              <h4 class="text-xs font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Notas de Auditoría</h4>
+              <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight mt-0.5">{{ activeCommentTitle }}</h3>
+            </div>
+          </div>
+          <button (click)="closeCommentModal()" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <lucide-icon [name]="X" size="18"></lucide-icon>
+          </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+          <p class="text-xs text-slate-550 dark:text-slate-400 leading-normal">
+            Ingresa comentarios, justificaciones técnicas o contexto especial de este sprint para la métrica. 
+            La Inteligencia Artificial integrará este contexto directamente como justificación en el análisis oficial.
+          </p>
+          <textarea 
+            [(ngModel)]="activeCommentText" 
+            rows="5" 
+            placeholder="Escribe aquí las observaciones del sprint (ej. 'Se detectó una desviación del 12% debido a la incapacidad médica de Yair durante 3 días...')."
+            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-200 placeholder-slate-400">
+          </textarea>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-150 dark:border-slate-850 flex items-center justify-end gap-3 text-xs font-bold">
+          <button 
+            (click)="closeCommentModal()" 
+            class="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+            Cancelar
+          </button>
+          <button 
+            (click)="saveCommentFromModal()" 
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+            Guardar Nota y Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+    `
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
   readonly TrendingUp = TrendingUp;
@@ -2929,7 +2838,36 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
-  saveCommentsOnly() {
+  // --- Dialog Modal de Comentarios ---
+  activeCommentMetricKey: string | null = null;
+  activeCommentText = '';
+  activeCommentTitle = '';
+
+  openCommentModal(metricKey: string, metricTitle: string) {
+    this.activeCommentMetricKey = metricKey;
+    this.activeCommentTitle = metricTitle;
+    this.activeCommentText = this.metricComments[metricKey] || '';
+  }
+
+  closeCommentModal() {
+    this.activeCommentMetricKey = null;
+    this.activeCommentText = '';
+    this.activeCommentTitle = '';
+  }
+
+  saveCommentFromModal() {
+    if (!this.activeCommentMetricKey) return;
+    
+    // Save to local object and force Angular reactivity by cloning reference
+    this.metricComments[this.activeCommentMetricKey] = this.activeCommentText;
+    this.metricComments = { ...this.metricComments };
+    
+    // Persist to DB
+    this.saveCommentsOnly(this.activeCommentMetricKey);
+    this.closeCommentModal();
+  }
+
+  saveCommentsOnly(metricKey?: string) {
     if (!this.selectedIteration || !this.metrics) return;
     this.metricsApiService.saveAnalysis(
       this.selectedIteration,
@@ -2941,6 +2879,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     ).subscribe(dbRes => {
       if (dbRes) {
         this.notificationService.success('Comentarios guardados exitosamente.');
+        if (metricKey) {
+          this.expandedComments.delete(metricKey); // Cerrar el cuadro de nota automáticamente al guardar
+        }
       }
     });
   }
