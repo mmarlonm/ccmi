@@ -98,6 +98,10 @@ import { forkJoin, of } from 'rxjs';
         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
           Vigencia del Sprint: <strong class="text-indigo-600 dark:text-indigo-400">{{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}</strong>
         </span>
+        <span *ngIf="accumulatedSprintRange" class="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-50/80 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-150 dark:border-indigo-900/50 flex items-center gap-1 shadow-sm">
+          <lucide-icon [name]="Layers" size="10" class="text-indigo-500"></lucide-icon>
+          Sprints del Año {{ currentYear }}: <strong class="font-black text-indigo-800 dark:text-indigo-200">{{ accumulatedSprintRange }}</strong>
+        </span>
         <span *ngIf="selectedVersionNumber" class="text-[9px] font-black px-2 py-0.5 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase shadow-sm border border-purple-100 dark:border-purple-900/50 flex items-center gap-0.5">
           <lucide-icon [name]="Check" size="10" class="text-purple-600 dark:text-purple-400"></lucide-icon>
           Guardado BD (v{{ selectedVersionNumber }})
@@ -2748,6 +2752,35 @@ import { forkJoin, of } from 'rxjs';
     `
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
+  currentYear = new Date().getFullYear();
+
+  get accumulatedSprintRange(): string {
+    if (!this.iterations || this.iterations.length === 0) return '';
+    
+    const getCleanName = (iter: any) => {
+      if (!iter) return '';
+      let name = iter.name || '';
+      const parts = (iter.path || '').split(/[\\/]/);
+      const lastName = parts[parts.length - 1] || '';
+      return (name && name.toLowerCase() !== 'mayansoft') ? name : lastName;
+    };
+
+    // Filter out root project nodes (like 'Mayansoft') to only consider actual sprint nodes
+    const validSprints = this.iterations.filter(i => {
+      const name = getCleanName(i).toLowerCase();
+      return name !== 'mayansoft' && (name.includes('sprint') || (i.startDate && i.endDate));
+    });
+
+    if (validSprints.length === 0) return '';
+
+    const firstSprintName = getCleanName(validSprints[0]);
+    const lastSprintName = getCleanName(validSprints[validSprints.length - 1]);
+
+    if (firstSprintName === lastSprintName) {
+      return firstSprintName;
+    }
+    return `${firstSprintName} ➔ ${lastSprintName}`;
+  }
   readonly TrendingUp = TrendingUp;
   readonly Copy = Copy;
   readonly Check = Check;
