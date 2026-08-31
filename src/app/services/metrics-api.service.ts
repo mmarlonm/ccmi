@@ -21,6 +21,7 @@ export interface MetricAnalysisSaveResponse {
   metrics: CMMIMetrics;
   aiAnalysis: string;
   metricAnalyses: { [key: string]: string };
+  metricComments?: { [key: string]: string };
   createdAt: string;
 }
 
@@ -32,8 +33,15 @@ export class MetricsApiService {
   private apiUrl = environment.apiUrl;
 
   /** Save new metrics analysis, automatically increments versions in DB */
-  saveAnalysis(sprintId: string, sprintName: string, metrics: CMMIMetrics, aiAnalysis: string, metricAnalyses: { [key: string]: string } = {}): Observable<MetricAnalysisSaveResponse | null> {
-    const payload = { sprintId, sprintName, metrics, aiAnalysis, metricAnalyses };
+  saveAnalysis(
+    sprintId: string,
+    sprintName: string,
+    metrics: CMMIMetrics,
+    aiAnalysis: string,
+    metricAnalyses: { [key: string]: string } = {},
+    metricComments: { [key: string]: string } = {}
+  ): Observable<MetricAnalysisSaveResponse | null> {
+    const payload = { sprintId, sprintName, metrics, aiAnalysis, metricAnalyses, metricComments };
     return this.http.post<MetricAnalysisSaveResponse>(this.apiUrl, payload).pipe(
       catchError(err => {
         console.error('API Service: failed to save analysis', err);

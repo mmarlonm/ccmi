@@ -68,9 +68,22 @@ export class AIService {
   private http = inject(HttpClient);
   private configService = inject(ConfigService);
 
-  analyzeMetrics(metrics: CMMIMetrics, historicalMetrics: CMMIMetrics[] = []): Observable<string> {
+  analyzeMetrics(metrics: CMMIMetrics, historicalMetrics: CMMIMetrics[] = [], metricComments: { [key: string]: string } = {}): Observable<string> {
     const config = this.configService.getConfig();
     if (!config || !config.ai.apiKey) return of('AI Configuration missing.');
+
+    // Format user-provided metric comments
+    let commentsSummary = '';
+    const commentKeys = Object.keys(metricComments);
+    if (commentKeys.length > 0) {
+      commentsSummary = '\nCOMENTARIOS Y CONTEXTO DEL AUDITOR/SOCIOS PARA ESTE SPRINT (JUSTIFICACIONES DE NEGOCIO):\n';
+      commentKeys.forEach(k => {
+        if (metricComments[k]) {
+          commentsSummary += `- Métrica o Sección "${k}": "${metricComments[k]}"\n`;
+        }
+      });
+      commentsSummary += '-> REGLA: Incorpora estas notas/comentarios especiales de forma destacada en el análisis de la métrica correspondiente para dar explicación o justificar las desviaciones detectadas ante la dirección.\n\n';
+    }
 
     // Build per-item summary for the AI
     const itemSummary = (metrics.developmentRate.items || [])
@@ -115,7 +128,7 @@ export class AIService {
 
     const prompt = `
       Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas métricas y devuelve el resultado en ESPAÑOL. 
-
+      ${commentsSummary}
       CONTEXTO DEL EQUIPO:
       - Todos los integrantes del equipo de desarrollo son ISW nivel MID (nivel intermedio).
       - No hay ISW SR (Senior) en el equipo. No menciones ISW SR en el análisis.
@@ -149,7 +162,11 @@ export class AIService {
             open++;
           }
           
-          const tasksInfo = (item.tasks || []).map((t: any) => 'Tarea #' + t.id + ': "' + t.title + '" (Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + ')').join('; ');
+          const tasksInfo = (item.tasks || []).map((t: any) => {
+            const devia = (t.completedWork || 0) - (t.originalEstimate || 0);
+            const deviaStr = devia > 0 ? ' (Desviación: +' + devia.toFixed(1) + 'h)' : devia < 0 ? ' (Sub-ejecutada: ' + devia.toFixed(1) + 'h)' : ' (A tiempo)';
+            return 'Tarea #' + t.id + ': "' + t.title + '" (Responsable: ' + (t.assignedTo || 'Sin asignar') + ', Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + deviaStr + ')';
+          }).join('; ');
           detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
         });
 
@@ -209,7 +226,7 @@ ${historySummary}
 
       ESTRUCTURA REQUERIDA — para CADA métrica genera EXACTAMENTE estas secciones:
       [METRICA_INICIO: Nombre]
-      (NOTA IMPORTANTE PARA LA PRIMERA MÉTRICA "Cumplimiento y Línea de Tiempo del Sprint" o "Cumplimiento": Para esta primera métrica, NO generes viñetas de metas, resultados, acciones correctivas ni análisis acumulado. En su lugar, genera únicamente un análisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Para el resto de las métricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
+      (NOTA IMPORTANTE PARA LA PRIMERA MÉTRICA "Cumplimiento y Línea de Tiempo del Sprint" o "Cumplimiento": Para esta primera métrica, NO generes viñetas de metas, resultados, acciones correctivas ni análisis acumulado. En su lugar, genera únicamente un análisis de resultados muy profundo, detallado e hilado en texto libre para explicar el comportamiento temporal de las entregas y la variabilidad. Analiza OBLIGATORIAMENTE a nivel de tareas secundarias para ver por qué se desviaron las User Stories (US) o Features (FT), identificando qué tareas específicas del sprint sufrieron la mayor desviación de esfuerzo en horas (Trabajo Real vs Estimación original) y explica la causa raíz técnica/operativa basándote en la información provista. Para el resto de las métricas de la 1 a la 8, sigue obligatoriamente las secciones de abajo:)
       - Meta establecida para el periodo: (valor)
       - Resultado del periodo: (valor real con semáforo: Verde/Amarillo/Rojo)
       - Análisis de resultados: (Explica el resultado con un tono CRÍTICO y CONSTRUCTIVO. 
@@ -229,6 +246,8 @@ ${historySummary}
       REGLAS IMPORTANTES:
       - SÉ EXIGENTE: Como auditor CMMI5, tu objetivo es la perfección estadística. Si un ítem se desvía, señálalo aunque el promedio global sea bueno.
       - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
+      - NO UTILICES NINGUNA UNIDAD COMO "/PT" O "/SP": Para la métrica "4. Densidad de Defectos", no utilices jamás ninguna unidad ni sufijo como "/PT", "/pt", "/SP" o "/sp" en los resultados o análisis. Muestra siempre los valores de las metas y resultados únicamente como números decimales directos (ej: ≤ 0.18, 0.026), omitiendo cualquier mención a PT o SP.
+      - ANALIZA RESPONSABILIDADES DE TAREAS: Ten en cuenta que existe un responsable principal de la historia (ISW), pero debes identificar a las personas involucradas en las tareas secundarias (Responsable de la tarea). Por ejemplo, si la historia pertenece a Marlon pero la desviación de esfuerzo ocurrió en tareas secundarias asignadas a Yair, atribuye el análisis de esa desviación a Yair e inclúyelo en la explicación.
       - Para la métrica "2. Tasa de Desviación de Esfuerzo", el "Resultado del periodo" debe presentarse en valor absoluto (sin signo negativo, p. ej., 11.23% en lugar de -11.23%).
       - Usa nombres reales de los ISW del equipo cuando estén disponibles en la lista de items.
       - Tono profesional, analítico y enfocado en identificar brechas de proceso.

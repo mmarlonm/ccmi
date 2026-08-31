@@ -390,7 +390,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-blue-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('tasaDev')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['tasaDev'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['tasaDev']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['tasaDev']"></lucide-icon>
+                <span>{{ metricComments['tasaDev'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('tasaDev')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['tasaDev']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.developmentRate.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.developmentRate.status === 'yellow',
@@ -502,7 +535,7 @@ import { forkJoin, of } from 'rxjs';
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let item of metrics.developmentRate.items">
+              <ng-container *ngFor="let item of getSortedReworkItems()">
                 <!-- Main row -->
                 <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     [class.bg-purple-50]="item.type==='Feature' && !isDark()"
@@ -702,7 +735,40 @@ import { forkJoin, of } from 'rxjs';
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
           <div class="flex flex-col">
-            <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+            
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('desviacion')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['desviacion'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['desviacion']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['desviacion']"></lucide-icon>
+                <span>{{ metricComments['desviacion'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('desviacion')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['desviacion']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
             <!-- Validation Warning -->
             <div *ngIf="getTotalRemainingWork() > 0" class="flex items-center gap-1.5 text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded mt-1 border border-red-100">
               <lucide-icon [name]="AlertTriangle" size="10"></lucide-icon>
@@ -930,7 +996,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-rose-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('retrabajo')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['retrabajo'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['retrabajo']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['retrabajo']"></lucide-icon>
+                <span>{{ metricComments['retrabajo'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('retrabajo')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['retrabajo']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.rework.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.rework.status === 'yellow',
@@ -1007,7 +1106,7 @@ import { forkJoin, of } from 'rxjs';
               </tr>
             </thead>
             <tbody class="text-xs">
-              <ng-container *ngFor="let item of metrics.developmentRate.items">
+              <ng-container *ngFor="let item of getSortedReworkItems()">
                 <tr class="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 cursor-pointer transition-colors"
                   (click)="toggleExpand(item.id, 3)">
                   <td class="p-3 font-bold text-indigo-500 hover:text-indigo-750 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(item.id)">#{{ item.id }}</td>
@@ -1128,7 +1227,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('densidad')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['densidad'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['densidad']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['densidad']"></lucide-icon>
+                <span>{{ metricComments['densidad'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('densidad')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['densidad']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.defectDensity.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.defectDensity.status === 'yellow',
@@ -1247,7 +1379,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-amber-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('eed')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['eed'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['eed']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['eed']"></lucide-icon>
+                <span>{{ metricComments['eed'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('eed')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['eed']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.defectRemovalEfficiency.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.defectRemovalEfficiency.status === 'yellow',
@@ -1718,7 +1883,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('escaped')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['escaped'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['escaped']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['escaped']"></lucide-icon>
+                <span>{{ metricComments['escaped'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('escaped')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['escaped']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': filteredEscapedBugs.status === 'green',
             'bg-yellow-100 text-yellow-700': filteredEscapedBugs.status === 'yellow',
@@ -1943,7 +2141,40 @@ import { forkJoin, of } from 'rxjs';
     <!-- Section 3.7: Test Execution / Ejecución de Pruebas -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+        
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('runRate')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['runRate'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['runRate']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['runRate']"></lucide-icon>
+                <span>{{ metricComments['runRate'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('runRate')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['runRate']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
 
         <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
@@ -2116,7 +2347,40 @@ import { forkJoin, of } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-teal-500 overflow-hidden mt-8">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="toggleComment('passRate')"
+                [ngClass]="{
+                  'border-indigo-300 bg-indigo-50/40 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/20 dark:text-indigo-400': metricComments['passRate'],
+                  'border-slate-200 bg-slate-50/50 text-slate-550 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-450': !metricComments['passRate']
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.animate-pulse]="metricComments['passRate']"></lucide-icon>
+                <span>{{ metricComments['passRate'] ? 'Nota Agregada' : 'Agregar Nota/Contexto' }}</span>
+              </button>
+            </div>
+            
+            <!-- Context Comment Textarea -->
+            <div *ngIf="expandedComments.has('passRate')" class="p-4 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/5 border border-indigo-150/40 dark:border-indigo-900/20 space-y-3 mb-6 animate-in slide-in-from-top duration-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <lucide-icon [name]="MessageSquare" size="13"></lucide-icon>
+                  Notas Especiales y Contexto de Negocio
+                </span>
+                <button (click)="saveCommentsOnly()" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 dark:text-indigo-450 hover:underline flex items-center gap-1 transition-colors">
+                  Guardar Nota
+                </button>
+              </div>
+              <textarea 
+                [(ngModel)]="metricComments['passRate']" 
+                rows="3" 
+                placeholder="Ingresa notas, eventualidades o justificaciones técnicas específicas de este sprint para la métrica. La IA analizará este texto de forma prioritaria para justificar desviaciones e incorporarlo en el reporte ejecutivo."
+                class="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-xl p-3 text-xs md:text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-250 placeholder-slate-400">
+              </textarea>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': m38Stats.status === 'green',
             'bg-yellow-100 text-yellow-700': m38Stats.status === 'yellow',
@@ -2653,6 +2917,34 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isLoadingCompareEscaped = false;
   showCompareEscapedPanel = false;
 
+  // --- Comentarios de Métricas por el Usuario ---
+  metricComments: { [key: string]: string } = {};
+  expandedComments = new Set<string>();
+
+  toggleComment(metricKey: string) {
+    if (this.expandedComments.has(metricKey)) {
+      this.expandedComments.delete(metricKey);
+    } else {
+      this.expandedComments.add(metricKey);
+    }
+  }
+
+  saveCommentsOnly() {
+    if (!this.selectedIteration || !this.metrics) return;
+    this.metricsApiService.saveAnalysis(
+      this.selectedIteration,
+      this.selectedSprintDisplayName || this.selectedIterationName,
+      this.metrics!,
+      this.aiAnalysis,
+      this.metricAnalyses,
+      this.metricComments
+    ).subscribe(dbRes => {
+      if (dbRes) {
+        this.notificationService.success('Comentarios guardados exitosamente.');
+      }
+    });
+  }
+
   get selectedSprintDisplayName(): string {
     if (!this.selectedIteration) return '';
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
@@ -2671,6 +2963,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   getSprintBugsList() {
     if (!this.metrics?.defectRemovalEfficiency?.bugsList) return [];
     return this.metrics.defectRemovalEfficiency.bugsList.filter((item: any) => !item.isKanban);
+  }
+
+  getSortedReworkItems() {
+    if (!this.metrics?.developmentRate?.items) return [];
+    return [...this.metrics.developmentRate.items].sort((a, b) => {
+      const aRework = this.getItemReworkData(a).totalRework;
+      const bRework = this.getItemReworkData(b).totalRework;
+      return aRework - bRework; // Ordenar de menor a mayor
+    });
   }
 
   getKanbanBugsList() {
@@ -2919,6 +3220,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
           if (dbAnalysis) {
             this.aiAnalysis = dbAnalysis.aiAnalysis;
+            this.metricComments = dbAnalysis.metricComments || {};
             // Load per-metric analyses directly from DB if available, otherwise parse from raw text
             if (dbAnalysis.metricAnalyses && Object.keys(dbAnalysis.metricAnalyses).length > 0) {
               this.metricAnalyses = dbAnalysis.metricAnalyses;
@@ -2929,6 +3231,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             this.isLoading = false;
             this.isReloading = false;
           } else {
+            this.metricComments = {};
             // 2. Fall back to cached localStorage analysis if not saved on database yet
             const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
             if (cachedAnalysis) {
@@ -3040,7 +3343,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     let bugsProd = 0;
 
     filteredList.forEach((b: any) => {
-      if (b.classification === 'uat') {
+      const bugTags = (b.tags || '').toLowerCase().split(/[;,]/).map((t: string) => t.trim());
+      const hasUat = bugTags.some((t: string) => t.includes('buguat') || t.includes('bug uat') || t === 'uat');
+      
+      if (b.classification === 'uat' || hasUat) {
         b.classification = 'produccion';
       }
       if (b.classification === 'testing') bugsTesting++;
@@ -4721,7 +5027,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         // Filter out empty metrics if any failed to load
         const cleanHistory = historicalData.filter(h => h.developmentRate && h.developmentRate.items);
 
-        this.aiService.analyzeMetrics(this.metrics!, cleanHistory).subscribe({
+        this.aiService.analyzeMetrics(this.metrics!, cleanHistory, this.metricComments).subscribe({
           next: (res) => {
             const isErrorResponse = res && (
               res.startsWith('Error al') ||
@@ -4748,7 +5054,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               this.selectedSprintDisplayName || this.selectedIterationName,
               this.metrics!,
               res,
-              this.metricAnalyses
+              this.metricAnalyses,
+              this.metricComments
             ).subscribe(dbRes => {
               if (dbRes) {
                 this.loadVersionsHistory();
@@ -4766,7 +5073,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       error: (err: any) => {
         console.error('Error fetching historical metrics for AI context:', err);
         // Fallback to analyzing current metric data without history if call fails
-        this.aiService.analyzeMetrics(this.metrics!).subscribe({
+        this.aiService.analyzeMetrics(this.metrics!, [], this.metricComments).subscribe({
           next: (res) => {
             this.aiAnalysis = res;
             this.parseAnalysis(res);
@@ -4780,7 +5087,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               this.selectedSprintDisplayName || this.selectedIterationName,
               this.metrics!,
               res,
-              this.metricAnalyses
+              this.metricAnalyses,
+              this.metricComments
             ).subscribe(dbRes => {
               if (dbRes) {
                 this.loadVersionsHistory();

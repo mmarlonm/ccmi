@@ -27,8 +27,17 @@ export class AzureDevOpsService {
       .pipe(
         map(res => {
           const nodes = this.flattenNodes(res);
+          const currentYear = new Date().getFullYear();
           return nodes
-            .filter(node => node.path.toLowerCase().includes('mayansoft'))
+            .filter(node => {
+              const isMayan = node.path.toLowerCase().includes('mayansoft');
+              if (!isMayan) return false;
+              if (node.startDate) {
+                const year = new Date(node.startDate).getFullYear();
+                return year === currentYear;
+              }
+              return true;
+            })
             .sort((a: any, b: any) => {
               const da = a.startDate ? new Date(a.startDate).getTime() : 0;
               const db = b.startDate ? new Date(b.startDate).getTime() : 0;
