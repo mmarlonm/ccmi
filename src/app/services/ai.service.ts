@@ -145,6 +145,7 @@ ${helpers.historySummary}
       [METRICA_FIN]
 
       REGLAS IMPORTANTES:
+      - PROHIBIDO USAR ASTERISCOS **: No incluyas nunca el símbolo ** ni formato markdown de negritas. Escribe todas las etiquetas y frases en texto directo (ejemplo: "Meta establecida para el periodo:" en lugar de "**Meta establecida para el periodo:**").
       - SÉ EXIGENTE: Como auditor CMMI5, tu objetivo es la perfección estadística. Si un ítem se desvía, señálalo aunque el promedio global sea bueno.
       - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
       - NO UTILICES NINGUNA UNIDAD COMO "/PT" O "/SP": Para la métrica "4. Densidad de Defectos", no utilices jamás ninguna unidad ni sufijo como "/PT", "/pt", "/SP" o "/sp" en los resultados o análisis. Muestra siempre los valores de las metas y resultados únicamente como números decimales directos (ej: ≤ 0.18, 0.026), omitiendo cualquier mención a PT o SP.
@@ -304,6 +305,7 @@ ${helpers.itemSummary}
       ${metricInstruction}
 
       REGLAS IMPORTANTES:
+      - PROHIBIDO USAR ASTERISCOS **: No incluyas nunca el símbolo ** ni formato markdown de negritas. Escribe todas las etiquetas y frases en texto directo (ejemplo: "Meta establecida para el periodo:" en lugar de "**Meta establecida para el periodo:**").
       - SÉ EXIGENTE: Como auditor CMMI5, tu objetivo es la perfección estadística.
       - NO menciones ISW SR, no existe en este equipo. Solo ISW MID.
       - NO UTILICES NINGUNA UNIDAD COMO "/PT" O "/SP": Para la métrica "4. Densidad de Defectos", no utilices jamás ninguna unidad ni sufijo como "/PT", "/pt", "/SP" o "/sp" en los resultados o análisis. Muestra siempre los valores de las metas y resultados únicamente como números decimales directos (ej: ≤ 0.18, 0.026), omitiendo cualquier mención a PT o SP.
@@ -821,9 +823,12 @@ REGLAS
         if (isQuota) {
           const rawMsg = JSON.stringify(err?.error || '');
           if (rawMsg.includes('GenerateRequestsPerDayPerProjectPerModel-FreeTier') || rawMsg.includes('limit: 20')) {
-            return of(`Cuota diaria del modelo "${modelName}" agotada en la capa gratuita de Google (Límite: 20 peticiones/día). Por favor cambia el modelo a "gemini-1.5-flash" o "gemini-2.0-flash" en el menú Configuración (ofrecen 1,500 peticiones/día).`);
+            return of(`Cuota diaria del modelo "${modelName}" agotada en la capa gratuita de Google (Límite: 20 peticiones/día). Por favor cambia el modelo a "gemini-3.6-flash" o "gemini-1.5-flash" en el menú Configuración.`);
           }
-          return of(`Cuota/Límite de Gemini agotado (Error 429: Too Many Requests en ${modelName}). Espera unos segundos o cambia el modelo a "gemini-1.5-flash" en Configuración.`);
+          return of(`Cuota/Límite de Gemini agotado (Error 429: Too Many Requests en ${modelName}). Espera unos segundos o cambia el modelo a "gemini-3.6-flash" o "gemini-1.5-flash" en Configuración.`);
+        }
+        if (err?.status === 404 || JSON.stringify(err?.error || '').includes('no longer available')) {
+          return of(`El modelo "${modelName}" ya no está disponible en Google Gemini. Por favor cámbialo a "gemini-3.6-flash" o "gemini-1.5-flash" en el menú Configuración.`);
         }
         if (isTimeout) return of('El análisis tardó demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado.');
         if (isAuth) return of(`Error en Gemini (${err?.error?.error?.message || 'API Key o Modelo no válido'}). Verifica la clave y modelo en Configuración.`);

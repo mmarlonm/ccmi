@@ -73,11 +73,11 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
           <label class="block text-sm font-medium mb-1.5 opacity-70">Modelo</label>
           <input [(ngModel)]="config.ai.model" type="text" placeholder="ej. gpt-4o o gemini-1.5-flash" class="glass-input w-full">
           <div *ngIf="config.ai.provider === 'gemini'" class="flex flex-wrap gap-1.5 mt-2">
-            <button type="button" (click)="config.ai.model = 'gemini-1.5-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
-              gemini-1.5-flash (1,500 req/día - Recomendado) ⭐
+            <button type="button" (click)="config.ai.model = 'gemini-3.6-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
+              gemini-3.6-flash (Recomendado por Google) ⭐
             </button>
-            <button type="button" (click)="config.ai.model = 'gemini-2.0-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
-              gemini-2.0-flash (1,500 req/día)
+            <button type="button" (click)="config.ai.model = 'gemini-1.5-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
+              gemini-1.5-flash
             </button>
           </div>
           <div *ngIf="config.ai.provider === 'openai'" class="flex flex-wrap gap-1.5 mt-2">
