@@ -797,8 +797,17 @@ REGLAS
         count: 3,
         delay: (error, retryCount) => {
           if (error?.status === 429) {
-            console.warn(`Gemini API 429 Rate Limit (Cuota/Límite excedido). Reintentando en ${retryCount * 2}.5s (Intento ${retryCount}/3)...`);
-            return timer(retryCount * 2500);
+            let delayMs = (retryCount + 1) * 4000;
+            const details = error?.error?.error?.details;
+            if (Array.isArray(details)) {
+              const retryInfo = details.find((d: any) => d?.['@type']?.includes('RetryInfo') || d?.retryDelay);
+              if (retryInfo?.retryDelay) {
+                const sec = parseInt(retryInfo.retryDelay.replace('s', ''), 10);
+                if (!isNaN(sec) && sec > 0) delayMs = (sec + 2) * 1000;
+              }
+            }
+            console.warn(`Gemini 429 Rate Limit en ${modelName}. Esperando ${delayMs / 1000}s para reintentar (Intento ${retryCount}/3)...`);
+            return timer(delayMs);
           }
           return timer(2000);
         }
@@ -809,7 +818,13 @@ REGLAS
         const isTimeout = err?.name === 'TimeoutError' || err?.message?.includes('timeout');
         const isAuth = err?.status === 400 || err?.status === 401 || err?.status === 403;
         const isQuota = err?.status === 429;
-        if (isQuota) return of('Cuota/Límite de Gemini agotado (Error 429: Too Many Requests). Espera 30 segundos o cambia de modelo/proveedor en Configuración.');
+        if (isQuota) {
+          const rawMsg = JSON.stringify(err?.error || '');
+          if (rawMsg.includes('GenerateRequestsPerDayPerProjectPerModel-FreeTier') || rawMsg.includes('limit: 20')) {
+            return of(`Cuota diaria del modelo "${modelName}" agotada en la capa gratuita de Google (Límite: 20 peticiones/día). Por favor cambia el modelo a "gemini-1.5-flash" o "gemini-2.0-flash" en el menú Configuración (ofrecen 1,500 peticiones/día).`);
+          }
+          return of(`Cuota/Límite de Gemini agotado (Error 429: Too Many Requests en ${modelName}). Espera unos segundos o cambia el modelo a "gemini-1.5-flash" en Configuración.`);
+        }
         if (isTimeout) return of('El análisis tardó demasiado (>90s). Intenta de nuevo; Gemini puede estar ocupado.');
         if (isAuth) return of(`Error en Gemini (${err?.error?.error?.message || 'API Key o Modelo no válido'}). Verifica la clave y modelo en Configuración.`);
         return of(`Error al contactar Gemini (${err?.status ?? 'sin conexión'}). Intenta de nuevo.`);

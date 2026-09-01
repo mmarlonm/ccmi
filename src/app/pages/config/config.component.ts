@@ -71,7 +71,23 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
         </div>
         <div>
           <label class="block text-sm font-medium mb-1.5 opacity-70">Modelo</label>
-          <input [(ngModel)]="config.ai.model" type="text" placeholder="ej. gpt-4o o gemini-1.5-pro" class="glass-input w-full">
+          <input [(ngModel)]="config.ai.model" type="text" placeholder="ej. gpt-4o o gemini-1.5-flash" class="glass-input w-full">
+          <div *ngIf="config.ai.provider === 'gemini'" class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" (click)="config.ai.model = 'gemini-1.5-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
+              gemini-1.5-flash (1,500 req/día - Recomendado) ⭐
+            </button>
+            <button type="button" (click)="config.ai.model = 'gemini-2.0-flash'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer">
+              gemini-2.0-flash (1,500 req/día)
+            </button>
+          </div>
+          <div *ngIf="config.ai.provider === 'openai'" class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" (click)="config.ai.model = 'gpt-4o-mini'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-all cursor-pointer">
+              gpt-4o-mini
+            </button>
+            <button type="button" (click)="config.ai.model = 'gpt-4o'" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-all cursor-pointer">
+              gpt-4o
+            </button>
+          </div>
         </div>
       </div>
     </section>
