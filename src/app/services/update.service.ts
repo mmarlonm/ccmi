@@ -137,9 +137,7 @@ export class UpdateService {
             // Notify native OS
             if (this.ipc && this.notifiedVersion !== remoteVersion) {
               this.notifiedVersion = remoteVersion;
-              this.ipc.invoke('update:notify-available', remoteVersion).catch((err: any) => {
-                console.error('Error invoking update:notify-available:', err);
-              });
+              this.ipc.invoke('update:notify-available', remoteVersion).catch(() => {});
             }
           } else {
             this.isUpdateAvailable = false;

@@ -43,60 +43,42 @@ export class MetricsApiService {
   ): Observable<MetricAnalysisSaveResponse | null> {
     const payload = { sprintId, sprintName, metrics, aiAnalysis, metricAnalyses, metricComments };
     return this.http.post<MetricAnalysisSaveResponse>(this.apiUrl, payload).pipe(
-      catchError(err => {
-        console.error('API Service: failed to save analysis', err);
-        return of(null);
-      })
+      catchError(() => of(null))
     );
   }
 
   /** Get current active version analysis for a sprint */
   getActiveAnalysis(sprintId: string): Observable<MetricAnalysisSaveResponse | null> {
     return this.http.get<MetricAnalysisSaveResponse>(`${this.apiUrl}/sprint/${sprintId}`).pipe(
-      catchError(err => {
-        console.warn(`API Service: no active analysis found for sprint ${sprintId}`);
-        return of(null);
-      })
+      catchError(() => of(null))
     );
   }
 
   /** Get versions list history for a sprint */
   getVersionsList(sprintId: string): Observable<VersionInfo[]> {
     return this.http.get<VersionInfo[]>(`${this.apiUrl}/sprint/${sprintId}/versions`).pipe(
-      catchError(err => {
-        console.error(`API Service: failed to fetch versions list for ${sprintId}`, err);
-        return of([]);
-      })
+      catchError(() => of([]))
     );
   }
 
   /** Get a specific version of analysis */
   getSpecificVersion(sprintId: string, versionNum: number): Observable<MetricAnalysisSaveResponse | null> {
     return this.http.get<MetricAnalysisSaveResponse>(`${this.apiUrl}/version/${sprintId}/${versionNum}`).pipe(
-      catchError(err => {
-        console.error(`API Service: failed to fetch version ${versionNum} for ${sprintId}`, err);
-        return of(null);
-      })
+      catchError(() => of(null))
     );
   }
 
   /** Restore a historical version to active status */
   restoreVersion(id: string): Observable<MetricAnalysisSaveResponse | null> {
     return this.http.post<MetricAnalysisSaveResponse>(`${this.apiUrl}/restore/${id}`, {}).pipe(
-      catchError(err => {
-        console.error(`API Service: failed to restore version id ${id}`, err);
-        return of(null);
-      })
+      catchError(() => of(null))
     );
   }
 
   /** Get active analysis for ALL sprints stored in DB (for trend/comparison view) */
   getAllSprintsAnalysis(): Observable<MetricAnalysisSaveResponse[]> {
     return this.http.get<MetricAnalysisSaveResponse[]>(`${this.apiUrl}/all-sprints`).pipe(
-      catchError(err => {
-        console.error('API Service: failed to fetch all sprints analysis', err);
-        return of([]);
-      })
+      catchError(() => of([]))
     );
   }
 }

@@ -126,13 +126,12 @@ export class AzureDevOpsService {
 
 
           return forkJoin({
-            workItems: this.http.get<any>(workItemsUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(e => { console.error('Work items fetch failed', e); return of({ workItemRelations: [] }); })),
+            workItems: this.http.get<any>(workItemsUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(() => of({ workItemRelations: [] }))),
             info: this.http.get<any>(iterationInfoUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(() => of(null)))
           }).pipe(
             switchMap(({ workItems, info }) => {
               const relations: any[] = workItems.workItemRelations || [];
               if (relations.length === 0) {
-                console.warn('ADO Service: No relations found for this iteration.');
                 return of(this.getEmptyMetrics());
               }
               const ids: number[] = relations.filter(r => r.target).map(r => r.target.id);
@@ -158,23 +157,19 @@ export class AzureDevOpsService {
                       const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath, new Set(allIds));
                       return this.enrichMetricsWithTestExecution(metrics, absoluteIterationPath);
                     }),
-                    catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
+                    catchError(() => of(this.getEmptyMetrics()))
                   );
                 })
               );
             }),
-            catchError(err => {
-              console.warn('ADO Service: Team API logic failed, trying WIQL fallback');
+            catchError(() => {
               const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
               return this.getMetricsWIQL(path);
             })
           );
         }),
         timeout(30000),
-        catchError(err => {
-          console.error('ADO Service: getMetrics failed completely', err);
-          return of(this.getEmptyMetrics());
-        })
+        catchError(() => of(this.getEmptyMetrics()))
       );
     } else {
       return this.getMetricsWIQL(iterationIdOrPath);
@@ -238,10 +233,7 @@ export class AzureDevOpsService {
           })
         );
       }),
-      catchError(err => {
-        console.error('WIQL Error or Timeout:', err);
-        return of(this.getEmptyMetrics());
-      })
+      catchError(() => of(this.getEmptyMetrics()))
     );
   }
 
@@ -264,19 +256,13 @@ export class AzureDevOpsService {
         `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
         { query: query1 },
         { headers }
-      ).pipe(catchError((err) => {
-        console.error('Error in query1 of getRelatedBugIds:', err);
-        return of({ workItemRelations: [] });
-      }));
+      ).pipe(catchError(() => of({ workItemRelations: [] })));
 
       const request2 = this.http.post<any>(
         `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
         { query: query2 },
         { headers }
-      ).pipe(catchError((err) => {
-        console.error('Error in query2 of getRelatedBugIds:', err);
-        return of({ workItemRelations: [] });
-      }));
+      ).pipe(catchError(() => of({ workItemRelations: [] })));
 
       batches.push(
         forkJoin({ res1: request1, res2: request2 }).pipe(
@@ -296,11 +282,7 @@ export class AzureDevOpsService {
     }
 
     return forkJoin(batches).pipe(
-      map(results => {
-        const finalIds = Array.from(new Set(results.flat()));
-        console.warn('[CMMI5 Debug] getRelatedBugIds final results:', finalIds);
-        return finalIds;
-      })
+      map(results => Array.from(new Set(results.flat())))
     );
   }
 
@@ -358,10 +340,7 @@ export class AzureDevOpsService {
     }
     return forkJoin(batches).pipe(
       map((results: any[]) => results.flatMap(r => r.value)),
-      catchError(err => {
-        console.error('Error fetching work item details:', err);
-        return of([]);
-      })
+      catchError(() => of([]))
     );
   }
 
@@ -415,12 +394,6 @@ export class AzureDevOpsService {
   }
 
   private processWorkItemsFlat(items: any[], iterationInfo?: any, absoluteIterationPath?: string, coreIds?: Set<number>): CMMIMetrics {
-    console.warn('[DEBUG] 47645 exists in items?', items.some(i => i.id == 47645));
-    const b47645 = items.find(i => i.id == 47645);
-    if (b47645) {
-      console.warn('[DEBUG] 47645 fields:', b47645.fields['System.WorkItemType'], b47645.relations);
-    }
-
     const iterationName = iterationInfo?.name || '';
     const startDate = iterationInfo?.attributes?.startDate || '';
     const endDate = iterationInfo?.attributes?.finishDate || '';
@@ -1136,10 +1109,7 @@ export class AzureDevOpsService {
 
         return this.getWorkItemDetails(ids, fields);
       }),
-      catchError(err => {
-        console.error('getKpisForMonth failed:', err);
-        return of([]);
-      })
+      catchError(() => of([]))
     );
   }
 
@@ -1185,10 +1155,7 @@ export class AzureDevOpsService {
 
         return this.getWorkItemDetails(ids, fields);
       }),
-      catchError(err => {
-        console.error('getKpiTasksForMonth failed:', err);
-        return of([]);
-      })
+      catchError(() => of([]))
     );
   }
 
@@ -1284,7 +1251,6 @@ export class AzureDevOpsService {
             return false;
           });
         }
-        console.log(`ADO TestPlans: ${plans.length} plan(s) encontrados`, plans.map((p: any) => ({ id: p.id, name: p.name })));
         return plans;
       })
     );
@@ -1436,9 +1402,6 @@ export class AzureDevOpsService {
                       testerName = testerName.split('<')[0].trim();
                     }
 
-                    console.warn(`[DEBUG TEST] Point #${pt.id} - TestCase: "${pt.testCaseTitle || pt.testCase?.name}" - Outcome: ${pt.outcome} - LastUpdated: "${lastUpdated}" (${lastUpdatedTime}) - PlanWindow: [${planStartStr} (${planStartUTC}) - ${planEndStr} (${planEndUTC})] - Evaluated onTime: ${onTime}`);
-
-                    // Include ALL test points from the sprint's plan (the plan membership IS the sprint filter)
                     allPoints.push({
                       planId: plan.id,
                       planName: plan.name,
@@ -1523,22 +1486,18 @@ export class AzureDevOpsService {
                   status: m38Status as 'green' | 'yellow' | 'red'
                 };
 
-                console.log('ADO TestExecution resultado:', { totalTestPoints, executed, rate: rate.toFixed(2) + '%', status });
-
                 return metrics;
               })
             );
           }),
-          catchError(err => {
-            console.error('Error fetching suites and points:', err);
+          catchError(() => {
             metrics.testExecution = this.getEmptyTestExecution();
             metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
             return of(metrics);
           })
         );
       }),
-      catchError(err => {
-        console.error('Error in enrichMetricsWithTestExecution:', err);
+      catchError(() => {
         metrics.testExecution = this.getEmptyTestExecution();
         metrics.satisfactoryTests = this.getEmptySatisfactoryTests();
         return of(metrics);
@@ -1639,20 +1598,17 @@ export class AzureDevOpsService {
           })
         );
       }),
-      catchError(err => {
-        console.error('Error in fetchEscapedBugsData:', err);
-        return of({
-          bugsTesting: 0,
-          bugsUat: 0,
-          bugsProd: 0,
-          totalBugs: 0,
-          rate: 0,
-          status: 'green',
-          stdDeviation: 0,
-          bugsList: [],
-          rows: []
-        });
-      })
+      catchError(() => of({
+        bugsTesting: 0,
+        bugsUat: 0,
+        bugsProd: 0,
+        totalBugs: 0,
+        rate: 0,
+        status: 'green',
+        stdDeviation: 0,
+        bugsList: [],
+        rows: []
+      }))
     );
   }
 

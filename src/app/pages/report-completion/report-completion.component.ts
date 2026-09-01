@@ -258,7 +258,7 @@ export class ReportCompletionComponent implements OnInit {
           this.loadData();
         }
       },
-      error: (err) => console.error('Report: Failed to load iterations', err)
+      error: () => {}
     });
   }
 
@@ -296,9 +296,8 @@ export class ReportCompletionComponent implements OnInit {
           this.aiNarrative = '';
         }
       },
-      error: (err) => {
+      error: () => {
         clearTimeout(failsafe);
-        console.error('Report: Error loading metrics', err);
         this.loading = false;
       }
     });

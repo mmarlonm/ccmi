@@ -171,9 +171,7 @@ export class PdfTemplateComponent implements OnChanges {
         const { shell } = win.require('electron');
         shell.openExternal(url);
         return;
-      } catch (e) {
-        console.error('Failed to open external link using Electron shell:', e);
-      }
+      } catch (e) {}
     }
     window.open(url, '_blank');
   }

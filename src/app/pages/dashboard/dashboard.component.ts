@@ -3447,7 +3447,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.loadData();
       },
       error: err => {
-        console.error('Dashboard: Failed to load iterations', err);
         this.iterationsLoaded = true; // unblock loadData even on failure
         if (!this.selectedIteration) {
           this.isLoading = false;
@@ -4796,9 +4795,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const { shell } = win.require('electron');
         shell.openExternal(url);
         return;
-      } catch (e) {
-        console.error('Failed to open external link using Electron shell:', e);
-      }
+      } catch (e) {}
     }
 
     // Fallback to standard web browser open
@@ -5732,9 +5729,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       setTimeout(() => {
         this.copiedKeys[key] = false;
       }, 2000);
-    }).catch(err => {
-      console.error('Error al copiar el texto: ', err);
-    });
+    }).catch(() => {});
   }
 
   reloadSprintData() {
@@ -5970,7 +5965,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
       await this.pdfService.exportToPdf('professional-report', `BFYPH047_Metricas_CMMI5_${this.selectedIterationName}`);
     } catch (error) {
-      console.error('PDF Export failed', error);
       this.notificationService.error('Error al generar el PDF profesional.');
     } finally {
       this.isExporting = false;

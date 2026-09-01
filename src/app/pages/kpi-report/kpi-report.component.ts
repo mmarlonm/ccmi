@@ -619,8 +619,7 @@ export class KpiReportComponent implements OnInit {
         this.processKpis(tasks, monthlyItems, year, monthStart, monthEnd);
         this.isLoading = false;
       },
-      error: (err) => {
-        console.error('KPI Report: failed to load data', err);
+      error: () => {
         this.processKpis([], [], year, monthStart, monthEnd);
         this.isLoading = false;
       }
