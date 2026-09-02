@@ -1,0 +1,27 @@
+.glass-card {
+  @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/20 dark:shadow-none transition-all duration-300;
+}
+
+.glass-input {
+  @apply bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl px-4 py-2 text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all;
+}
+
+.glass-button {
+  @apply bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl shadow-md shadow-indigo-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.saao-mock-input {
+  @apply font-mono text-xs p-2.5 bg-slate-900 text-teal-300 rounded-xl border border-teal-500/30 shadow-inner w-full;
+}
+
+.badge-step {
+  @apply w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shadow-md transition-all shrink-0;
+}
+
+.badge-step-active {
+  @apply bg-indigo-600 text-white shadow-indigo-600/30 scale-110 ring-4 ring-indigo-500/20;
+}
+
+.badge-step-inactive {
+  @apply bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400;
+}

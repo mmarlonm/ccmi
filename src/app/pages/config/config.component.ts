@@ -26,6 +26,11 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
 
       <div class="space-y-4">
         <div>
+          <label class="block text-sm font-semibold mb-1 opacity-90 text-indigo-600 dark:text-indigo-400">👤 Mi Correo / Usuario Colaborador (Guardado únicamente en Localhost)</label>
+          <input [(ngModel)]="config.userEmail" type="text" placeholder="ej. marlon.mendoza@blueoceantech.com.mx o marlon" class="glass-input w-full font-bold">
+          <p class="text-[11px] text-slate-400 mt-1">Este correo se almacena de forma privada en tu navegador (localhost) para filtrar "Mis Tareas" en SAAO y Azure.</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium mb-1.5 opacity-70">Organización</label>
           <input [(ngModel)]="config.azure.organization" type="text" placeholder="ej. mi-org" class="glass-input w-full">
         </div>
@@ -92,6 +97,59 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
       </div>
     </section>
   </div>
+
+  <!-- SharePoint Config -->
+  <section class="glass-card space-y-6">
+    <div class="flex items-center gap-3 text-blue-500">
+      <lucide-icon [name]="ShieldCheck" size="24"></lucide-icon>
+      <div>
+        <h3 class="text-xl font-semibold text-slate-800 dark:text-white">SharePoint — Evidencias CMMI</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Configura la URL de SharePoint para que el Proceso Sprint pueda cargar automáticamente las evidencias del release sin ingresar manualmente.</p>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-blue-500/8 border border-blue-500/20 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+      <p class="font-bold">📋 ¿Cómo obtener estos valores?</p>
+      <p>Abre la carpeta del Release en SharePoint, copia la URL del navegador y desglosa las partes:</p>
+      <code class="block mt-1 font-mono text-[10px] bg-slate-100 dark:bg-slate-900 rounded p-2 leading-relaxed break-all">
+        https://tenant.sharepoint.com<span class="text-blue-600">/ProjectCenterOnline/Repositorios</span>/_api/...<br>
+        &RootFolder=<span class="text-emerald-600">/ProjectCenterOnline/.../4. Releases/5.5 Release 15</span>
+      </code>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4">
+      <div>
+        <label class="block text-sm font-semibold mb-1 opacity-90 text-blue-600 dark:text-blue-400">URL Base del Sitio SharePoint</label>
+        <input [(ngModel)]="config.sharePoint!.siteUrl" type="url"
+          placeholder="https://blueoceantechnologies739.sharepoint.com/ProjectCenterOnline/RepositoriosDesarrolloMedida"
+          class="glass-input w-full font-mono text-xs">
+        <p class="text-[10px] text-slate-400 mt-1">URL base hasta el subsite (sin <code>/_api/</code>)</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1 opacity-90 text-blue-600 dark:text-blue-400">Server-Relative Path de la Lista</label>
+        <input [(ngModel)]="config.sharePoint!.listPath" type="text"
+          placeholder="/ProjectCenterOnline/RepositoriosDesarrolloMedida/PMD00222  2023  OPE20F1 Evidencias CMMI"
+          class="glass-input w-full font-mono text-xs">
+        <p class="text-[10px] text-slate-400 mt-1">Valor del parámetro <code>&#64;a1</code> sin comillas</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1 opacity-90 text-blue-600 dark:text-blue-400">Carpeta Raíz de Releases</label>
+        <input [(ngModel)]="config.sharePoint!.releasesFolder" type="text"
+          placeholder="/ProjectCenterOnline/RepositoriosDesarrolloMedida/PMD00222  2023  OPE20F1 Evidencias CMMI/4. Releases"
+          class="glass-input w-full font-mono text-xs">
+        <p class="text-[10px] text-slate-400 mt-1">El sistema agrega automáticamente <code>/5.5 Release XX</code> al cargar.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1 opacity-70">GUID de la Vista (opcional)</label>
+        <input [(ngModel)]="config.sharePoint!.viewId" type="text"
+          placeholder="36d4bf7b-b63b-4516-89a4-569399e42b68"
+          class="glass-input w-full font-mono text-xs">
+      </div>
+    </div>
+  </section>
 
   <section class="glass-card space-y-4">
     <button class="w-full flex items-center justify-between text-left" (click)="toggleTemplatePanel()">
@@ -180,6 +238,14 @@ export class ConfigComponent {
   constructor() {
     if (!this.config.sprintTaskTemplate) {
       this.config.sprintTaskTemplate = this.configService.getDefaultSprintTaskTemplate();
+    }
+    if (!this.config.sharePoint) {
+      this.config.sharePoint = {
+        siteUrl: '',
+        listPath: '',
+        releasesFolder: '',
+        viewId: ''
+      };
     }
   }
 

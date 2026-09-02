@@ -1,0 +1,20 @@
+{
+  "/sharepoint-api": {
+    "target": "https://blueoceantechnologies739.sharepoint.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/sharepoint-api": ""
+    },
+    "logLevel": "debug",
+    "headers": {
+      "Accept": "application/json;odata=verbose",
+      "OData-MaxVersion": "4.0",
+      "OData-Version": "4.0"
+    },
+    "cookieDomainRewrite": {
+      "blueoceantechnologies739.sharepoint.com": "localhost"
+    },
+    "onProxyReq": "function(proxyReq, req) { if (req.headers.cookie) { proxyReq.setHeader('Cookie', req.headers.cookie); } }"
+  }
+}
