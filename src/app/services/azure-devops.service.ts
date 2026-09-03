@@ -62,9 +62,18 @@ export class AzureDevOpsService {
   private iterationPathMap = new Map<string, string>();
 
   private flattenNodes(node: any, parentPath: string = ''): any[] {
-    // ADO path from classificationnodes already includes project name, e.g:
-    // \Bepensa - DSD Bebidas - OpeCD 2.0\Iteration\Sprint 36
-    const nodePath = node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name);
+    // ADO path from classificationnodes includes leading slash and \Area\ or \Iteration\ node segments:
+    // e.g.: \Bepensa - DSD Bebidas - OpeCD 2.0\Area\Mayansoft  ->  Bepensa - DSD Bebidas - OpeCD 2.0\Mayansoft
+    // e.g.: \Bepensa - DSD Bebidas - OpeCD 2.0\Iteration\Sprint 36 -> Bepensa - DSD Bebidas - OpeCD 2.0\Sprint 36
+    let nodePath = node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name);
+    
+    // Normalize path by stripping leading backslash and removing \Area\ or \Iteration\ internal segments
+    nodePath = nodePath.replace(/^\\/, '');
+    const cleanSegmentMatch = nodePath.match(/^([^\\]+)\\(?:Area|Iteration)\\(.+)$/i);
+    if (cleanSegmentMatch) {
+      nodePath = `${cleanSegmentMatch[1]}\\${cleanSegmentMatch[2]}`;
+    }
+
     const attrs = node.attributes || {};
     const entry = { id: node.identifier, name: node.name, path: nodePath, startDate: attrs.startDate || '' };
     this.iterationPathMap.set(node.identifier, nodePath);
@@ -1730,5 +1739,41 @@ export class AzureDevOpsService {
       bugsList,
       rows
     };
+  }
+
+  /**
+   * Ejecuta una consulta WIQL personalizada contra Azure DevOps API
+   * y devuelve la lista de Work Items con sus campos detallados.
+   */
+  executeCustomWiqlQuery(wiqlQuery: string): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const headers = this.getHeaders();
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+      { query: wiqlQuery },
+      { headers }
+    ).pipe(
+      switchMap(res => {
+        const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
+        if (ids.length === 0) return of([]);
+
+        const fields = [
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.State',
+          'System.AssignedTo', 'System.AreaPath', 'System.IterationPath',
+          'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
+          'Microsoft.VSTS.Scheduling.RemainingWork', 'Microsoft.VSTS.Scheduling.Size',
+          'Microsoft.VSTS.Scheduling.StoryPoints', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate',
+          'System.ChangedDate', 'System.Tags'
+        ].join(',');
+
+        return this.getWorkItemDetails(ids, fields);
+      }),
+      catchError(err => {
+        console.error('[WIQL Error]', err);
+        return of([]);
+      })
+    );
   }
 }
