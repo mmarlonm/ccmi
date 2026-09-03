@@ -28,7 +28,9 @@ import {
   Check,
   Plus,
   Trash2,
-  Filter
+  Filter,
+  Save,
+  FolderOpen
 } from 'lucide-angular';
 import * as XLSX from 'xlsx';
 import { TableSkeletonComponent } from '../../components/table-skeleton/table-skeleton.component';
@@ -544,7 +546,12 @@ export interface WiqlQueryResultRow {
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <button (click)="openSaveQueryModal()" class="px-4 py-2.5 text-xs font-bold rounded-xl border bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs">
+              <lucide-icon [name]="Save" size="14"></lucide-icon>
+              <span>Guardar en Azure</span>
+            </button>
+
             <button (click)="runWiqlQuery()" [disabled]="isExecutingWiql" class="px-5 py-2.5 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-md shadow-indigo-600/20 cursor-pointer">
               <span *ngIf="isExecutingWiql" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               <lucide-icon *ngIf="!isExecutingWiql" [name]="Play" size="14"></lucide-icon>
@@ -647,6 +654,32 @@ export interface WiqlQueryResultRow {
           </div>
         </div>
 
+        <!-- Consultas Guardadas en Azure DevOps (My Queries) -->
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1.5">
+              <lucide-icon [name]="FolderOpen" size="13"></lucide-icon>
+              <span>Mis Consultas Personales en Azure DevOps (My Queries):</span>
+            </label>
+            <button (click)="loadSavedQueriesFromAzure()" type="button" class="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer font-bold">
+              <lucide-icon [name]="RefreshCw" size="12" [class.animate-spin]="isLoadingSavedQueries"></lucide-icon>
+              <span>{{ isLoadingSavedQueries ? 'Cargando...' : 'Obtener Mis Consultas' }}</span>
+            </button>
+          </div>
+
+          <div *ngIf="savedAzureQueries.length > 0" class="flex flex-wrap gap-2">
+            <button *ngFor="let sq of savedAzureQueries" (click)="selectSavedQuery(sq)" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-xl border bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 hover:border-indigo-400 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs">
+              <lucide-icon [name]="FolderOpen" size="12" class="text-indigo-500"></lucide-icon>
+              <span>{{ sq.name }}</span>
+            </button>
+          </div>
+
+          <div *ngIf="savedAzureQueries.length === 0 && !isLoadingSavedQueries" class="text-xs text-slate-400 italic bg-white/40 dark:bg-slate-900/40 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between">
+            <span>No se encontraron consultas en tu carpeta personal 'My Queries' de Azure DevOps o falta presionar 'Obtener Mis Consultas'.</span>
+            <button (click)="loadSavedQueriesFromAzure()" type="button" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 underline cursor-pointer ml-2">Cargar Mis Consultas</button>
+          </div>
+        </div>
+
         <!-- Plantillas Predeterminadas de Consulta -->
         <div class="space-y-2 pt-1">
           <label class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Cargar Filtro Rápido:</label>
@@ -746,6 +779,55 @@ export interface WiqlQueryResultRow {
       </div>
     </div>
   </ng-container>
+
+  <!-- MODAL: Guardar Consulta en Azure DevOps -->
+  <div *ngIf="showSaveQueryModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div class="glass-card w-full max-w-md p-6 space-y-5 border border-indigo-500/30 bg-white/95 dark:bg-slate-900/95 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          <lucide-icon [name]="Save" class="text-indigo-600 dark:text-indigo-400" size="18"></lucide-icon>
+          Guardar Consulta en Azure DevOps
+        </h3>
+        <button (click)="closeSaveQueryModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold cursor-pointer">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1">Nombre de la Consulta:</label>
+          <input [(ngModel)]="saveQueryName" type="text" placeholder="Ej: Mis Bugs Críticos - 2026" class="glass-input w-full text-xs font-semibold">
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1">Ubicación en Azure DevOps:</label>
+          <select [(ngModel)]="saveQueryFolder" class="glass-input w-full text-xs font-semibold">
+            <option value="My Queries">Mis Consultas (My Queries)</option>
+            <option value="Shared Queries">Consultas Compartidas (Shared Queries)</option>
+          </select>
+        </div>
+
+        <div *ngIf="saveQuerySuccessMsg" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <lucide-icon [name]="CheckCircle" size="14" class="shrink-0"></lucide-icon>
+          <span>{{ saveQuerySuccessMsg }}</span>
+        </div>
+
+        <div *ngIf="saveQueryErrorMsg" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
+          <lucide-icon [name]="AlertTriangle" size="14" class="shrink-0"></lucide-icon>
+          <span>{{ saveQueryErrorMsg }}</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+        <button (click)="closeSaveQueryModal()" type="button" class="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="confirmSaveQueryToAzure()" [disabled]="isSavingQuery" type="button" class="px-5 py-2 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/20">
+          <span *ngIf="isSavingQuery" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <lucide-icon *ngIf="!isSavingQuery" [name]="Save" size="14"></lucide-icon>
+          <span>{{ isSavingQuery ? 'Guardando...' : 'Guardar en Azure' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
 </div>
   `,
@@ -863,6 +945,137 @@ export class KpiReportComponent implements OnInit {
   readonly Plus = Plus;
   readonly Trash2 = Trash2;
   readonly Filter = Filter;
+  readonly Save = Save;
+  readonly FolderOpen = FolderOpen;
+  readonly CheckCircle = CheckCircle;
+
+  // Modal Save Query state
+  showSaveQueryModal = false;
+  saveQueryName = '';
+  saveQueryFolder = 'My Queries';
+  isSavingQuery = false;
+  saveQuerySuccessMsg = '';
+  saveQueryErrorMsg = '';
+
+  openSaveQueryModal() {
+    this.showSaveQueryModal = true;
+    this.saveQueryName = '';
+    this.saveQuerySuccessMsg = '';
+    this.saveQueryErrorMsg = '';
+  }
+
+  closeSaveQueryModal() {
+    this.showSaveQueryModal = false;
+  }
+
+  confirmSaveQueryToAzure() {
+    if (!this.saveQueryName.trim()) {
+      this.saveQueryErrorMsg = 'Por favor escribe un nombre para la consulta.';
+      return;
+    }
+
+    this.isSavingQuery = true;
+    this.saveQueryErrorMsg = '';
+    this.saveQuerySuccessMsg = '';
+
+    this.adoService.saveQueryToAzureDevOps(this.saveQueryName.trim(), this.customWiqlQuery, this.saveQueryFolder).subscribe({
+      next: () => {
+        this.isSavingQuery = false;
+        this.saveQuerySuccessMsg = `¡Consulta "${this.saveQueryName}" guardada exitosamente en Azure DevOps (${this.saveQueryFolder})!`;
+        this.loadSavedQueriesFromAzure();
+        setTimeout(() => {
+          this.closeSaveQueryModal();
+        }, 1800);
+      },
+      error: (err) => {
+        this.isSavingQuery = false;
+        this.saveQueryErrorMsg = err.error?.message || err.message || 'Error al guardar la consulta en Azure DevOps.';
+      }
+    });
+  }
+
+  // Saved Queries state
+  savedAzureQueries: { id: string; name: string; path: string; wiql: string }[] = [];
+  isLoadingSavedQueries = false;
+
+  loadSavedQueriesFromAzure() {
+    this.isLoadingSavedQueries = true;
+    this.adoService.getSavedQueriesFromAzureDevOps().subscribe({
+      next: (queries) => {
+        this.isLoadingSavedQueries = false;
+        this.savedAzureQueries = queries;
+      },
+      error: () => {
+        this.isLoadingSavedQueries = false;
+        this.savedAzureQueries = [];
+      }
+    });
+  }
+
+  selectSavedQuery(q: { name: string; wiql: string }) {
+    if (!q || !q.wiql) return;
+    this.saveQueryName = q.name || '';
+    this.customWiqlQuery = q.wiql;
+    this.parseWiqlToClauses(q.wiql);
+  }
+
+  /**
+   * Parsea cualquier sentencia WIQL (incluyendo WorkItemLinks, Target.[Field], Source.[Field], etc.)
+   * para reconstruir y prellenar la tabla de cláusulas visuales.
+   */
+  parseWiqlToClauses(wiql: string) {
+    // 1. Extraer la sección de condiciones (entre WHERE y ORDER BY / MODE / final)
+    const whereMatch = wiql.match(/WHERE\s+(.+?)(\s+ORDER\s+BY|\s+MODE|\s*$)/i);
+    if (!whereMatch) return;
+
+    let whereClause = whereMatch[1].trim();
+
+    // 2. Extraer todas las expresiones de condicion individuales: (Source.|Target.)?[FieldName] OPERATOR VALUE
+    // Ejemplo: Target.[System.WorkItemType] in ('User Story', 'Feature', 'Bug')
+    // Ejemplo: Source.[System.IterationPath] under 'Bepensa - DSD Bebidas - OpeCD 2.0'
+    // Ejemplo: [System.State] = 'Active'
+    const clauseRegex = /(?:(Source|Target)\.)?\[([^\]]+)\]\s+(in|not in|under|not under|=|>|<|>=|<=|contains|not contains|is null|is not null|!=|<>)\s+('(?:''|[^'])*'|\((?:[^()]*|\((?:[^()]*)*\))*\)|[^\s()]+)/gi;
+
+    const newClauses: { logicalOperator: 'AND' | 'OR'; field: string; operator: string; value: string }[] = [];
+    const seenMap = new Set<string>();
+
+    let match: RegExpExecArray | null;
+    while ((match = clauseRegex.exec(whereClause)) !== null) {
+      const prefix = match[1] ? match[1] + '.' : '';
+      const rawFieldName = match[2];
+      let operator = match[3].toUpperCase();
+      let rawVal = match[4].trim();
+
+      // Ignorar relaciones de jerarquía puras si se prefiere focus en los filtros de campos
+      if (rawFieldName === 'System.Links.LinkType') continue;
+
+      const field = rawFieldName; // ej: System.WorkItemType, System.State, System.IterationPath, etc.
+
+      // Limpiar paréntesis y comillas del valor
+      if (operator === 'IN' || operator === 'NOT IN') {
+        rawVal = rawVal.replace(/^\(\s*/, '').replace(/\s*\)$/, '');
+        rawVal = rawVal.split(',').map(v => v.trim().replace(/^'/, '').replace(/'$/, '').replace(/''/g, "'")).join(', ');
+      } else {
+        rawVal = rawVal.replace(/^'/, '').replace(/'$/, '').replace(/''/g, "'");
+      }
+
+      // Evitar duplicados exactos si provienen de múltiples sub-ramas (Source vs Target)
+      const dedupeKey = `${field}:${operator}:${rawVal}`;
+      if (!seenMap.has(dedupeKey)) {
+        seenMap.add(dedupeKey);
+        newClauses.push({
+          logicalOperator: newClauses.length === 0 ? 'AND' : 'AND',
+          field,
+          operator,
+          value: rawVal
+        });
+      }
+    }
+
+    if (newClauses.length > 0) {
+      this.queryClauses = newClauses;
+    }
+  }
 
   // Visual Builder Clauses (Estilo Azure DevOps)
   queryClauses: { logicalOperator: 'AND' | 'OR'; field: string; operator: string; value: string }[] = [
@@ -1024,6 +1237,7 @@ export class KpiReportComponent implements OnInit {
     this.loadSavedSelection();
     if (this.configService.getConfig()) {
       this.loadAreas();
+      this.loadSavedQueriesFromAzure();
     }
   }
 

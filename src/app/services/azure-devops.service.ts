@@ -1771,9 +1771,80 @@ export class AzureDevOpsService {
         return this.getWorkItemDetails(ids, fields);
       }),
       catchError(err => {
-        console.error('[WIQL Error]', err);
-        return of([]);
+        const msg = err.error?.message || err.message || 'Error al consultar WIQL en Azure DevOps';
+        throw new Error(msg);
       })
+    );
+  }
+
+  /**
+   * Guarda una nueva consulta WIQL en Azure DevOps (Shared Queries o My Queries)
+   */
+  saveQueryToAzureDevOps(name: string, wiqlQuery: string, folderPath: string = 'My Queries'): Observable<any> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of(null);
+    const headers = this.getHeaders();
+
+    const body = {
+      name,
+      wiql: wiqlQuery
+    };
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/${encodeURIComponent(folderPath)}?api-version=7.0`,
+      body,
+      { headers }
+    );
+  }
+
+  /**
+   * Obtiene exclusivamente las consultas guardadas del usuario en 'My Queries' (Mis Consultas)
+   */
+  getSavedQueriesFromAzureDevOps(): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const headers = this.getHeaders();
+
+    return this.http.get<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/My Queries?$depth=2&$expand=all&api-version=7.0`,
+      { headers }
+    ).pipe(
+      switchMap(res => {
+        const queryItems: any[] = [];
+        const extractQueries = (item: any) => {
+          if (item.isFolder === false || item.wiql) {
+            queryItems.push(item);
+          }
+          if (item.children) {
+            item.children.forEach((c: any) => extractQueries(c));
+          }
+        };
+
+        if (res.children) {
+          res.children.forEach((c: any) => extractQueries(c));
+        } else if (res.isFolder === false || res.wiql) {
+          queryItems.push(res);
+        }
+
+        if (queryItems.length === 0) return of([]);
+
+        // Fetch details for individual queries that don't have wiql property inline
+        const details$ = queryItems.map(q => {
+          if (q.wiql) return of({ id: q.id, name: q.name, path: q.path, wiql: q.wiql });
+          return this.http.get<any>(
+            `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/${q.id}?api-version=7.0`,
+            { headers }
+          ).pipe(
+            map(detail => ({ id: detail.id, name: detail.name, path: detail.path, wiql: detail.wiql })),
+            catchError(() => of(null))
+          );
+        });
+
+        return forkJoin(details$).pipe(
+          map(list => list.filter(item => item && item.wiql))
+        );
+      }),
+      catchError(() => of([]))
     );
   }
 }
