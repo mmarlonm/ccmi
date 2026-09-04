@@ -1,4 +1,4 @@
-import{a as B}from"./chunk-NKLAHAUQ.js";import{G as M,O as L,U as N,j as m,o as C,p as h,qc as k,w as x,y as O}from"./chunk-TUR36GAB.js";var z=class P{http=N(k);configService=N(B);analyzeMetrics(e,t=[],u={}){let d=this.configService.getConfig();if(!d||!d.ai.apiKey)return m("AI Configuration missing.");let a=this.buildPromptContext(e,t,u),s=`
+import{a as B}from"./chunk-L65TZZHD.js";import{G as M,O as L,U as N,j as m,o as C,p as h,qc as k,w as x,y as O}from"./chunk-TUR36GAB.js";var z=class P{http=N(k);configService=N(B);analyzeMetrics(e,t=[],u={}){let d=this.configService.getConfig();if(!d||!d.ai.apiKey)return m("AI Configuration missing.");let a=this.buildPromptContext(e,t,u),s=`
       Act\xFAa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas m\xE9tricas y devuelve el resultado en ESPA\xD1OL. 
       ${a.commentsSummary}
       CONTEXTO DEL EQUIPO:
