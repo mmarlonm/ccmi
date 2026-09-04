@@ -2,6 +2,7 @@ export interface CMMIMetrics {
   iterationName?: string;
   startDate?: string;
   endDate?: string;
+  allWorkItems?: any[];
   developmentRate: {
     rate: number;
     effort: number;

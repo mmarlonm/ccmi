@@ -33,7 +33,8 @@ import {
   Terminal,
   Trash2,
   FolderTree,
-  Folder
+  Folder,
+  RefreshCw
 } from 'lucide-angular';
 import * as XLSX from 'xlsx';
 
@@ -70,6 +71,8 @@ export interface SaaoMacroTask {
   startDate: string;
   endDate: string;
   deliverableBigRock: string;
+  estimatedHours?: number;
+  estimatedMinutes?: number;
   tasks: string[];
   status: 'pending' | 'inserted' | 'saved';
 }
@@ -246,14 +249,60 @@ export class SprintProcessComponent implements OnInit {
   readonly Trash2 = Trash2;
   readonly FolderTree = FolderTree;
   readonly Folder = Folder;
+  readonly RefreshCw = RefreshCw;
 
-  // Sprint Data
+  // Sprint Data & Local Draft Sprints
   iterations: any[] = [];
+  customDraftSprints: any[] = [];
   selectedIteration: string = '';
   selectedIterationName: string = '';
   metrics: CMMIMetrics | null = null;
   loading = false;
   activeStage: number = 1;
+
+  // Modal State for Draft Sprints
+  isCreateDraftModalOpen: boolean = false;
+  newDraftSprintName: string = '';
+
+  openCreateDraftSprintModal(): void {
+    this.newDraftSprintName = '';
+    this.isCreateDraftModalOpen = true;
+  }
+
+  saveDraftSprint(): void {
+    if (!this.newDraftSprintName.trim()) {
+      this.notificationService.error('Ingresa un nombre para el Sprint/Iteración local.');
+      return;
+    }
+
+    const draftName = this.newDraftSprintName.trim();
+    const draftId = `draft_${Date.now()}`;
+    const draftObj = { id: draftId, name: draftName, path: `[Borrador BD] ${draftName}`, isDraft: true };
+
+    this.customDraftSprints.push(draftObj);
+    localStorage.setItem('cmmi5_custom_draft_sprints', JSON.stringify(this.customDraftSprints));
+
+    // Seleccionar de inmediato el borrador creado
+    this.selectedIteration = draftId;
+    this.selectedIterationName = draftName;
+    this.isCreateDraftModalOpen = false;
+
+    // Inicializar métricas vacías estructuradas para permitir pre-análisis y Big Rocks antes de Azure
+    this.metrics = {
+      iterationName: draftName,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      developmentRate: { rate: 0, effort: 0, size: 0, status: 'green', totalItems: 0, totalEffort: 0, totalSize: 0, stdDeviation: 0, items: [] },
+      defectRemovalEfficiency: { totalBugs: 0, closedOnTime: 0, closedLate: 0, proposed: 0, resolved: 0, active: 0, rate: 0, status: 'green', bugsList: [] },
+      effortVariance: { planned: 0, actual: 0, rate: 0, stdDeviation: 0, avgIndividualRate: 0, absoluteRate: 0, status: 'green' },
+      rework: { reqEffort: 0, reqRework: 0, bugRework: 0, totalRework: 0, rate: 0, status: 'green' },
+      defectDensity: { bugs: 0, size: 0, density: 0, status: 'green' },
+      escapedBugs: { bugsTesting: 0, bugsUat: 0, bugsProd: 0, totalBugs: 0, rate: 0, status: 'green', stdDeviation: 0, bugsList: [] }
+    };
+
+    this.saveFullProcessToMongoDB();
+    this.notificationService.success(`Sprint borrador "${draftName}" configurado en BD. Ya puedes agregar Pre-Análisis y Big Rocks.`);
+  }
 
   // Storage keys
   private readonly STORAGE_KEY = 'cmmi5_analyzer_selection';
@@ -300,17 +349,20 @@ export class SprintProcessComponent implements OnInit {
   isSplitView: boolean = true;
   saaoUrl: string = 'https://saao.blueoceantech.com.mx/MacrotareaForm';
 
-  // SAAO Mapping Dictionary
-  readonly macroTagMap: { [key: string]: { name: string; tag: string } } = {
-    'BR_AnálisisDiseño': { name: 'Análisis y diseño', tag: 'BR_AnálisisDiseño' },
-    'BR_Monitoreo': { name: 'Monitoreo y seguimiento', tag: 'BR_Monitoreo' },
-    'BR_AdmDev': { name: 'Administración de desarrollo', tag: 'BR_AdmDev' },
-    'BR_Dev': { name: 'Desarrollo sprint en curso', tag: 'BR_Dev' },
-    'BR_LIB': { name: 'Liberación', tag: 'BR_LIB' }
+  // SAAO Mapping Dictionary con estimaciones por defecto (hh:mm) para Big Rocks
+  readonly macroTagMap: { [key: string]: { name: string; tag: string; defaultHours: number; defaultMinutes: number } } = {
+    'BR_AnálisisDiseño': { name: 'Análisis y diseño', tag: 'BR_AnálisisDiseño', defaultHours: 8, defaultMinutes: 0 },
+    'BR_Monitoreo': { name: 'Monitoreo y seguimiento', tag: 'BR_Monitoreo', defaultHours: 6, defaultMinutes: 0 },
+    'BR_AdmDev': { name: 'Administración de desarrollo', tag: 'BR_AdmDev', defaultHours: 4, defaultMinutes: 0 },
+    'BR_Dev': { name: 'Desarrollo sprint en curso', tag: 'BR_Dev', defaultHours: 40, defaultMinutes: 0 },
+    'BR_LIB': { name: 'Liberación', tag: 'BR_LIB', defaultHours: 4, defaultMinutes: 0 }
   };
+
+
 
   ngOnInit(): void {
     this.loadSavedSelection();
+    this.loadDraftSprints();
     this.loadIterations();
     this.initDefaultSaaoDemoData();
     this.loadPreAnalyses();
@@ -322,6 +374,13 @@ export class SprintProcessComponent implements OnInit {
         this.notificationService.error('⚠️ La extensión Mayansoft TT fue actualizada en Chrome. Por favor presiona F5 en esta página web para reconectar.');
       }
     });
+  }
+
+  loadDraftSprints(): void {
+    const saved = localStorage.getItem('cmmi5_custom_draft_sprints');
+    if (saved) {
+      try { this.customDraftSprints = JSON.parse(saved); } catch (e) {}
+    }
   }
 
   getItemAnalysis(item: any): ItemIndividualAnalysis {
@@ -437,7 +496,8 @@ export class SprintProcessComponent implements OnInit {
           this.manualPreAnalyses = res;
         }
         this.linkPreAnalysesWithAzureItems();
-      }
+      },
+      error: () => {}
     });
   }
 
@@ -510,23 +570,777 @@ export class SprintProcessComponent implements OnInit {
       this.selectedIterationName = iterObj.name || iterObj.path || '';
     }
 
+    console.group(`🔍 [cmmi5-analyzer] Cargando datos para Sprint: "${this.selectedIterationName}" (ID: ${this.selectedIteration})`);
+    console.log(`👤 Usuario configurado (userEmail): "${this.userEmail}"`);
+    this.addLog(`🔍 Cargando datos de Azure DevOps para Sprint: "${this.selectedIterationName}"...`, 'info');
+
     // Save selection
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ iteration: this.selectedIteration }));
+
+    // Cargar borrador/proceso guardado primero
+    this.loadSavedSprintProcessData();
 
     // Load Sprint Data
     this.adoService.getMetrics(this.selectedIteration).subscribe({
       next: (m) => {
         this.metrics = m;
         this.loading = false;
-        this.validatePeerReviewBeforeRisks();
-        this.loadSavedSprintProcessData();
-        this.linkPreAnalysesWithAzureItems();
+
+        const itemsCount = m?.developmentRate?.items?.length || 0;
+        console.log(`📊 Respuesta de Azure DevOps recibida: ${itemsCount} work items devueltos.`);
+        this.addLog(`📊 Azure DevOps devolvió ${itemsCount} work items para el sprint.`, 'success');
+
+        if (itemsCount > 0) {
+          if (this.saaoMacroTasks && this.saaoMacroTasks.some(m => m.tasks && m.tasks.length > 0)) {
+            this.syncSaaoTasksWithAzure();
+          } else {
+            this.buildSaaoMacroTasksFromAzure();
+          }
+        } else {
+          console.warn(`⚠️ No se devolvieron Work Items desde Azure DevOps para esta iteración. Verificando fallback de IDs en tareas SAAO...`);
+          this.addLog(`⚠️ Azure DevOps no devolvió ítems para este sprint. Revisando sub-tareas en memoria...`, 'warn');
+          this.ensureAzureIdOnSaaoTasks();
+        }
+        console.groupEnd();
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
+        console.error(`❌ Error al consultar métricas de Azure DevOps:`, err);
+        this.addLog(`❌ Error al consultar Azure DevOps: ${err?.message || 'Error de conexión'}`, 'error');
         this.notificationService.error('Error al cargar datos del sprint desde Azure DevOps.');
+        console.groupEnd();
       }
     });
+  }
+
+  normalizeText(text: string): string {
+    if (!text) return '';
+    return String(text)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  cleanWorkItemTitle(rawTitle: string): string {
+    if (!rawTitle) return '';
+    let title = String(rawTitle).trim();
+    let prev = '';
+    while (title !== prev) {
+      prev = title;
+      // Quitar puntuación/corchetes/paréntesis/hashtags iniciales
+      title = title.replace(/^[\s:\-_\>\/\\\[\]\(\)#]+/, '').trim();
+      // Quitar 'Task 12345:' o 'Task 12345'
+      title = title.replace(/^Task\s*#?\s*\d+\s*:?\s*/i, '').trim();
+      // Quitar prefijos tipo 'US 47846:', 'FT 47950:', 'Bug 1234:', 'Feature 1234:', 'User Story 1234:'
+      title = title.replace(/^(US|FT|Feature|Bug|User Story|Epic|Requirement|Requisito)\s*#?\s*\d+\s*:?\s*/i, '').trim();
+      // Quitar prefijos de sub-tarea como 'Task 01.00', 'Task 01.01', 'Task 04', '01.00', '01.01'
+      title = title.replace(/^(Task\s*)?\d{1,2}(\.\d{1,2})?\s*:?\s*/i, '').trim();
+      // Limpiar signos al inicio dejados tras la remoción de prefijos
+      title = title.replace(/^[\s:\-_\>\/\\\[\]\(\)#]+/, '').trim();
+    }
+    return title;
+  }
+
+  findAzureIdForTaskTitle(rawTaskTitle: string): { id: string; cleanTitle: string } | null {
+    if (!rawTaskTitle) return null;
+    const cleanTitle = this.cleanWorkItemTitle(rawTaskTitle);
+    if (!cleanTitle) return null;
+
+    const existingIdMatch = String(rawTaskTitle).match(/Task\s*#?\s*(\d{4,6})/i) || String(rawTaskTitle).match(/^(\d{4,6})[\s:\-_]/) || String(rawTaskTitle).match(/\[(\d{4,6})\]/);
+    const existingId = existingIdMatch ? existingIdMatch[1] : '';
+
+    const normTarget = this.normalizeText(cleanTitle);
+
+    const azureItems = this.metrics?.developmentRate?.items || [];
+    const allWorkItems = (this.metrics as any)?.allWorkItems || [];
+    const candidates: { id: string; title: string; normTitle: string; assignedTo: string }[] = [];
+
+    // 1. Process allWorkItems (flat list of all work items & tasks returned from Azure)
+    allWorkItems.forEach((wi: any) => {
+      if (wi.id && wi.title) {
+        const cleaned = this.cleanWorkItemTitle(wi.title);
+        if (cleaned) {
+          candidates.push({
+            id: String(wi.id),
+            title: cleaned,
+            normTitle: this.normalizeText(cleaned),
+            assignedTo: String(wi.assignedTo || wi.isw || '').toLowerCase()
+          });
+        }
+      }
+    });
+
+    // 2. Process developmentRate.items (parent items and their tasks / relatedBugs)
+    azureItems.forEach((item: any) => {
+      if (item.id && item.title) {
+        const cleaned = this.cleanWorkItemTitle(item.title);
+        if (cleaned) {
+          candidates.push({
+            id: String(item.id),
+            title: cleaned,
+            normTitle: this.normalizeText(cleaned),
+            assignedTo: String(item.isw || item.assignedTo || '').toLowerCase()
+          });
+        }
+      }
+      if (item.tasks && Array.isArray(item.tasks)) {
+        item.tasks.forEach((sub: any) => {
+          const subId = sub.id || item.id;
+          const subTitle = sub.title || sub.name || '';
+          if (subId && subTitle) {
+            const cleanedSub = this.cleanWorkItemTitle(subTitle);
+            if (cleanedSub) {
+              candidates.push({
+                id: String(subId),
+                title: cleanedSub,
+                normTitle: this.normalizeText(cleanedSub),
+                assignedTo: String(sub.assignedTo || sub.isw || item.isw || '').toLowerCase()
+              });
+            }
+          }
+        });
+      }
+      if (item.relatedBugs && Array.isArray(item.relatedBugs)) {
+        item.relatedBugs.forEach((bug: any) => {
+          if (bug.id && bug.title) {
+            const cleanedBug = this.cleanWorkItemTitle(bug.title);
+            if (cleanedBug) {
+              candidates.push({
+                id: String(bug.id),
+                title: cleanedBug,
+                normTitle: this.normalizeText(cleanedBug),
+                assignedTo: String(bug.assignedTo || bug.isw || '').toLowerCase()
+              });
+            }
+          }
+        });
+      }
+    });
+
+    if (this.manualPreAnalyses && this.manualPreAnalyses.length > 0) {
+      this.manualPreAnalyses.forEach((p: any) => {
+        if (p.itemId && p.title) {
+          const cleanedP = this.cleanWorkItemTitle(p.title);
+          if (cleanedP) {
+            candidates.push({
+              id: String(p.itemId),
+              title: cleanedP,
+              normTitle: this.normalizeText(cleanedP),
+              assignedTo: String(p.assignedTo || '').toLowerCase()
+            });
+          }
+        }
+      });
+    }
+
+    if (candidates.length === 0) {
+      if (existingId) return { id: existingId, cleanTitle };
+      return null;
+    }
+
+    // Priorizar fuertemente las tareas asignadas al correo/usuario configurado localmente (userEmail)
+    const userTokens = this.userEmail
+      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean')
+      : [];
+
+    const isUserMatch = (assignedTo: string) => {
+      if (!assignedTo) return false;
+      if (userTokens.length > 0) {
+        return userTokens.some(t => assignedTo.includes(t));
+      }
+      return false;
+    };
+
+    candidates.sort((a, b) => {
+      const aMatch = isUserMatch(a.assignedTo) ? 1 : 0;
+      const bMatch = isUserMatch(b.assignedTo) ? 1 : 0;
+      return bMatch - aMatch;
+    });
+
+    if (!normTarget) {
+      if (existingId) return { id: existingId, cleanTitle };
+      return null;
+    }
+
+    const stopwords = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'en', 'para', 'por', 'con', 'un', 'una', 'unos', 'unas', 'y', 'o', 'a', 'al']);
+
+    // Strategy 1: Exact normalized match
+    for (const cand of candidates) {
+      if (!cand.normTitle) continue;
+      if (cand.normTitle === normTarget) {
+        return { id: cand.id, cleanTitle };
+      }
+    }
+
+    // Strategy 2: Substring match on normalized text
+    for (const cand of candidates) {
+      if (!cand.normTitle) continue;
+      if (cand.normTitle.includes(normTarget) || normTarget.includes(cand.normTitle)) {
+        return { id: cand.id, cleanTitle };
+      }
+    }
+
+    // Strategy 3: Token overlap matching (handling Spanish word order/variations)
+    const targetTokens = normTarget
+      .split(/\s+/)
+      .filter(t => t.length > 2 && !stopwords.has(t));
+
+    if (targetTokens.length > 0) {
+      let bestMatch: { id: string; score: number } | null = null;
+      for (const cand of candidates) {
+        if (!cand.normTitle) continue;
+        const candTokens = cand.normTitle
+          .split(/\s+/)
+          .filter(t => t.length > 2 && !stopwords.has(t));
+
+        if (candTokens.length === 0) continue;
+
+        let matchedCount = 0;
+        targetTokens.forEach(token => {
+          if (candTokens.some(ct => ct === token || ct.includes(token) || token.includes(ct))) {
+            matchedCount++;
+          }
+        });
+
+        const score = matchedCount / targetTokens.length;
+        if (score >= 0.4 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { id: cand.id, score };
+        }
+      }
+
+      if (bestMatch) {
+        return { id: bestMatch.id, cleanTitle };
+      }
+    }
+
+    if (existingId) return { id: existingId, cleanTitle };
+    return null;
+  }
+
+  formatTaskWithAzureId(id: string | number, title: string): string {
+    const cleanId = String(id || '').trim();
+    const cleanName = this.cleanWorkItemTitle(title);
+    if (cleanId && cleanName) {
+      return `Task ${cleanId}: ${cleanName}`;
+    }
+    return cleanName;
+  }
+
+  formatTaskWithAzureIdFallback(taskTitle: string, defaultId: string = ''): string {
+    if (!taskTitle) return '';
+    const found = this.findAzureIdForTaskTitle(taskTitle);
+    if (found && found.id) {
+      return `Task ${found.id}: ${found.cleanTitle}`;
+    }
+    const cleanName = this.cleanWorkItemTitle(taskTitle);
+    if (defaultId && cleanName) {
+      return `Task ${defaultId}: ${cleanName}`;
+    }
+    const idMatch = String(taskTitle).match(/^Task\s*(\d+)\s*:?\s*/i) || String(taskTitle).match(/^(\d{4,6})[\s:\-_]/);
+    if (idMatch && idMatch[1] && cleanName) {
+      return `Task ${idMatch[1]}: ${cleanName}`;
+    }
+    return cleanName;
+  }
+
+  syncSaaoTasksWithAzure(): void {
+    if (!this.saaoMacroTasks || this.saaoMacroTasks.length === 0) return;
+
+    let modified = false;
+
+    this.saaoMacroTasks.forEach(macro => {
+      if (this.userEmail && (!macro.assignedTo || macro.assignedTo === 'marlon')) {
+        macro.assignedTo = this.userEmail.split('@')[0].toLowerCase();
+      }
+
+      macro.tasks = (macro.tasks || []).map(taskStr => {
+        if (!taskStr) return '';
+        const cleanStr = String(taskStr).trim();
+
+        // Descartar metadatos o filas basura del Excel
+        const lower = cleanStr.toLowerCase();
+        if (lower.startsWith('fecha') || lower.startsWith('tasa') || lower.startsWith('hrs por') || lower.startsWith('cantidad') || lower.startsWith('team')) {
+          modified = true;
+          return '';
+        }
+
+        const found = this.findAzureIdForTaskTitle(cleanStr);
+        if (found && found.id) {
+          const formatted = `Task ${found.id}: ${found.cleanTitle}`;
+          if (formatted !== cleanStr) modified = true;
+          return formatted;
+        }
+
+        const idMatch = cleanStr.match(/^Task\s*(\d+)\s*:?\s*/i) || cleanStr.match(/^(\d{4,6})[\s:\-_]/);
+        const cleanName = this.cleanWorkItemTitle(cleanStr);
+        if (idMatch && idMatch[1] && cleanName) {
+          const formatted = `Task ${idMatch[1]}: ${cleanName}`;
+          if (formatted !== cleanStr) modified = true;
+          return formatted;
+        }
+
+        return cleanName;
+      }).filter(Boolean);
+    });
+
+    if (modified) {
+      this.saaoMacroTasks = [...this.saaoMacroTasks];
+      this.saveFullProcessToMongoDB();
+    }
+  }
+
+  ensureAzureIdOnSaaoTasks(): void {
+    this.syncSaaoTasksWithAzure();
+  }
+
+  buildSaaoMacroTasksFromAzure(): void {
+    if (!this.metrics?.developmentRate?.items || this.metrics.developmentRate.items.length === 0) {
+      console.warn(`⚠️ buildSaaoMacroTasksFromAzure: No hay items en metrics.developmentRate.items`);
+      return;
+    }
+
+    const releaseMatch = this.selectedIterationName.match(/Release\s*#?\s*(\d+)/i);
+    const releaseNum = releaseMatch ? releaseMatch[1] : '15';
+
+    console.group(`🧱 [Etapa 7] Construyendo Macrotareas SAAO con IDs reales de Azure DevOps (Release #${releaseNum})`);
+    this.addLog(`🧱 [Etapa 7] Procesando Work Items de Azure DevOps para usuario "${this.userEmail || 'todos'}"...`, 'info');
+
+    const categories = [
+      { key: 'BR_AnálisisDiseño', title: `Ope 20>Release #${releaseNum}>Análisis y diseño`, defaultHours: 8 },
+      { key: 'BR_Monitoreo', title: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`, defaultHours: 6 },
+      { key: 'BR_AdmDev', title: `Ope 20>Release #${releaseNum}>Administración de desarrollo`, defaultHours: 4 },
+      { key: 'BR_Dev', title: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`, defaultHours: 40 },
+      { key: 'BR_LIB', title: `Ope 20>Release #${releaseNum}>Liberación`, defaultHours: 4 }
+    ];
+
+    const macroMap = new Map<string, SaaoMacroTask>();
+
+    categories.forEach(cat => {
+      macroMap.set(cat.key, {
+        tag: cat.key,
+        macroTitle: cat.title,
+        releaseName: `Release #${releaseNum}`,
+        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : 'marlon',
+        startDate: this.metrics?.startDate || '',
+        endDate: this.metrics?.endDate || '',
+        deliverableBigRock: cat.title,
+        estimatedHours: cat.defaultHours,
+        estimatedMinutes: 0,
+        tasks: [],
+        status: 'pending'
+      });
+    });
+
+    const userTokens = this.userEmail
+      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech')
+      : [];
+
+    let totalMatchedTasks = 0;
+
+    this.metrics.developmentRate.items.forEach((item: any) => {
+      const realAzureId = item.id;
+      if (!realAzureId) {
+        console.warn(`⚠️ Ítem sin ID de Azure ignorado:`, item);
+        return;
+      }
+
+      // Filtrar por el usuario/correo configurado en CMMI de forma robusta por tokens
+      const itemAssigned = String(item.isw || item.assignedTo || '').trim().toLowerCase();
+      if (userTokens.length > 0 && itemAssigned && itemAssigned !== 'unassigned') {
+        const isMatch = userTokens.some(token => itemAssigned.includes(token));
+        if (!isMatch) {
+          console.log(`⏩ Tarea ID #${realAzureId} ("${item.title}") asignada a "${itemAssigned}" saltada por no coincidir con usuario "${this.userEmail}".`);
+          return; // Saltar tareas asignadas a otros colaboradores
+        }
+      }
+
+      const cleanTitle = this.cleanWorkItemTitle(item.title || '');
+      if (!cleanTitle) return;
+
+      const formattedTitle = `Task ${realAzureId}: ${cleanTitle}`;
+      const titleLower = cleanTitle.toLowerCase();
+
+      let targetTag = 'BR_Dev';
+      if (titleLower.includes('análisis') || titleLower.includes('analisis') || titleLower.includes('diseño')) {
+        targetTag = 'BR_AnálisisDiseño';
+      } else if (titleLower.includes('monitoreo') || titleLower.includes('seguimiento') || titleLower.includes('riesgos')) {
+        targetTag = 'BR_Monitoreo';
+      } else if (titleLower.includes('administración') || titleLower.includes('adm')) {
+        targetTag = 'BR_AdmDev';
+      } else if (titleLower.includes('liberación') || titleLower.includes('liberacion')) {
+        targetTag = 'BR_LIB';
+      }
+
+      const macro = macroMap.get(targetTag);
+      if (macro && !macro.tasks.includes(formattedTitle)) {
+        macro.tasks.push(formattedTitle);
+        totalMatchedTasks++;
+        console.log(`✅ [Formateada] -> Tag: ${targetTag} | ${formattedTitle}`);
+      }
+
+      // Procesar sub-tareas si existen en el item de Azure
+      if (item.tasks && Array.isArray(item.tasks)) {
+        item.tasks.forEach((sub: any) => {
+          const subAssigned = String(sub.assignedTo || sub.isw || item.isw || '').trim().toLowerCase();
+          if (userTokens.length > 0 && subAssigned && subAssigned !== 'unassigned') {
+            const isSubMatch = userTokens.some(token => subAssigned.includes(token));
+            if (!isSubMatch) return;
+          }
+
+          const subId = sub.id || item.id;
+          const subClean = this.cleanWorkItemTitle(sub.title || sub.name || '');
+          if (subClean) {
+            const formattedSub = `Task ${subId}: ${subClean}`;
+            const subLower = subClean.toLowerCase();
+
+            let subTargetTag = targetTag;
+            if (subLower.includes('análisis') || subLower.includes('analisis') || subLower.includes('diseño')) {
+              subTargetTag = 'BR_AnálisisDiseño';
+            } else if (subLower.includes('monitoreo') || subLower.includes('seguimiento') || subLower.includes('riesgos')) {
+              subTargetTag = 'BR_Monitoreo';
+            } else if (subLower.includes('administración') || subLower.includes('adm')) {
+              subTargetTag = 'BR_AdmDev';
+            } else if (subLower.includes('liberación') || subLower.includes('liberacion')) {
+              subTargetTag = 'BR_LIB';
+            }
+
+            const subMacro = macroMap.get(subTargetTag) || macro;
+            if (subMacro && !subMacro.tasks.includes(formattedSub)) {
+              subMacro.tasks.push(formattedSub);
+              totalMatchedTasks++;
+              console.log(`  └─ ✅ Sub-tarea formateada -> [${subTargetTag}] ${formattedSub}`);
+            }
+          }
+        });
+      }
+    });
+
+    // Si la macrotarea de Desarrollo quedó sin sub-tareas, poblarla con las tareas filtradas del sprint
+    const devMacro = macroMap.get('BR_Dev');
+    if (devMacro && devMacro.tasks.length === 0) {
+      console.warn(`⚠️ La macrotarea BR_Dev no acumuló tareas específicas. Usando fallback de lista general de items...`);
+      this.metrics.developmentRate.items.forEach((item: any) => {
+        if (!item.id || !item.title) return;
+        const itemAssigned = String(item.isw || item.assignedTo || '').trim().toLowerCase();
+        if (userTokens.length > 0 && itemAssigned && itemAssigned !== 'unassigned') {
+          const isMatch = userTokens.some(token => itemAssigned.includes(token));
+          if (!isMatch) return;
+        }
+        const clean = this.cleanWorkItemTitle(item.title);
+        const formattedFallback = `Task ${item.id}: ${clean}`;
+        if (!devMacro.tasks.includes(formattedFallback)) {
+          devMacro.tasks.push(formattedFallback);
+          totalMatchedTasks++;
+        }
+      });
+    }
+
+    this.saaoMacroTasks = Array.from(macroMap.values());
+    const collabs = Array.from(new Set(this.saaoMacroTasks.map(m => m.assignedTo)));
+    this.saaoCollaboratorList = ['todos', ...collabs];
+    if (this.userEmail) {
+      this.filterCollaborator = this.userEmail.trim().toLowerCase();
+    }
+    console.log(`✨ Total de tareas formateadas a "Task {id}: {nombre}": ${totalMatchedTasks}`);
+    console.groupEnd();
+    this.addLog(`✨ Etapa 7 completada: ${totalMatchedTasks} tareas formateadas como "Task {id}: {nombre}".`, 'success');
+
+    this.saveFullProcessToMongoDB();
+  }
+
+  get filteredSaaoMacroTasks(): SaaoMacroTask[] {
+    if (!this.saaoMacroTasks || this.saaoMacroTasks.length === 0) return [];
+
+    // Formatear proactivamente si tenemos métricas de Azure y aún hay tareas sin ID 'Task {id}:'
+    if (this.metrics?.developmentRate?.items && this.metrics.developmentRate.items.length > 0) {
+      let unformattedCount = 0;
+      this.saaoMacroTasks.forEach(macro => {
+        (macro.tasks || []).forEach(t => {
+          if (t && !/^Task\s*\d+/i.test(t)) {
+            unformattedCount++;
+          }
+        });
+      });
+      if (unformattedCount > 0) {
+        this.syncSaaoTasksWithAzure();
+      }
+    }
+
+    if (!this.filterCollaborator || this.filterCollaborator === 'todos') {
+      return this.saaoMacroTasks.filter(m => m.tasks && m.tasks.length > 0);
+    }
+
+    const filter = this.filterCollaborator.toLowerCase().trim();
+    const userTokens = filter.split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean');
+
+    return this.saaoMacroTasks.filter(m => {
+      if (!m.tasks || m.tasks.length === 0) return false;
+      const assigned = (m.assignedTo || '').toLowerCase().trim();
+      if (!assigned) return true;
+      if (assigned.includes(filter) || filter.includes(assigned)) return true;
+      if (userTokens.length > 0) {
+        return userTokens.some(token => assigned.includes(token));
+      }
+      return false;
+    });
+  }
+
+  onExcelUpload(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    this.excelFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        // 1. Buscar pestaña por nombre 'Tareas de gestión', 'Gestión', 'Planning', 'Tasks'
+        let targetSheetName = workbook.SheetNames.find(s => {
+          const l = s.toLowerCase();
+          return l.includes('tareas de') || l.includes('gestión') || l.includes('gestion') || l.includes('planning') || l.includes('tasks');
+        });
+
+        // 2. Si no hay por nombre, buscar la pestaña que tenga la columna 'Title 2' o 'Título 2' o 'Tag'
+        if (!targetSheetName) {
+          for (const sName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sName];
+            const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const hasHeader = rows.slice(0, 5).some(row =>
+              Array.isArray(row) && row.some(cell => {
+                const cStr = String(cell || '').toLowerCase();
+                return cStr.includes('title 2') || cStr.includes('título 2') || cStr.includes('macrotarea') || cStr.includes('br_');
+              })
+            );
+            if (hasHeader) {
+              targetSheetName = sName;
+              break;
+            }
+          }
+        }
+
+        if (!targetSheetName) targetSheetName = workbook.SheetNames[0];
+
+        console.log(`📊 Leyendo pestaña de Excel seleccionada: "${targetSheetName}"`);
+        const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[targetSheetName], { header: 1 });
+        this.processExcelRows(rows);
+      } catch (err) {
+        console.error('Error procesando Excel:', err);
+        this.notificationService.error('Error al procesar el archivo de Excel.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  processExcelRows(rows: any[]): void {
+    if (!rows || rows.length < 2) return;
+
+    let title2ColIndex = -1;
+    let assignedToColIndex = -1;
+    let tagColIndex = -1;
+    let idColIndex = -1;
+
+    for (let h = 0; h < Math.min(rows.length, 5); h++) {
+      const headerRow = rows[h];
+      if (Array.isArray(headerRow)) {
+        headerRow.forEach((colVal: any, idx: number) => {
+          const valStr = String(colVal || '').trim().toLowerCase();
+          if (valStr.includes('title 2') || valStr.includes('título 2') || valStr.includes('nombre tarea') || valStr.includes('task title')) {
+            title2ColIndex = idx;
+          }
+          if (valStr.includes('assigned to') || valStr.includes('asignado a') || valStr.includes('isw') || valStr.includes('responsable')) {
+            assignedToColIndex = idx;
+          }
+          if (valStr.includes('tags') || valStr.includes('etiqueta') || valStr.includes('macrotarea')) {
+            tagColIndex = idx;
+          }
+          if (valStr === 'id' || valStr.includes('work item id') || valStr.includes('task id') || valStr === 'id tarea') {
+            idColIndex = idx;
+          }
+        });
+      }
+    }
+
+    const releaseMatch = this.selectedIterationName ? this.selectedIterationName.match(/Release\s*#?\s*(\d+)/i) : null;
+    const releaseNum = releaseMatch ? releaseMatch[1] : '15';
+
+    const categories = [
+      { key: 'BR_AnálisisDiseño', title: `Ope 20>Release #${releaseNum}>Análisis y diseño`, defaultHours: 8 },
+      { key: 'BR_Monitoreo', title: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`, defaultHours: 6 },
+      { key: 'BR_AdmDev', title: `Ope 20>Release #${releaseNum}>Administración de desarrollo`, defaultHours: 4 },
+      { key: 'BR_Dev', title: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`, defaultHours: 40 },
+      { key: 'BR_LIB', title: `Ope 20>Release #${releaseNum}>Liberación`, defaultHours: 4 }
+    ];
+
+    const macroMap = new Map<string, SaaoMacroTask>();
+    categories.forEach(cat => {
+      macroMap.set(cat.key, {
+        tag: cat.key,
+        macroTitle: cat.title,
+        releaseName: `Release #${releaseNum}`,
+        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : 'marlon',
+        startDate: this.metrics?.startDate || '',
+        endDate: this.metrics?.endDate || '',
+        deliverableBigRock: cat.title,
+        estimatedHours: cat.defaultHours,
+        estimatedMinutes: 0,
+        tasks: [],
+        status: 'pending'
+      });
+    });
+
+    const userTokens = this.userEmail
+      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean')
+      : [];
+
+    const azureItems = this.metrics?.developmentRate?.items || [];
+    let formattedCount = 0;
+
+    // Lista de palabras de resumen/metadatos del Excel que NUNCA son tareas
+    const metadataBlacklist = [
+      'fecha inicio', 'fecha fin', 'días de sprint', 'dias de sprint',
+      'cantidad de historias', 'tasa de esfuerzo', 'hrs por día', 'hrs por dia',
+      'team', 'marlon garcía', 'georgina concepción', 'yair meza', 'luis fernando',
+      'marlon.garcia@', 'georgina.chan@', 'yair.magana@', 'fernando.cab@',
+      'resumen', 'métricas', 'metricas', 'porcentaje', 'totales'
+    ];
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!Array.isArray(row) || row.length === 0) continue;
+
+      // 1. Extraer responsable de la fila
+      let assignedTo = '';
+      if (assignedToColIndex !== -1 && row[assignedToColIndex]) {
+        assignedTo = String(row[assignedToColIndex]).trim().toLowerCase();
+      }
+
+      // Filtrar por usuario local configurado si viene especificado en la fila
+      if (userTokens.length > 0 && assignedTo && !assignedTo.includes('<')) {
+        const isMatch = userTokens.some(token => assignedTo.includes(token));
+        if (!isMatch) continue;
+      }
+
+      // 2. Extraer Título REAL de la tarea (ignorar números puros y metadatos del Excel)
+      let rawTaskTitle = '';
+      if (title2ColIndex !== -1 && row[title2ColIndex]) {
+        const valStr = String(row[title2ColIndex]).trim();
+        if (valStr && !/^\d+(\.\d+)?$/.test(valStr) && valStr.length > 2) {
+          rawTaskTitle = valStr;
+        }
+      }
+
+      // Escanear celdas si no venía en la columna detectada
+      if (!rawTaskTitle) {
+        for (let c = 0; c < row.length; c++) {
+          if (c === assignedToColIndex || c === tagColIndex || c === idColIndex) continue;
+          const valStr = String(row[c] || '').trim();
+          const lower = valStr.toLowerCase();
+
+          // Descartar si es un metadato de resumen o número
+          const isBlacklisted = metadataBlacklist.some(b => lower.includes(b));
+          if (valStr && !/^\d+(\.\d+)?$/.test(valStr) && valStr.length > 3 && !isBlacklisted &&
+              lower !== 'title 2' && lower !== 'título 2' && lower !== 'task' && lower !== 'riesgos' && lower !== 'titulo') {
+            rawTaskTitle = valStr;
+            break;
+          }
+        }
+      }
+
+      if (!rawTaskTitle) continue;
+
+      const lowerCheck = rawTaskTitle.toLowerCase();
+      const isBlacklisted = metadataBlacklist.some(b => lowerCheck.includes(b));
+      if (isBlacklisted || lowerCheck === 'title 2' || lowerCheck === 'título 2' || lowerCheck === 'task' || lowerCheck === 'titulo') {
+        continue;
+      }
+
+      const cleanName = this.cleanWorkItemTitle(rawTaskTitle);
+      if (!cleanName) continue;
+
+      // 3. Extraer ID si venía explícito en columna o título
+      let azureId = '';
+      if (idColIndex !== -1 && row[idColIndex]) {
+        const rawId = String(row[idColIndex]).trim();
+        const idMatch = rawId.match(/(\d{4,6})/);
+        if (idMatch) azureId = idMatch[1];
+      }
+      if (!azureId) {
+        const titleIdMatch = rawTaskTitle.match(/Task\s*#?\s*(\d{4,6})/i) || rawTaskTitle.match(/^(\d{4,6})[\s:\-_]/) || rawTaskTitle.match(/\[(\d{4,6})\]/);
+        if (titleIdMatch) azureId = titleIdMatch[1];
+      }
+
+      // 4. BUSCAR ID REAL EN AZURE DEVOPS para esta tarea de Excel usando el buscador centralizado
+      const foundAzure = this.findAzureIdForTaskTitle(rawTaskTitle);
+      let finalTaskFormatted = cleanName;
+
+      if (foundAzure && foundAzure.id) {
+        finalTaskFormatted = `Task ${foundAzure.id}: ${foundAzure.cleanTitle}`;
+        formattedCount++;
+      } else if (azureId) {
+        finalTaskFormatted = `Task ${azureId}: ${cleanName}`;
+        formattedCount++;
+      } else {
+        finalTaskFormatted = cleanName;
+      }
+
+      // 5. Clasificar en la Big Rock / Macrotarea correspondiente
+      let tagField = '';
+      if (tagColIndex !== -1 && row[tagColIndex]) {
+        tagField = String(row[tagColIndex]).trim();
+      }
+
+      let matchedTagKey = '';
+      Object.keys(this.macroTagMap).forEach(key => {
+        if (tagField.includes(key)) matchedTagKey = key;
+      });
+
+      if (!matchedTagKey) {
+        const cLower = cleanName.toLowerCase();
+        if (cLower.includes('análisis') || cLower.includes('analisis') || cLower.includes('diseño') || cLower.includes('work item') || cLower.includes('riesgos') || cLower.includes('rendimiento') || cLower.includes('presentación') || cLower.includes('presentacion')) {
+          matchedTagKey = 'BR_AnálisisDiseño';
+        } else if (cLower.includes('monitoreo') || cLower.includes('seguimiento') || cLower.includes('métricas') || cLower.includes('metricas') || cLower.includes('calidad')) {
+          matchedTagKey = 'BR_Monitoreo';
+        } else if (cLower.includes('administración') || cLower.includes('adm') || cLower.includes('gestión')) {
+          matchedTagKey = 'BR_AdmDev';
+        } else if (cLower.includes('liberación') || cLower.includes('liberacion') || cLower.includes('despliegue')) {
+          matchedTagKey = 'BR_LIB';
+        } else {
+          matchedTagKey = 'BR_Dev';
+        }
+      }
+
+      const macroObj = macroMap.get(matchedTagKey);
+      if (macroObj && !macroObj.tasks.includes(finalTaskFormatted)) {
+        macroObj.tasks.push(finalTaskFormatted);
+      }
+    }
+
+    this.saaoMacroTasks = Array.from(macroMap.values());
+    const collabs = Array.from(new Set(this.saaoMacroTasks.map(m => m.assignedTo)));
+    this.saaoCollaboratorList = ['todos', ...collabs];
+    if (this.userEmail) {
+      this.filterCollaborator = this.userEmail.trim().toLowerCase();
+    }
+
+    this.syncSaaoTasksWithAzure();
+
+    // Si aún no se han cargado datos del sprint desde Azure DevOps pero tenemos una iteración seleccionada, cargarlos para asociar IDs
+    if ((!this.metrics?.developmentRate?.items || this.metrics.developmentRate.items.length === 0) && this.selectedIteration) {
+      this.adoService.getMetrics(this.selectedIteration).subscribe({
+        next: (m) => {
+          this.metrics = m;
+          this.syncSaaoTasksWithAzure();
+        }
+      });
+    }
+
+    this.addLog(`📊 Excel procesado: ${formattedCount} tareas vinculadas con sus IDs de Azure DevOps en formato "Task {id}: {nombre}".`, 'success');
+    this.notificationService.success(`📊 Excel cargado: ${formattedCount} tareas vinculadas con sus IDs de Azure DevOps.`);
   }
 
   // Load saved process data from localStorage for selected sprint
@@ -557,6 +1371,27 @@ export class SprintProcessComponent implements OnInit {
 
     // Load SharePoint Inspector State
     this.loadSharePointState();
+
+    // Cargar proceso completo desde MongoDB Atlas (incluye saaoMacroTasks guardadas previamente)
+    this.metricsApiService.getProcessData(this.selectedIteration).subscribe({
+      next: (data) => {
+        if (data) {
+          if (data.sprintAnalysisNotes) this.sprintAnalysisNotes = data.sprintAnalysisNotes;
+          if (data.minutaRiesgos) this.minutaRiesgos = data.minutaRiesgos;
+          if (data.evidences) this.evidences = data.evidences;
+          if (data.itemAnalysesMap) this.itemAnalysesMap = data.itemAnalysesMap;
+
+          // Si ya tenemos datos de Azure DevOps, prevalecen los IDs REALES de Azure DevOps
+          if (this.metrics?.developmentRate?.items && this.metrics.developmentRate.items.length > 0) {
+            this.buildSaaoMacroTasksFromAzure();
+          } else if (data.saaoMacroTasks && Array.isArray(data.saaoMacroTasks) && data.saaoMacroTasks.length > 0) {
+            this.saaoMacroTasks = data.saaoMacroTasks;
+            const collabs: string[] = Array.from(new Set<string>(data.saaoMacroTasks.map((m: any) => String(m.assignedTo || '')))).filter(Boolean);
+            this.saaoCollaboratorList = ['todos', ...collabs];
+          }
+        }
+      }
+    });
   }
 
   // Save Analysis Notes to DB / LocalStorage
@@ -595,8 +1430,14 @@ export class SprintProcessComponent implements OnInit {
       isFullyCertified: this.isSprintFullyCertified
     };
 
-    this.metricsApiService.saveProcessData(this.selectedIteration, payload).subscribe();
-    this.notificationService.success('Información guardada y sincronizada en MongoDB Atlas.');
+    // Guardar respaldo en LocalStorage
+    localStorage.setItem(`cmmi5_process_macro_tasks_${this.selectedIteration}`, JSON.stringify(this.saaoMacroTasks));
+
+    this.metricsApiService.saveProcessData(this.selectedIteration, payload).subscribe({
+      next: () => {},
+      error: () => {}
+    });
+    this.notificationService.success('Información del sprint guardada localmente y enviada a MongoDB Atlas.');
   }
 
   // CMMI 5 Validation: Validate Task 04 Peer Review de especificación BEFORE risks meeting
@@ -677,8 +1518,10 @@ export class SprintProcessComponent implements OnInit {
       case 6:
         return this.saaoMacroTasks.length > 0 || this.isSpJsonParsed;
       case 7:
-        return this.saaoMacroTasks.some(m => m.tasks && m.tasks.length > 0) || this.isSpJsonParsed;
+        return this.saaoMacroTasks.length > 0 || this.isSpJsonParsed;
       case 8:
+        return this.saaoMacroTasks.some(m => m.tasks && m.tasks.length > 0) || this.isSpJsonParsed;
+      case 9:
         const hasSpReleaseOrLiberacion = this.spFolderItems.some(i => (i.name.toLowerCase().includes('liberaci') || i.name.toLowerCase().includes('sprint')) && i.isVerified);
         const hasEvidences = !!(this.evidences.emailEvidenceUrl && this.evidences.risksMinutaUrl) || hasSpReleaseOrLiberacion;
         return hasEvidences || (this.isSpJsonParsed && this.spFolderItems.some(i => i.isVerified));
@@ -805,40 +1648,7 @@ export class SprintProcessComponent implements OnInit {
     return 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300';
   }
 
-  // Stage 6: Excel File Reader for SAAO Macrotareas
-  onExcelUpload(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
 
-    this.excelFileName = file.name;
-    const reader = new FileReader();
-
-    reader.onload = (e: ProgressEvent<FileReader>) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-
-        // Search for sheet 'Tareas de gestión'
-        const sheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('tareas de gestión') || s.toLowerCase().includes('gestion'));
-
-        if (!sheetName) {
-          this.notificationService.error("No se encontró la pestaña 'Tareas de gestión' en el Excel.");
-          return;
-        }
-
-        const sheet = workbook.Sheets[sheetName];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-        this.parseSaaoMacroTasksFromExcel(rows);
-        this.notificationService.success(`Excel procesado exitosamente: ${this.saaoMacroTasks.length} Macrotareas extraídas.`);
-      } catch (err) {
-        this.notificationService.error('Error al leer el archivo Excel.');
-      }
-    };
-
-    reader.readAsArrayBuffer(file);
-  }
 
   // Parse Macrotareas from sheet rows (Prioritizing 'Title 2' column)
   parseSaaoMacroTasksFromExcel(rows: any[]): void {
@@ -867,6 +1677,20 @@ export class SprintProcessComponent implements OnInit {
       }
     }
 
+    // Detectar también columna de ID de WorkItem (ID, WorkItem ID, Task ID, etc.)
+    let idColIndex = -1;
+    for (let h = 0; h < Math.min(rows.length, 3); h++) {
+      const headerRow = rows[h];
+      if (Array.isArray(headerRow)) {
+        headerRow.forEach((colVal: any, idx: number) => {
+          const valStr = String(colVal || '').trim().toLowerCase();
+          if (valStr === 'id' || valStr.includes('work item id') || valStr.includes('task id') || valStr === 'id tarea') {
+            idColIndex = idx;
+          }
+        });
+      }
+    }
+
     const macroMap = new Map<string, SaaoMacroTask>();
 
     for (let r = 1; r < rows.length; r++) {
@@ -875,14 +1699,42 @@ export class SprintProcessComponent implements OnInit {
 
       // Extract title strictly from Title 2 column
       const rawTitle2 = row[title2ColIndex];
-      const taskTitle = String(rawTitle2 !== undefined && rawTitle2 !== null && String(rawTitle2).trim() !== '' ? rawTitle2 : (row[2] || row[1] || '')).trim();
+      let taskTitle = String(rawTitle2 !== undefined && rawTitle2 !== null && String(rawTitle2).trim() !== '' ? rawTitle2 : (row[2] || row[1] || '')).trim();
       
       const titleLower = taskTitle.toLowerCase();
       // Ignore header text or invalid single-word placeholders like 'task', 'riesgos' alone
       if (!taskTitle || titleLower === 'title 2' || titleLower === 'título 2' || titleLower === 'task' || titleLower === 'riesgos' || titleLower === 'titulo') continue;
 
+      // Extraer ID de Azure DevOps si está presente en la columna ID o dentro del título
+      let workItemId = '';
+      if (idColIndex !== -1 && row[idColIndex]) {
+        const rawId = String(row[idColIndex]).trim();
+        const idMatch = rawId.match(/(\d+)/);
+        if (idMatch) workItemId = idMatch[1];
+      }
+
+      if (!workItemId) {
+        const titleIdMatch = taskTitle.match(/Task\s*#?\s*(\d+)/i) || taskTitle.match(/(\d{4,6})/);
+        if (titleIdMatch) workItemId = titleIdMatch[1];
+      }
+
+      // Si tenemos ID de Azure y la tarea no tiene aún el formato 'Task {id}: {nombre}', formatearla
+      if (workItemId && !taskTitle.toLowerCase().includes(`task ${workItemId}`)) {
+        const cleanName = taskTitle.replace(/^task\s*\d+\s*:?\s*/i, '').trim();
+        taskTitle = `Task ${workItemId}: ${cleanName}`;
+      }
+
       const assignedTo = String(row[assignedToColIndex] || row[4] || row[3] || '').trim().toLowerCase();
       const tagField = String(row[tagColIndex] || row[9] || row[8] || '').trim();
+
+      // Si el usuario configuró su correo/usuario local en Configuración, importar únicamente sus tareas
+      if (this.userEmail) {
+        const cleanUser = this.userEmail.trim().toLowerCase();
+        const userPrefix = cleanUser.split('@')[0];
+        if (assignedTo && !assignedTo.includes(cleanUser) && !assignedTo.includes(userPrefix) && !cleanUser.includes(assignedTo)) {
+          continue;
+        }
+      }
 
       // Extract BR_ tag
       let matchedTagKey = '';
@@ -919,15 +1771,30 @@ export class SprintProcessComponent implements OnInit {
           startDate: this.metrics?.startDate || '',
           endDate: this.metrics?.endDate || '',
           deliverableBigRock: macroTitle,
+          estimatedHours: macroInfo.defaultHours,
+          estimatedMinutes: macroInfo.defaultMinutes,
           tasks: [],
           status: 'pending'
         });
       }
 
       // Avoid pushing duplicate tasks
+      const foundAzure = this.findAzureIdForTaskTitle(taskTitle);
+      let finalFormattedTask = taskTitle;
+      if (foundAzure && foundAzure.id) {
+        finalFormattedTask = `Task ${foundAzure.id}: ${foundAzure.cleanTitle}`;
+      } else {
+        const cleanName = this.cleanWorkItemTitle(taskTitle);
+        if (workItemId && cleanName) {
+          finalFormattedTask = `Task ${workItemId}: ${cleanName}`;
+        } else if (cleanName) {
+          finalFormattedTask = cleanName;
+        }
+      }
+
       const currentTasks = macroMap.get(uniqueKey)!.tasks;
-      if (!currentTasks.includes(taskTitle)) {
-        currentTasks.push(taskTitle);
+      if (!currentTasks.includes(finalFormattedTask)) {
+        currentTasks.push(finalFormattedTask);
       }
     }
 
@@ -937,6 +1804,8 @@ export class SprintProcessComponent implements OnInit {
       // Extract collaborator names
       const collabs = Array.from(new Set(result.map(m => m.assignedTo)));
       this.saaoCollaboratorList = ['todos', ...collabs];
+      // Guardar e inmediatamente vincular con Azure DevOps para obtener los IDs reales
+      this.syncSaaoTasksWithAzure();
     }
   }
 
@@ -953,9 +1822,9 @@ export class SprintProcessComponent implements OnInit {
         endDate: '2024-08-14',
         deliverableBigRock: `Ope 20>Release #${releaseNum}>Análisis y diseño`,
         tasks: [
-          'Presentación de Work Items',
-          'Reunión evaluación de riesgos',
-          'Utilizar el Modelo de Rendimiento'
+          'Task 48111: Presentación de Work Items',
+          'Task 48112: Reunión evaluación de riesgos',
+          'Task 48113: Utilizar el Modelo de Rendimiento'
         ],
         status: 'pending'
       },
@@ -968,8 +1837,8 @@ export class SprintProcessComponent implements OnInit {
         endDate: '2024-08-14',
         deliverableBigRock: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`,
         tasks: [
-          'Seguimiento diario de avance en Azure DevOps',
-          'Revisión de métricas de calidad CMMI'
+          'Task 48114: Seguimiento diario de avance en Azure DevOps',
+          'Task 48115: Revisión de métricas de calidad CMMI'
         ],
         status: 'pending'
       },
@@ -982,19 +1851,15 @@ export class SprintProcessComponent implements OnInit {
         endDate: '2024-08-14',
         deliverableBigRock: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`,
         tasks: [
-          'Elaboración de código y pruebas unitarias',
-          'Peer Review de código'
+          'Task 48116: Elaboración de código y pruebas unitarias',
+          'Task 48117: Peer Review de código'
         ],
         status: 'pending'
       }
     ];
   }
 
-  // Get filtered Macrotareas by collaborator
-  get filteredSaaoMacroTasks(): SaaoMacroTask[] {
-    if (this.filterCollaborator === 'todos') return this.saaoMacroTasks;
-    return this.saaoMacroTasks.filter(m => m.assignedTo.toLowerCase().includes(this.filterCollaborator.toLowerCase()));
-  }
+
 
   // Copy Task Title
   copyToClipboard(text: string): void {
@@ -1370,10 +2235,12 @@ export class SprintProcessComponent implements OnInit {
       return;
     }
 
+    const formattedTasks = (macroToUse.tasks || []).map(t => this.formatTaskWithAzureIdFallback(t));
+
     const payload = {
       type: 'CMMI5_AUTOFILL_SAAO',
       macroTitle: macroToUse.macroTitle,
-      tasks: macroToUse.tasks,
+      tasks: formattedTasks,
       startDate: macroToUse.startDate,
       endDate: macroToUse.endDate,
       releaseName: macroToUse.releaseName,
@@ -1394,6 +2261,36 @@ export class SprintProcessComponent implements OnInit {
 
     // Autogenerar y copiar script listo para inyección inmediata
     this.generateSaaoAutoScript(macroToUse);
+  }
+
+  // Send Big Rock Order to Extension Mayansoft TT (EntregableForm)
+  sendBigRockToExtension(macro?: SaaoMacroTask): void {
+    const macroToUse = macro || this.saaoMacroTasks[0];
+    if (!macroToUse) {
+      this.notificationService.error('No hay Big Rocks/Macrotareas cargadas.');
+      this.addLog('❌ Error: No hay Macrotareas cargadas en la lista.', 'error');
+      return;
+    }
+
+    const payload = {
+      type: 'CMMI5_AUTOFILL_SAAO',
+      isBigRock: true,
+      macroTitle: macroToUse.macroTitle,
+      startDate: macroToUse.startDate,
+      endDate: macroToUse.endDate,
+      releaseName: macroToUse.releaseName,
+      estimatedHours: macroToUse.estimatedHours || 4,
+      estimatedMinutes: macroToUse.estimatedMinutes || 0,
+      assignedTo: 'georgina.chan'
+    };
+
+    this.addLog('🧱 Orden de Big Rock emitida a Extensión Mayansoft TT: "' + macroToUse.macroTitle + '" (Responsable: georgina.chan)', 'info');
+    console.log('%c🧱 [cmmi5-analyzer] Emitiendo orden de Big Rock SAAO a la Extensión:', 'color:#f59e0b;font-weight:bold;font-size:15px;', payload);
+
+    window.postMessage(payload, '*');
+    document.dispatchEvent(new CustomEvent('CMMI5_AUTOFILL_SAAO_EVENT', { detail: payload }));
+
+    this.notificationService.success(`🧱 Orden de creación enviada para Big Rock "${macroToUse.macroTitle}". Redirigiendo a EntregableForm en SAAO...`);
   }
 
   // Open SAAO external site

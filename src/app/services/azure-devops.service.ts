@@ -1002,7 +1002,7 @@ export class AzureDevOpsService {
 
     const kpiSprintItems = items.filter(i => {
       const type = i.fields['System.WorkItemType'];
-      return ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto'].includes(type);
+      return ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Task', 'Tarea', 'Feature'].includes(type);
     }).map(i => {
       const assignedTo = i.fields['System.AssignedTo'];
       const isw = assignedTo ? (typeof assignedTo === 'object' ? assignedTo.displayName : assignedTo) : 'Sin asignar';
@@ -1013,6 +1013,7 @@ export class AzureDevOpsService {
         type: i.fields['System.WorkItemType'],
         title: i.fields['System.Title'] || '',
         assignedTo: isw,
+        isw: isw,
         project: i.fields['System.AreaPath'] || 'OPE20',
         size: size,
         status: i.fields['System.State'],
@@ -1026,6 +1027,7 @@ export class AzureDevOpsService {
       iterationName,
       startDate,
       endDate,
+      allWorkItems: kpiSprintItems,
       developmentRate: {
         rate: devRate,
         effort: totalEffortGlobal,

@@ -84,14 +84,18 @@ export class MetricsApiService {
 
   /** Save full sprint process data (Pre-analyses, item analyses, minuta, evidences) to MongoDB */
   saveProcessData(sprintId: string, processData: any): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/process/${sprintId}`, processData).pipe(
+    if (!sprintId) return of({ success: true, localOnly: true });
+    const cleanId = encodeURIComponent(sprintId);
+    return this.http.post<any>(`${this.apiUrl}/process/${cleanId}`, processData).pipe(
       catchError(() => of({ success: true, localOnly: true }))
     );
   }
 
   /** Get process data for a sprint from MongoDB */
   getProcessData(sprintId: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/process/${sprintId}`).pipe(
+    if (!sprintId) return of(null);
+    const cleanId = encodeURIComponent(sprintId);
+    return this.http.get<any>(`${this.apiUrl}/process/${cleanId}`).pipe(
       catchError(() => of(null))
     );
   }
