@@ -4126,13 +4126,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (taskEffort <= 0) return;
 
       const type = (task.type || '').toLowerCase();
+      const title = (task.title || '').toLowerCase();
 
-      if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
-        effort += taskEffort;
-      } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
+      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
         reqRework += taskEffort;
       } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
         bugRework += taskEffort;
+      } else if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
+        effort += taskEffort;
       } else {
         effort += taskEffort;
       }
@@ -4304,11 +4305,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const effort = task.completedWork || 0;
         if (effort <= 0) return;
         const type = (task.type || '').toLowerCase();
+        const title = (task.title || '').toLowerCase();
 
         if (parentIsBug) {
           totalBugRework += effort;
         } else {
-          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
+          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
             totalReqRework += effort;
           } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
             totalBugRework += effort;
@@ -4386,10 +4388,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             if (parentIsBug) {
               rTotal += taskEffort;
             } else {
-              if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
-                rEffort += taskEffort;
-              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect') || type.includes('atencion') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
+              if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect') || type.includes('atencion') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
                 rTotal += taskEffort;
+              } else if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
+                rEffort += taskEffort;
               } else {
                 rEffort += taskEffort;
               }

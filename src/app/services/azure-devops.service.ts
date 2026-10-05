@@ -748,7 +748,7 @@ export class AzureDevOpsService {
       const title = (task.fields['System.Title'] || '').toLowerCase();
       const effort = (task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0);
 
-      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
+      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
         totalReqRework += effort;
       } else if (type.includes('bug') || type.includes('error')) {
         totalBugRework += effort;
